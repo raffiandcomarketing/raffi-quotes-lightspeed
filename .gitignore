@@ -1,0 +1,6 @@
+.DS_Store
+node_modules/
+*.log
+.env
+.env.*
+sql/load_module_chunks.sql
