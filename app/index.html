@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raffi Jewellers — Quotes &amp; Invoicing (Lightspeed DEV)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  :root{
+    --navy:#0b203f; --navy-2:#16304f;
+    --sidebar:#0b203f; --sidebar-hover:#1c3658;
+    --bg:#f6f4f0; --card:#ffffff;
+    --blue:#0b203f; --blue-dark:#1c3658;
+    --gold:#b08d3f; --gold-dark:#97742e; --gold-soft:#d3bc7d;
+    --red:#a31226;
+    --green:#3f7d3a; --green-dark:#346830;
+    --text:#27303c; --muted:#7d848f; --muted-2:#a3a9b2;
+    --border:#e6e1d6; --line:#e0dbcf;
+    --serif:"Playfair Display",Georgia,serif;
+    --sans:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;}
+  a{color:var(--blue);text-decoration:none;cursor:pointer;}
+  a:hover{text-decoration:underline;}
+  :focus-visible{outline:2px solid var(--blue);outline-offset:1px;}
+
+  /* ---------- SIDEBAR ---------- */
+  .sidebar{position:fixed;top:0;left:0;bottom:0;width:65px;background:var(--sidebar);display:flex;flex-direction:column;align-items:center;padding:8px 0 12px;z-index:50;box-shadow:2px 0 8px rgba(20,26,40,.18);}
+  .logo{width:46px;margin:10px 0 16px;flex:none;cursor:pointer;}
+  .logo img{width:100%;height:auto;display:block;}
+  .nav{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;flex:1;}
+  .nav::-webkit-scrollbar{display:none;}
+  .nav-item{position:relative;width:44px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#94a3bd;font-size:17px;cursor:pointer;flex:none;transition:background .15s,color .15s;}
+  .nav-item:hover{background:var(--sidebar-hover);color:#fff;}
+  .nav-item.active{color:var(--gold-soft);}
+  .nav-item.active::before{content:"";position:absolute;left:-8px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--gold-soft);}
+  .nav-item[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#11151f;color:#fff;font-size:12px;font-family:var(--sans);padding:5px 9px;border-radius:5px;white-space:nowrap;z-index:80;box-shadow:0 4px 12px rgba(0,0,0,.25);pointer-events:none;}
+  .nav-divider{width:30px;height:1px;background:rgba(255,255,255,.1);margin:9px 0;flex:none;}
+  .nav-add{width:40px;height:40px;border-radius:50%;background:var(--gold);color:#fff;font-size:17px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-top:6px;flex:none;transition:background .15s,transform .15s;border:none;}
+  .nav-add:hover{background:var(--gold-dark);transform:scale(1.06);}
+
+  /* ---------- LAYOUT / TOPBAR ---------- */
+  .shell{margin-left:65px;min-height:100vh;display:flex;flex-direction:column;}
+  .topbar{background:#fff;height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 0;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:40;}
+  .crumbs{display:flex;align-items:center;height:100%;font-size:14px;}
+  .home-tab{height:100%;display:flex;align-items:center;padding:0 16px;color:var(--text);border-right:1px solid var(--border);font-size:15px;cursor:pointer;}
+  .crumb-sep{color:var(--muted-2);margin:0 12px;font-size:11px;}
+  .crumb-link{color:var(--blue);cursor:pointer;}
+  .crumb-current{font-weight:500;}
+  .topbar-right{display:flex;align-items:center;gap:16px;}
+  .user-link{display:flex;align-items:center;gap:7px;color:var(--blue);font-weight:500;cursor:pointer;font-size:13.5px;}
+  .logout{color:var(--blue);font-size:16px;cursor:pointer;border:none;background:none;}
+
+  /* ---------- CONTENT ---------- */
+  .content{padding:26px 34px 50px;flex:1;width:100%;max-width:1480px;}
+  .page-head{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;}
+  .page-title{font-family:var(--serif);font-size:30px;font-weight:600;letter-spacing:.2px;color:var(--navy);}
+  .page-title .badge{vertical-align:middle;margin-left:10px;}
+  .head-tools{display:flex;align-items:center;gap:14px;padding-top:6px;flex-wrap:wrap;}
+  .configure{display:flex;align-items:center;gap:6px;color:var(--blue);font-weight:500;cursor:pointer;font-size:13.5px;border:none;background:none;font-family:var(--sans);}
+  .select{appearance:none;border:1px solid var(--border);background:#fff;border-radius:5px;padding:7px 30px 7px 12px;font-family:var(--sans);font-size:13px;color:var(--text);cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%238a929e' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>");background-repeat:no-repeat;background-position:right 11px center;min-width:140px;}
+  .select:focus{outline:none;border-color:var(--blue);}
+
+  /* metric cards */
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:18px;}
+  .metric{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:20px 16px 22px;text-align:center;box-shadow:0 1px 2px rgba(28,40,64,.05);cursor:pointer;transition:box-shadow .15s;}
+  .metric:hover{box-shadow:0 3px 10px rgba(28,40,64,.1);}
+  .metric .label{color:var(--muted);font-size:13px;margin-bottom:10px;}
+  .metric .label span{color:var(--muted-2);}
+  .metric .value{font-family:var(--serif);font-size:40px;font-weight:600;line-height:1;letter-spacing:0;}
+  .v-blue{color:var(--blue);} .v-gold{color:var(--gold);} .v-red{color:var(--red);}
+
+  /* big action buttons */
+  .actions{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:34px;}
+  .btn{border:none;border-radius:6px;color:#fff;font-family:var(--sans);font-weight:600;font-size:15px;padding:16px 14px;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;transition:background .15s,transform .05s;box-shadow:0 1px 2px rgba(28,40,64,.12);}
+  .btn:active{transform:translateY(1px);}
+  .btn-green{background:linear-gradient(135deg,#c5a356,#a8853c);color:#13243f;} .btn-green:hover{background:linear-gradient(135deg,#b9964b,#97742e);}
+  .btn-blue{background:var(--blue);} .btn-blue:hover{background:var(--blue-dark);}
+
+  /* small buttons */
+  .b2{border:none;border-radius:6px;font-family:var(--sans);font-weight:600;font-size:13px;padding:9px 15px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:.15s;}
+  .b2.p{background:var(--blue);color:#fff;} .b2.p:hover{background:var(--blue-dark);}
+  .b2.g{background:var(--green);color:#fff;} .b2.g:hover{background:var(--green-dark);}
+  .b2.o{background:#fff;border:1px solid var(--border);color:var(--text);} .b2.o:hover{border-color:var(--blue);color:var(--blue);}
+  .b2.d{background:#fff;border:1px solid #f1c6c6;color:var(--red);} .b2.d:hover{background:#fde9e9;}
+  .b2:disabled{opacity:.45;cursor:default;}
+
+  /* toolbars / search / chips */
+  .toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px;}
+  .toolbar .left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .search{position:relative;}
+  .search i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted-2);font-size:13px;}
+  .search input{padding:8px 12px 8px 32px;border:1px solid var(--border);border-radius:6px;font-family:var(--sans);font-size:13px;min-width:230px;background:#fff;color:var(--text);}
+  .search input:focus{outline:none;border-color:var(--blue);}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip{padding:6px 12px;border-radius:99px;border:1px solid var(--border);background:#fff;font-size:12.5px;color:var(--muted);cursor:pointer;font-family:var(--sans);}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff;}
+
+  /* cards / tables */
+  .card{background:#fff;border:1px solid var(--border);border-radius:7px;box-shadow:0 1px 2px rgba(28,40,64,.05);overflow:hidden;}
+  .tbl{width:100%;border-collapse:collapse;font-size:13.5px;}
+  .tbl th{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700;text-align:left;padding:12px 16px;border-bottom:1px solid var(--border);background:#faf8f3;white-space:nowrap;}
+  .tbl td{padding:12px 16px;border-bottom:1px solid #efece4;vertical-align:middle;}
+  .tbl tr:last-child td{border-bottom:none;}
+  .tbl tbody tr.rowlink{cursor:pointer;}
+  .tbl tbody tr.rowlink:hover{background:#f8f5ee;}
+  .tbl .num{font-weight:600;color:var(--blue);white-space:nowrap;}
+  .tbl .r,.tbl th.r{text-align:right;}
+  .badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;}
+  .b-gray{background:#ece9e1;color:#5d6068;} .b-blue{background:#e6ebf3;color:#0b203f;}
+  .b-green{background:#e6efe0;color:#2f6128;} .b-red{background:#f7e2e5;color:#8f1020;}
+  .b-gold{background:#f3ecda;color:#7d6020;}
+  .empty{padding:46px 20px;text-align:center;color:var(--muted);}
+  .empty i{font-size:30px;color:#cfd6df;display:block;margin-bottom:10px;}
+  .mut{color:var(--muted);} .sm{font-size:12.5px;}
+
+  /* forms */
+  .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 16px;}
+  .fld{display:flex;flex-direction:column;gap:5px;min-width:0;}
+  .fld.wide{grid-column:1/-1;}
+  .fld label{font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);}
+  .fld input,.fld select,.fld textarea{padding:9px 11px;border:1px solid var(--border);border-radius:6px;font-family:var(--sans);font-size:13.5px;background:#fff;color:var(--text);width:100%;}
+  .fld textarea{resize:vertical;min-height:74px;}
+  .fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(11,32,63,.12);}
+
+  /* editor panels */
+  .panel{padding:20px;}
+  .panel + .panel{border-top:1px solid var(--border);}
+  .panel h3{font-family:var(--serif);font-size:18px;margin-bottom:14px;color:var(--navy);}
+  .actrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+
+  /* line items */
+  .li-tbl input{padding:7px 9px;border:1px solid var(--border);border-radius:5px;font-family:var(--sans);font-size:13px;background:#fff;color:var(--text);}
+  .li-tbl input:focus{outline:none;border-color:var(--blue);}
+  .li-tbl input.nm{width:100%;font-weight:500;}
+  .li-tbl input.ds{width:100%;font-size:12px;color:var(--muted);margin-top:5px;}
+  .li-tbl input.n{width:84px;text-align:right;}
+  .li-rm{border:none;background:none;color:#c6cdd8;font-size:14px;cursor:pointer;}
+  .li-rm:hover{color:var(--red);}
+  .totals{margin-left:auto;max-width:340px;font-size:13.5px;padding:14px 16px 4px;}
+  .totals .row{display:flex;justify-content:space-between;padding:5px 0;}
+  .totals .grand{border-top:2px solid var(--navy);font-weight:700;font-size:16px;padding-top:9px;margin-top:4px;}
+
+  /* dashboard feed */
+  .feed-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:20px;}
+  .feed-title{font-family:var(--serif);font-size:24px;font-weight:600;color:var(--navy);}
+  .feed-filter{display:flex;align-items:center;gap:8px;color:var(--muted);}
+  .feed{position:relative;padding-left:30px;}
+  .feed::before{content:"";position:absolute;left:5px;top:8px;bottom:14px;width:2px;background:var(--line);}
+  .date-pill{display:inline-block;background:var(--navy-2);color:#fff;font-size:11px;font-weight:500;padding:3px 11px;border-radius:4px;margin:14px 0 18px -30px;position:relative;letter-spacing:.3px;}
+  .event{position:relative;margin-bottom:26px;}
+  .event .dot{position:absolute;left:-30px;top:2px;width:11px;height:11px;border-radius:50%;background:#b11226;box-shadow:0 0 0 3px var(--bg);}
+  .event-time{font-size:12px;color:var(--muted);margin-bottom:9px;}
+  .event-card{background:#fff;border:1px solid var(--border);border-radius:7px;box-shadow:0 1px 2px rgba(28,40,64,.05);padding:17px 20px;display:flex;align-items:flex-start;gap:16px;}
+  .event-ico{color:var(--navy-2);font-size:21px;width:26px;text-align:center;flex:none;padding-top:1px;}
+  .event-body{flex:1;min-width:0;}
+  .event-text{font-size:14px;color:var(--text);}
+  .event-preview{margin-top:11px;background:#f2efe7;border-radius:5px;color:#5d6068;font-size:13px;padding:9px 13px;border-left:3px solid var(--gold-soft);}
+  .feed-end{color:var(--muted-2);font-size:13px;font-style:italic;margin:6px 0 0 0;}
+
+  /* document */
+  .doc-actions{max-width:860px;margin:0 auto 16px;display:flex;gap:10px;flex-wrap:wrap;}
+  .doc{max-width:860px;margin:0 auto;background:#fff;border:1px solid var(--border);border-top:4px solid var(--gold);border-radius:8px;box-shadow:0 2px 10px rgba(28,40,64,.07);padding:46px 52px;}
+  .doc-top{display:flex;justify-content:space-between;gap:24px;margin-bottom:30px;padding-bottom:24px;border-bottom:1px solid var(--gold-soft);flex-wrap:wrap;}
+  .doc-co h2{font-family:var(--serif);font-size:24px;color:var(--navy);}
+  .doc-logo{width:175px;height:auto;display:block;margin-bottom:14px;}
+  .doc-co p{color:var(--muted);font-size:12.5px;margin-top:4px;white-space:pre-line;}
+  .doc-meta{text-align:right;}
+  .doc-type{font-family:var(--serif);font-size:30px;color:var(--navy);letter-spacing:.12em;}
+  .doc-meta table{margin-left:auto;font-size:12.5px;color:var(--text);margin-top:8px;}
+  .doc-meta td{padding:2px 0 2px 14px;text-align:right;}
+  .doc-meta td:first-child{color:var(--muted-2);}
+  .doc-bill{margin-bottom:28px;}
+  .doc-bill .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-2);font-weight:600;margin-bottom:5px;}
+  .doc-bill .who{font-weight:600;font-size:15px;}
+  .doc-bill p{color:var(--muted);font-size:12.5px;white-space:pre-line;}
+  .doc-items{width:100%;border-collapse:collapse;font-size:13.5px;margin-bottom:8px;}
+  .doc-items th{border-bottom:2px solid var(--navy);text-align:left;padding:8px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--navy);}
+  .doc-items td{padding:10px 6px;border-bottom:1px solid #efece4;vertical-align:top;}
+  .doc-items .r,.doc-items th.r{text-align:right;white-space:nowrap;}
+  .doc-items .d{color:var(--muted);font-size:12px;margin-top:3px;}
+  .doc-notes{margin-top:26px;color:var(--muted);font-size:12.5px;white-space:pre-line;}
+  .sig-wrap{margin-top:38px;border-top:1px solid var(--border);padding-top:22px;}
+  .sig-wrap h4{font-family:var(--serif);font-size:17px;margin-bottom:12px;}
+  .sig-pad{border:1.5px dashed #cdbe92;border-radius:7px;background:#fbfaf6;touch-action:none;display:block;width:100%;max-width:480px;height:140px;cursor:crosshair;}
+  .sig-done img{max-width:300px;display:block;}
+  .sig-line{border-top:1px solid #9aa1ad;max-width:300px;padding-top:6px;font-size:12px;color:var(--muted);margin-top:8px;}
+
+  /* chat */
+  .chat{display:flex;flex-direction:column;gap:10px;max-width:640px;}
+  .msg{padding:10px 14px;border-radius:10px;font-size:13.5px;max-width:80%;}
+  .msg.them{background:#f0ede5;align-self:flex-start;}
+  .msg.me{background:var(--blue);color:#fff;align-self:flex-end;}
+  .msg .who{font-size:11px;opacity:.75;margin-bottom:3px;}
+  .chat-in{display:flex;gap:8px;margin-top:14px;max-width:640px;}
+  .chat-in input{flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-family:var(--sans);font-size:13.5px;}
+  .chat-in input:focus{outline:none;border-color:var(--blue);}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(20,26,40,.45);display:flex;align-items:flex-start;justify-content:center;padding:60px 16px;z-index:100;}
+  .modal{background:#fff;border-radius:9px;width:100%;max-width:560px;box-shadow:0 18px 50px rgba(0,0,0,.3);max-height:84vh;overflow:auto;}
+  .modal-h{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);}
+  .modal-h h3{font-family:var(--serif);font-size:19px;}
+  .modal-x{border:none;background:none;font-size:18px;color:var(--muted);cursor:pointer;}
+  .modal-b{padding:20px;}
+  .modal-f{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;}
+  .qgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .qbtn{border:1px solid var(--border);background:#fff;border-radius:8px;padding:18px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--text);}
+  .qbtn:hover{border-color:var(--blue);color:var(--blue);}
+  .qbtn i{font-size:19px;}
+
+  /* toast / banner / footer / fab */
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:26px;background:var(--navy);color:#fff;font-size:13px;padding:10px 18px;border-radius:7px;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:120;opacity:0;transition:opacity .2s;pointer-events:none;}
+  .toast.show{opacity:1;}
+  .banner{background:#fff7e0;border:1px solid #f0dfa6;color:#7c6310;border-radius:7px;padding:10px 14px;font-size:13px;margin-bottom:18px;display:flex;gap:9px;align-items:center;}
+  footer{color:var(--muted-2);font-size:12px;text-align:left;padding:26px 34px 24px;}
+  .help-fab{position:fixed;right:22px;bottom:22px;width:48px;height:48px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;z-index:60;box-shadow:0 6px 18px rgba(0,0,0,.28);transition:transform .15s;border:none;}
+  .help-fab:hover{transform:scale(1.07);}
+
+  @media(max-width:1100px){.metrics{grid-template-columns:repeat(2,1fr);}.actions{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:640px){
+    .sidebar{width:56px;}.shell{margin-left:56px;}
+    .content{padding:20px 14px 40px;}.page-title{font-size:24px;}
+    .metrics,.actions{grid-template-columns:1fr;}
+    .doc{padding:26px 20px;}footer{padding:24px 14px;}
+  }
+  @media print{
+    .sidebar,.topbar,.no-print,.help-fab,footer,.banner,.doc-actions{display:none!important;}
+    .shell{margin:0;}body{background:#fff;}
+    .content{padding:0;max-width:none;}
+    .doc{border:none;box-shadow:none;border-radius:0;max-width:none;padding:10px 4px;}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;}}
+
+  /* ===== premium refinements ===== */
+  ::selection{background:var(--navy);color:#fff;}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#cfc8b6;border-radius:8px;border:2px solid var(--bg);}
+  ::-webkit-scrollbar-thumb:hover{background:#b9ae95;}
+  a:hover{text-decoration-color:var(--gold);text-underline-offset:3px;}
+
+  .sidebar{background:linear-gradient(180deg,#12305a 0%,#0b203f 52%,#07152a 100%);border-right:1px solid rgba(211,188,125,.16);}
+  .nav-divider{background:rgba(211,188,125,.25);}
+  .nav-item.active{background:rgba(211,188,125,.07);}
+  .topbar{height:52px;}
+
+  .kicker{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold-dark);font-weight:700;margin-bottom:9px;}
+  .page-title{font-size:33px;line-height:1.12;}
+  .page-title em{font-style:italic;font-weight:500;color:var(--gold-dark);}
+
+  .metrics{gap:20px;}
+  .metric{position:relative;padding:26px 18px 28px;border-radius:7px;box-shadow:0 1px 2px rgba(13,26,46,.04),0 16px 34px -26px rgba(13,26,46,.4);transition:transform .18s ease,box-shadow .18s ease;}
+  .metric::before{content:"";position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:46px;height:3px;background:linear-gradient(90deg,var(--gold-dark),var(--gold-soft),var(--gold-dark));border-radius:0 0 3px 3px;}
+  .metric:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(13,26,46,.05),0 22px 44px -26px rgba(13,26,46,.45);}
+  .metric .label{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;margin-bottom:14px;}
+  .metric .value{font-size:44px;}
+
+  .actions{gap:20px;}
+  .btn{font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;padding:18px 14px;border-radius:5px;}
+  .btn i{font-size:15px;}
+  .btn-blue{background:linear-gradient(180deg,#1a3a63,#0b203f);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 1px 2px rgba(13,26,46,.2);}
+  .btn-blue:hover{background:linear-gradient(180deg,#1f4474,#0e2749);}
+  .btn-green{box-shadow:inset 0 0 0 1px rgba(255,255,255,.28),0 1px 2px rgba(13,26,46,.2);}
+  .b2{border-radius:5px;}
+  .b2.o:hover{border-color:var(--gold);color:var(--gold-dark);}
+  .chip:hover{border-color:var(--gold);color:var(--gold-dark);}
+
+  .card{border-radius:8px;box-shadow:0 1px 2px rgba(13,26,46,.04),0 18px 40px -30px rgba(13,26,46,.35);}
+  .tbl th{font-size:10.5px;letter-spacing:.14em;padding:13px 18px;}
+  .tbl td{padding:14px 18px;}
+  .tbl td.r,.totals,.doc-items td.r,.doc-meta td{font-feature-settings:"tnum";font-variant-numeric:tabular-nums;}
+  .empty{font-family:var(--serif);font-style:italic;font-size:15.5px;color:#9aa0a9;}
+
+  .event-time{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);}
+  .date-pill{font-size:10px;letter-spacing:.2em;text-transform:uppercase;padding:4px 13px;border-radius:3px;}
+  .event .dot{width:9px;height:9px;border-radius:1.5px;transform:rotate(45deg);background:linear-gradient(135deg,var(--gold-soft),var(--gold-dark));border:1px solid #8a6d2b;left:-29px;top:3px;}
+  .event-card{border-radius:8px;}
+
+  .doc{border-top:1px solid var(--border);padding:54px 60px 46px;box-shadow:0 2px 6px rgba(13,26,46,.05),0 28px 60px -34px rgba(13,26,46,.4);position:relative;overflow:hidden;}
+  .doc::before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,var(--gold-dark),var(--gold-soft) 50%,var(--gold-dark));}
+  .doc::after{content:"";position:absolute;top:8px;left:0;right:0;height:1px;background:var(--gold-soft);}
+  .doc-type{font-size:31px;letter-spacing:.2em;display:inline-block;border-bottom:2px solid var(--gold);padding-bottom:7px;}
+  .doc-meta td:first-child{font-size:10px;letter-spacing:.14em;text-transform:uppercase;}
+  .doc-bill .lbl{color:var(--gold-dark);letter-spacing:.2em;}
+  .doc-items .d{font-style:italic;}
+  .doc-foot{margin-top:38px;padding-top:16px;border-top:1px solid var(--gold-soft);text-align:center;font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:var(--muted);}
+  .sig-wrap h4{color:var(--navy);}
+
+  .modal{border-radius:10px;border-top:3px solid var(--gold);}
+  .toast{border-left:3px solid var(--gold);border-radius:6px;}
+  .help-fab{border:1px solid rgba(211,188,125,.45);}
+  footer{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;}
+
+  #splash{position:fixed;inset:0;background:linear-gradient(180deg,#12305a 0%,#0b203f 55%,#07152a 100%);z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .5s ease;}
+  #splash img{width:128px;height:auto;}
+  #splash .sline{width:56px;height:1px;background:var(--gold-soft);}
+  #splash .ssub{color:#c6d0df;font-size:10px;letter-spacing:.36em;text-transform:uppercase;padding-left:.36em;}
+  #splash.hide{opacity:0;pointer-events:none;}
+  @media(prefers-reduced-motion:reduce){.metric:hover{transform:none;}}
+  @media print{#splash{display:none!important;}}
+  @media(max-width:640px){.doc{padding:32px 20px;}.page-title{font-size:26px;}}
+</style>
+</head>
+<body>
+
+  <div id="splash" aria-hidden="true"><img alt=""><div class="sline"></div><div class="ssub">Quotes &amp; Invoicing</div></div>
+
+  <aside class="sidebar">
+    <div class="logo" data-act="go" data-view="dashboard" title="Dashboard"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSczNDAnIGhlaWdodD0nMTEwJyB2aWV3Qm94PScwIDAgMzQwIDExMCc+PHRleHQgeD0nMTcwJyB5PSc2MicgZm9udC1mYW1pbHk9J0dlb3JnaWEsc2VyaWYnIGZvbnQtc2l6ZT0nNDYnIHRleHQtYW5jaG9yPSdtaWRkbGUnIGZpbGw9JyNmZmZmZmYnIGxldHRlci1zcGFjaW5nPSc2Jz5SQUZGSTwvdGV4dD48dGV4dCB4PScxNzAnIHk9JzkyJyBmb250LWZhbWlseT0nQXJpYWwsc2Fucy1zZXJpZicgZm9udC1zaXplPScxNicgdGV4dC1hbmNob3I9J21pZGRsZScgZmlsbD0nI2IwOGQzZicgbGV0dGVyLXNwYWNpbmc9JzUnPkpFV0VMTEVSUzwvdGV4dD48L3N2Zz4=" alt="Raffi Jewellers"></div>
+    <nav class="nav">
+      <div class="nav-item" data-act="go" data-view="dashboard" data-tip="Dashboard" role="button" tabindex="0"><i class="fa-solid fa-chart-line"></i></div>
+      <div class="nav-item" data-act="go" data-view="contacts" data-tip="Contacts" role="button" tabindex="0"><i class="fa-solid fa-users"></i></div>
+      <div class="nav-item" data-act="go" data-view="quotes" data-tip="Quotes" role="button" tabindex="0"><i class="fa-solid fa-comment-dollar"></i></div>
+      <div class="nav-item" data-act="go" data-view="orders" data-tip="Orders" role="button" tabindex="0"><i class="fa-solid fa-clipboard-list"></i></div>
+      <div class="nav-item" data-act="go" data-view="invoices" data-tip="Invoices" role="button" tabindex="0"><i class="fa-solid fa-file-invoice"></i></div>
+      <div class="nav-item" data-act="go" data-view="payments" data-tip="Payments" role="button" tabindex="0"><i class="fa-solid fa-dollar-sign"></i></div>
+      <div class="nav-divider"></div>
+      <div class="nav-item" data-act="go" data-view="products" data-tip="Products" role="button" tabindex="0"><i class="fa-solid fa-tag"></i></div>
+      <div class="nav-item" data-act="go" data-view="settings" data-tip="Settings" role="button" tabindex="0"><i class="fa-solid fa-building-columns"></i></div>
+      <button class="nav-add" data-act="quickNew" data-tip="New" aria-label="Create new"><i class="fa-solid fa-plus"></i></button>
+    </nav>
+  </aside>
+
+  <div class="shell">
+    <header class="topbar">
+      <div class="crumbs" id="crumbs"></div>
+      <div class="topbar-right">
+        <div class="user-link" data-act="go" data-view="settings"><i class="fa-solid fa-user"></i> <span id="topUser">Al S.</span></div>
+        <button class="logout" data-act="logout" aria-label="Log out"><i class="fa-solid fa-right-from-bracket"></i></button>
+      </div>
+    </header>
+    <main class="content" id="main"></main>
+    <footer>&copy; 2026 Raffi Jewellers &mdash; internal quoting &amp; invoicing</footer>
+  </div>
+
+  <div id="modal-root"></div>
+  <div class="toast" id="toast" role="status"></div>
+  <button class="help-fab" data-act="help" aria-label="Help"><i class="fa-solid fa-comment-dots"></i></button>
+
+<script>
+'use strict';
+/* Raffi brand mark (embedded, navy) */
+const LOGO_NAVY='data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSczNDAnIGhlaWdodD0nMTEwJyB2aWV3Qm94PScwIDAgMzQwIDExMCc+PHRleHQgeD0nMTcwJyB5PSc2MicgZm9udC1mYW1pbHk9J0dlb3JnaWEsc2VyaWYnIGZvbnQtc2l6ZT0nNDYnIHRleHQtYW5jaG9yPSdtaWRkbGUnIGZpbGw9JyMwYjIwM2YnIGxldHRlci1zcGFjaW5nPSc2Jz5SQUZGSTwvdGV4dD48dGV4dCB4PScxNzAnIHk9JzkyJyBmb250LWZhbWlseT0nQXJpYWwsc2Fucy1zZXJpZicgZm9udC1zaXplPScxNicgdGV4dC1hbmNob3I9J21pZGRsZScgZmlsbD0nI2IwOGQzZicgbGV0dGVyLXNwYWNpbmc9JzUnPkpFV0VMTEVSUzwvdGV4dD48L3N2Zz4=';
+/* ================= utils ================= */
+const $=s=>document.querySelector(s);
+const $$=s=>Array.from(document.querySelectorAll(s));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const r2=n=>Math.round((+n||0)*100)/100;
+const money=n=>(db.settings.currency||'CA$')+r2(n).toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2});
+const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+const plusDays=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+const fmtD=iso=>!iso?'\u2014':new Date(iso+'T12:00:00').toLocaleDateString('en-CA',{year:'numeric',month:'short',day:'numeric'});
+const fmtLong=ts=>{const d=new Date(ts);return d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})+' - '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});};
+const dayKey=ts=>new Date(ts).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+const pad4=n=>String(n).padStart(4,'0');
+const T=s=>new Date(s).getTime();
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2200);}
+
+/* ================= persistence ================= */
+const KEY='quotemachine-db-v1';
+const hasStore=(typeof window!=='undefined')&&!!window.storage&&typeof window.storage.get==='function';
+async function loadDB(){
+  if(!hasStore)return null;
+  try{const r=await window.storage.get(KEY);return(r&&r.value)?JSON.parse(r.value):null;}catch(e){return null;}
+}
+let saveT=null;
+function commit(){
+  if(!hasStore)return;
+  clearTimeout(saveT);
+  saveT=setTimeout(async()=>{try{await window.storage.set(KEY,JSON.stringify(db));}catch(e){console.error('Save failed',e);}},250);
+}
+
+/* ================= seed data ================= */
+function seed(){
+  return {
+    v:1,
+    settings:{
+      company:'Raffi Jewellers', email:'info@example.com', phone:'(905) 000-0000',
+      address:'100 City Centre Dr\nMississauga, ON',
+      user:'Al Sukara', currency:'CA$', taxName:'HST', taxRate:13,
+      locations:['Mississauga','Toronto'],
+      terms:'Quote valid until the expiry date shown. Prices in Canadian dollars. All sales subject to availability.'
+    },
+    counters:{quote:5,order:4,invoice:1,payment:1},
+    contacts:[
+      {id:'c1',name:'Test Customer TEST',company:'',email:'test@example.com',phone:'(416) 555-0101',address:'',notes:'Sample contact seeded from the original dashboard.',createdAt:T('2026-04-20T10:00')},
+      {id:'c2',name:'Nicole Carmount',company:'',email:'nicole@example.com',phone:'(416) 555-0102',address:'',notes:'',createdAt:T('2026-05-01T10:00')},
+      {id:'c4',name:'Test ustomer TEST',company:'',email:'test2@example.com',phone:'(416) 555-0103',address:'',notes:'Duplicate test contact (typo) kept from the original data.',createdAt:T('2026-05-20T10:00')}
+    ],
+    products:[
+      {id:'p1',name:'Watch Service & Polish',sku:'SVC-POL',category:'Service',price:150,taxable:true,desc:'Full case and bracelet polish, pressure test.'},
+      {id:'p2',name:'Leather Strap \u2014 20mm',sku:'STR-20',category:'Accessories',price:95,taxable:true,desc:'Genuine leather, quick-release spring bars.'},
+      {id:'p3',name:'18k Gold Chain \u2014 45cm',sku:'CHN-18K',category:'Jewellery',price:1250,taxable:true,desc:''},
+      {id:'p4',name:'Solitaire Engagement Ring \u2014 1.0ct',sku:'ENG-SOL10',category:'Engagement',price:8500,taxable:true,desc:'Round brilliant, 4-prong, white gold band.'},
+      {id:'p5',name:'Watch Appraisal Certificate',sku:'SVC-APP',category:'Service',price:75,taxable:true,desc:''},
+      {id:'p6',name:'Spring Bar Set',sku:'ACC-SB',category:'Accessories',price:12,taxable:true,desc:''}
+    ],
+    quotes:[
+      {id:'q1',number:'QUO-0001',contactId:'c1',date:'2026-04-25',expiry:'2026-05-25',loc:'Mississauga',status:'accepted',
+       items:[{name:'Watch sizing & polish',desc:'',qty:1,price:4,taxable:false}],discountPct:0,notes:'',
+       signedBy:'Test Customer TEST',signedAt:T('2026-04-27T12:41'),signature:null,createdAt:T('2026-04-25T09:30'),orderId:null,invoiceId:null,isTemplate:false},
+      {id:'q2',number:'QUO-0002',contactId:'c2',date:'2026-05-20',expiry:'2026-06-20',loc:'Mississauga',status:'open',
+       items:[{name:'Strap adjustment',desc:'',qty:1,price:4,taxable:false}],discountPct:0,notes:'',
+       signedBy:null,signedAt:null,signature:null,createdAt:T('2026-05-20T11:00'),orderId:null,invoiceId:null,isTemplate:false},
+      {id:'q3',number:'QUO-0003',contactId:'c2',date:'2026-05-02',expiry:'2026-06-02',loc:'Mississauga',status:'accepted',
+       items:[{name:'Leather Strap \u2014 20mm',desc:'Fitted in store',qty:1,price:12.5,taxable:false}],discountPct:0,notes:'',
+       signedBy:'nicole Carmount',signedAt:T('2026-05-04T14:33'),signature:null,createdAt:T('2026-05-02T10:00'),orderId:null,invoiceId:null,isTemplate:false},
+      {id:'q3b',number:'QUO-0003-2',contactId:'c2',date:'2026-05-03',expiry:'2026-06-03',loc:'Mississauga',status:'accepted',
+       items:[{name:'Leather Strap \u2014 20mm (revised)',desc:'Revision of QUO-0003',qty:1,price:8.75,taxable:false}],discountPct:0,notes:'',
+       signedBy:'nicole Carmount',signedAt:T('2026-05-04T14:37'),signature:null,createdAt:T('2026-05-03T10:00'),orderId:null,invoiceId:null,isTemplate:false},
+      {id:'q4',number:'QUO-0004',contactId:'c4',date:'2026-05-24',expiry:'2026-06-24',loc:'Mississauga',status:'accepted',
+       items:[{name:'Watch Service & Polish',desc:'Light polish, pressure test',qty:1,price:40,taxable:false},{name:'Spring Bar Set',desc:'',qty:1,price:5.9,taxable:false}],discountPct:0,notes:'',
+       signedBy:'Test ustomer TEST',signedAt:T('2026-05-26T15:40'),signature:null,createdAt:T('2026-05-24T13:00'),orderId:'o1',invoiceId:null,isTemplate:false},
+      {id:'qt1',number:null,contactId:null,date:null,expiry:null,loc:'Mississauga',status:'draft',
+       items:[{name:'Rolex \u2014 model TBD',desc:'Reference / dial / bracelet to confirm with client',qty:1,price:0,taxable:true}],discountPct:0,
+       notes:'Template starting point for Rolex enquiries.',signedBy:null,signedAt:null,signature:null,createdAt:T('2026-05-10T09:00'),orderId:null,invoiceId:null,
+       isTemplate:true,templateName:'Rolex Template -TEST'}
+    ],
+    orders:[
+      {id:'o1',number:'ORD-0003',contactId:'c4',quoteId:'q4',date:'2026-05-26',loc:'Mississauga',status:'open',
+       items:[{name:'Watch Service & Polish',desc:'Light polish, pressure test',qty:1,price:40,taxable:false},{name:'Spring Bar Set',desc:'',qty:1,price:5.9,taxable:false}],
+       discountPct:0,notes:'',
+       messages:[{from:'Test ustomer TEST',me:false,text:'how are you',at:T('2026-05-26T15:47')}]}
+    ],
+    invoices:[],
+    payments:[],
+    activity:[
+      {id:'a1',at:T('2026-04-27T12:41'),icon:'thumbs-up',actor:'Test Customer TEST',
+       parts:[{l:'Test Customer TEST',v:'contact',id:'c1'},{t:' approved '},{l:'QUO-0001',v:'quote-doc',id:'q1'},{t:' from Al Sukara'}],preview:null},
+      {id:'a2',at:T('2026-04-27T12:41:30'),icon:'pen',actor:'Test Customer TEST',
+       parts:[{t:'Your quote '},{l:'QUO-0001',v:'quote-doc',id:'q1'},{t:' was signed by '},{l:'Test Customer TEST',v:'contact',id:'c1'}],
+       preview:[{t:'Open your document from '},{l:'QUO-0001',v:'quote-doc',id:'q1'}]},
+      {id:'a3',at:T('2026-05-04T14:33'),icon:'thumbs-up',actor:'nicole Carmount',
+       parts:[{l:'nicole Carmount',v:'contact',id:'c2'},{t:' approved '},{l:'QUO-0003',v:'quote-doc',id:'q3'},{t:' from Nicole Carmount'}],preview:null},
+      {id:'a4',at:T('2026-05-04T14:33:30'),icon:'pen',actor:'nicole Carmount',
+       parts:[{t:'Your quote '},{l:'QUO-0003',v:'quote-doc',id:'q3'},{t:' was signed by '},{l:'nicole Carmount',v:'contact',id:'c2'}],
+       preview:[{t:'Open your document from '},{l:'QUO-0003',v:'quote-doc',id:'q3'}]},
+      {id:'a5',at:T('2026-05-04T14:36'),icon:'thumbs-up',actor:'nicole Carmount',
+       parts:[{l:'nicole Carmount',v:'contact',id:'c2'},{t:' approved '},{l:'QUO-0003-2',v:'quote-doc',id:'q3b'},{t:' from Nicole Carmount'}],preview:null},
+      {id:'a6',at:T('2026-05-04T14:37'),icon:'pen',actor:'nicole Carmount',
+       parts:[{t:'Your quote '},{l:'QUO-0003-2',v:'quote-doc',id:'q3b'},{t:' was signed by '},{l:'nicole Carmount',v:'contact',id:'c2'}],
+       preview:[{t:'Open your document from '},{l:'QUO-0003-2',v:'quote-doc',id:'q3b'}]},
+      {id:'a7',at:T('2026-05-26T15:40'),icon:'thumbs-up',actor:'Test ustomer TEST',
+       parts:[{l:'Test ustomer TEST',v:'contact',id:'c4'},{t:' approved '},{l:'QUO-0004',v:'quote-doc',id:'q4'},{t:' from Al Sukara'}],preview:null},
+      {id:'a8',at:T('2026-05-26T15:40:30'),icon:'pen',actor:'Test ustomer TEST',
+       parts:[{t:'Your quote '},{l:'QUO-0004',v:'quote-doc',id:'q4'},{t:' was signed by '},{l:'Test ustomer TEST',v:'contact',id:'c4'}],
+       preview:[{t:'Open your document from '},{l:'QUO-0004',v:'quote-doc',id:'q4'}]},
+      {id:'a9',at:T('2026-05-26T15:47'),icon:'comment',actor:'Test ustomer TEST',
+       parts:[{l:'Test ustomer TEST',v:'contact',id:'c4'},{t:' sent a chat message to Al Sukara in '},{l:'ORD-0003',v:'order',id:'o1'}],
+       preview:'how are you'}
+    ]
+  };
+}
+function logAct(icon,actor,parts,preview){
+  db.activity.push({id:uid(),at:Date.now(),icon,actor,parts,preview:preview||null});
+  commit();
+}
+
+/* ================= state & framework ================= */
+let db=null;
+const state={view:'dashboard',id:null,q:'',qChip:'all',iChip:'all',loc:'all',feedUser:'all'};
+const mounts=[];
+const NAVPARENT={dashboard:'dashboard',contacts:'contacts',contact:'contacts',quotes:'quotes',quote:'quotes','quote-doc':'quotes',orders:'orders',order:'orders',invoices:'invoices',invoice:'invoices','invoice-doc':'invoices',payments:'payments',products:'products',settings:'settings'};
+let rendering=false;
+function go(view,id){
+  state.view=view;state.id=id??null;state.q='';
+  if(!rendering){render();window.scrollTo(0,0);}
+}
+function render(){
+  rendering=true;
+  let html='',hops=0;
+  do{
+    const v0=state.view,i0=state.id;
+    html=(VIEWS[state.view]||VIEWS.dashboard)();
+    if(state.view===v0&&state.id===i0)break;
+  }while(++hops<5);
+  rendering=false;
+  $('#main').innerHTML=bannerHTML()+html;
+  markNav();crumbs();
+  $('#topUser').textContent=shortName(db.settings.user);
+  while(mounts.length)mounts.shift()();
+}
+function bannerHTML(){
+  if(hasStore)return'';
+  return '<div class="banner no-print"><i class="fa-solid fa-triangle-exclamation"></i><span>Persistent storage isn\u2019t available in this environment, so data lives in memory only. Use <a data-act="go" data-view="settings">Settings \u2192 Export</a> to save your data as a file.</span></div>';
+}
+function shortName(n){const p=String(n||'').trim().split(/\s+/);return p.length>1?p[0]+' '+p[1][0]+'.':(p[0]||'User');}
+function markNav(){
+  const p=NAVPARENT[state.view]||'dashboard';
+  $$('.nav-item[data-view]').forEach(el=>el.classList.toggle('active',el.dataset.view===p));
+}
+function crumbs(){
+  const base={dashboard:'Dashboard',contacts:'Contacts',quotes:'Quotes',orders:'Orders',invoices:'Invoices',payments:'Payments',products:'Products',settings:'Settings'};
+  const parent=NAVPARENT[state.view];
+  let html='<div class="home-tab" data-act="go" data-view="dashboard"><i class="fa-solid fa-house"></i></div>';
+  html+='<span class="crumb-sep"><i class="fa-solid fa-chevron-right"></i></span>';
+  const ent=entityLabel();
+  if(ent&&parent!=='dashboard'){
+    html+='<span class="crumb-link" data-act="go" data-view="'+parent+'">'+base[parent]+'</span>';
+    html+='<span class="crumb-sep"><i class="fa-solid fa-chevron-right"></i></span>';
+    html+='<span class="crumb-current">'+esc(ent)+'</span>';
+  }else{
+    html+='<span class="crumb-current">'+(base[parent]||'Dashboard')+'</span>';
+  }
+  $('#crumbs').innerHTML=html;
+}
+function entityLabel(){
+  const id=state.id;if(!id)return null;
+  if(state.view==='contact'){const c=C(id);return c?c.name:null;}
+  if(state.view==='quote'||state.view==='quote-doc'){const q=Q(id);return q?(q.isTemplate?q.templateName:q.number):null;}
+  if(state.view==='order'){const o=O(id);return o?o.number:null;}
+  if(state.view==='invoice'||state.view==='invoice-doc'){const i=I(id);return i?i.number:null;}
+  return null;
+}
+
+/* ================= entity helpers ================= */
+const C=id=>db.contacts.find(x=>x.id===id);
+const P=id=>db.products.find(x=>x.id===id);
+const Q=id=>db.quotes.find(x=>x.id===id);
+const O=id=>db.orders.find(x=>x.id===id);
+const I=id=>db.invoices.find(x=>x.id===id);
+const cname=id=>{const c=C(id);return c?c.name:'\u2014';};
+function totals(d){
+  const sub=d.items.reduce((s,i)=>s+r2((+i.qty||0)*(+i.price||0)),0);
+  const disc=r2(sub*((+d.discountPct||0)/100));
+  const taxBase=d.items.reduce((s,i)=>s+(i.taxable?r2((+i.qty||0)*(+i.price||0)):0),0)*(1-((+d.discountPct||0)/100));
+  const tax=r2(taxBase*((+db.settings.taxRate||0)/100));
+  return{sub:r2(sub),disc,tax,total:r2(sub-disc+tax)};
+}
+const paidAmt=inv=>db.payments.filter(p=>p.invoiceId===inv.id).reduce((s,p)=>s+(+p.amount||0),0);
+const balance=inv=>r2(totals(inv).total-paidAmt(inv));
+function iStatus(inv){
+  const b=balance(inv);
+  if(b<=0.004)return'paid';
+  if(inv.dueDate&&inv.dueDate<todayISO())return'overdue';
+  if(paidAmt(inv)>0)return'partial';
+  return'open';
+}
+const QB={draft:['b-gray','Draft'],open:['b-blue','Open'],accepted:['b-green','Accepted'],declined:['b-red','Declined']};
+const IB={open:['b-blue','Open'],partial:['b-gold','Partially paid'],paid:['b-green','Paid'],overdue:['b-red','Overdue']};
+const OB={open:['b-blue','Open'],completed:['b-green','Completed'],cancelled:['b-red','Cancelled']};
+function badge(map,s){const v=map[s]||['b-gray',s];return'<span class="badge '+v[0]+'">'+esc(v[1])+'</span>';}
+const realQuotes=()=>db.quotes.filter(q=>!q.isTemplate);
+const templates=()=>db.quotes.filter(q=>q.isTemplate);
+function renderParts(p){
+  if(p==null)return'';
+  if(typeof p==='string')return esc(p);
+  return p.map(x=>x.t!==undefined?esc(x.t):'<a data-act="open" data-type="'+x.v+'" data-id="'+x.id+'">'+esc(x.l)+'</a>').join('');
+}
+function matches(str){return String(str||'').toLowerCase().includes(state.q.toLowerCase());}
+
+/* ================= views ================= */
+const VIEWS={};
+
+/* ---- dashboard ---- */
+VIEWS.dashboard=function(){
+  const s=db.settings;
+  const locFilter=q=>state.loc==='all'||q.loc===state.loc;
+  const openQ=realQuotes().filter(q=>(q.status==='open'||q.status==='draft')&&locFilter(q));
+  const accQ=realQuotes().filter(q=>q.status==='accepted'&&locFilter(q));
+  const invs=db.invoices.filter(locFilter);
+  const openI=invs.filter(i=>{const st=iStatus(i);return st==='open'||st==='partial';});
+  const overI=invs.filter(i=>iStatus(i)==='overdue');
+  const sum=(arr,fn)=>arr.reduce((s,x)=>s+fn(x),0);
+  const mv=n=>{const v=r2(n);return (db.settings.currency||'CA$')+(v%1===0?v.toLocaleString('en-CA'):v.toLocaleString('en-CA',{minimumFractionDigits:1,maximumFractionDigits:2}));};
+  const tmplBtns=templates().map(t=>'<button class="btn btn-green" data-act="useTemplate" data-id="'+t.id+'"><i class="fa-solid fa-clone"></i> '+esc(t.templateName||'Template')+'</button>').join('');
+  const actors=Array.from(new Set(db.activity.map(a=>a.actor).filter(Boolean)));
+  const feedItems=db.activity.filter(a=>state.feedUser==='all'||a.actor===state.feedUser).slice().sort((a,b)=>b.at-a.at);
+  let feed='',lastDay=null;
+  feedItems.forEach(a=>{
+    const dk=dayKey(a.at);
+    if(dk!==lastDay){feed+='<div class="date-pill">'+esc(dk)+'</div>';lastDay=dk;}
+    feed+='<div class="event"><span class="dot"></span><div class="event-time">'+esc(fmtLong(a.at))+'</div>'+
+      '<div class="event-card"><div class="event-ico"><i class="fa-solid fa-'+a.icon+'"></i></div><div class="event-body">'+
+      '<div class="event-text">'+renderParts(a.parts)+'</div>'+
+      (a.preview?'<div class="event-preview">'+renderParts(a.preview)+'</div>':'')+
+      '</div></div></div>';
+  });
+  if(!feedItems.length)feed='<div class="event"><span class="dot" style="background:#c4cbd6"></span><div class="event-card"><div class="event-body mut">No activity yet \u2014 create a quote to get started.</div></div></div>';
+  return ''+
+  '<div class="page-head"><div><div class="kicker">'+esc(new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}))+'</div><h1 class="page-title">Hi '+esc(s.user)+', <em>here\u2019s what\u2019s new.</em></h1></div>'+
+    '<div class="head-tools"><button class="configure" data-act="go" data-view="settings"><i class="fa-solid fa-gear"></i> Configure</button>'+
+    '<select class="select" data-chg="loc" aria-label="Location filter"><option value="all"'+(state.loc==='all'?' selected':'')+'>All locations</option>'+
+    s.locations.map(l=>'<option'+(state.loc===l?' selected':'')+'>'+esc(l)+'</option>').join('')+'</select></div></div>'+
+  '<section class="metrics">'+
+    '<div class="metric" data-act="goChip" data-view="quotes" data-chip="open"><div class="label">Open Quotes <span>('+openQ.length+')</span></div><div class="value v-blue">'+mv(sum(openQ,q=>totals(q).total))+'</div></div>'+
+    '<div class="metric" data-act="goChip" data-view="quotes" data-chip="accepted"><div class="label">Accepted Quotes <span>('+accQ.length+')</span></div><div class="value v-gold">'+mv(sum(accQ,q=>totals(q).total))+'</div></div>'+
+    '<div class="metric" data-act="goChip" data-view="invoices" data-chip="open"><div class="label">Open Invoices <span>('+openI.length+')</span></div><div class="value v-blue">'+mv(sum(openI,i=>balance(i)))+'</div></div>'+
+    '<div class="metric" data-act="goChip" data-view="invoices" data-chip="overdue"><div class="label">Overdue Invoices <span>('+overI.length+')</span></div><div class="value v-red">'+mv(sum(overI,i=>balance(i)))+'</div></div>'+
+  '</section>'+
+  '<section class="actions">'+tmplBtns+
+    '<button class="btn btn-blue" data-act="newContact"><i class="fa-solid fa-users"></i> New Contact</button>'+
+    '<button class="btn btn-blue" data-act="newQuote"><i class="fa-solid fa-comment-dollar"></i> New Quote</button>'+
+    '<button class="btn btn-blue" data-act="newInvoice"><i class="fa-solid fa-file-invoice"></i> New Invoice</button>'+
+  '</section>'+
+  '<div class="feed-head"><h2 class="feed-title">Activity Feed</h2>'+
+    '<div class="feed-filter"><i class="fa-solid fa-user"></i><select class="select" data-chg="feedUser" aria-label="Filter feed by user"><option value="all"'+(state.feedUser==='all'?' selected':'')+'>All users</option>'+
+    actors.map(a=>'<option'+(state.feedUser===a?' selected':'')+'>'+esc(a)+'</option>').join('')+'</select></div></div>'+
+  '<div class="feed">'+feed+'<p class="feed-end">End of activity feed. Nothing more to show.</p></div>';
+};
+
+/* ---- contacts ---- */
+function contactsRows(){
+  const rows=db.contacts.filter(c=>matches(c.name+' '+c.company+' '+c.email+' '+c.phone))
+    .sort((a,b)=>a.name.localeCompare(b.name))
+    .map(c=>{
+      const nq=realQuotes().filter(q=>q.contactId===c.id).length;
+      const ni=db.invoices.filter(i=>i.contactId===c.id).length;
+      return'<tr class="rowlink" data-act="open" data-type="contact" data-id="'+c.id+'"><td class="num">'+esc(c.name)+'</td><td>'+esc(c.company||'\u2014')+'</td><td>'+esc(c.email||'\u2014')+'</td><td>'+esc(c.phone||'\u2014')+'</td><td class="r">'+nq+'</td><td class="r">'+ni+'</td></tr>';
+    }).join('');
+  return rows||'<tr><td colspan="6"><div class="empty"><i class="fa-solid fa-users"></i>No contacts match. Add one to get started.</div></td></tr>';
+}
+VIEWS.contacts=function(){
+  return'<div class="page-head"><h1 class="page-title">Contacts</h1></div>'+
+  '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search contacts\u2026" value="'+esc(state.q)+'"></span></div>'+
+  '<div class="actrow"><button class="b2 o" data-act="csv" data-kind="contacts"><i class="fa-solid fa-download"></i> CSV</button><button class="b2 p" data-act="newContact"><i class="fa-solid fa-plus"></i> New Contact</button></div></div>'+
+  '<div class="card"><table class="tbl"><thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Phone</th><th class="r">Quotes</th><th class="r">Invoices</th></tr></thead><tbody id="rows">'+contactsRows()+'</tbody></table></div>';
+};
+VIEWS.contact=function(){
+  const c=C(state.id);
+  if(!c){go('contacts');return'';}
+  const qs=realQuotes().filter(q=>q.contactId===c.id).sort((a,b)=>b.createdAt-a.createdAt);
+  const is=db.invoices.filter(i=>i.contactId===c.id);
+  const os=db.orders.filter(o=>o.contactId===c.id);
+  const docRow=(num,view,id,date,st,total)=>'<tr class="rowlink" data-act="open" data-type="'+view+'" data-id="'+id+'"><td class="num">'+esc(num)+'</td><td>'+fmtD(date)+'</td><td>'+st+'</td><td class="r">'+money(total)+'</td></tr>';
+  return'<div class="page-head"><h1 class="page-title">'+esc(c.name)+'</h1>'+
+  '<div class="actrow"><button class="b2 p" data-act="newQuoteFor" data-id="'+c.id+'"><i class="fa-solid fa-comment-dollar"></i> New quote</button>'+
+  '<button class="b2 o" data-act="editContact" data-id="'+c.id+'"><i class="fa-solid fa-pen"></i> Edit</button>'+
+  '<button class="b2 d" data-act="delContact" data-id="'+c.id+'"><i class="fa-solid fa-trash"></i> Delete</button></div></div>'+
+  '<div class="card" style="margin-bottom:22px"><div class="panel"><div class="fgrid">'+
+    '<div class="fld"><label>Company</label><div>'+esc(c.company||'\u2014')+'</div></div>'+
+    '<div class="fld"><label>Email</label><div>'+esc(c.email||'\u2014')+'</div></div>'+
+    '<div class="fld"><label>Phone</label><div>'+esc(c.phone||'\u2014')+'</div></div>'+
+    '<div class="fld"><label>Address</label><div style="white-space:pre-line">'+esc(c.address||'\u2014')+'</div></div>'+
+    (c.notes?'<div class="fld wide"><label>Notes</label><div>'+esc(c.notes)+'</div></div>':'')+
+  '</div></div></div>'+
+  '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Quotes ('+qs.length+')</h3></div>'+
+    (qs.length?'<table class="tbl"><thead><tr><th>Number</th><th>Date</th><th>Status</th><th class="r">Total</th></tr></thead><tbody>'+qs.map(q=>docRow(q.number,'quote',q.id,q.date,badge(QB,q.status),totals(q).total)).join('')+'</tbody></table>':'<div class="empty sm">No quotes yet.</div>')+'</div>'+
+  '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Orders ('+os.length+')</h3></div>'+
+    (os.length?'<table class="tbl"><thead><tr><th>Number</th><th>Date</th><th>Status</th><th class="r">Total</th></tr></thead><tbody>'+os.map(o=>docRow(o.number,'order',o.id,o.date,badge(OB,o.status),totals(o).total)).join('')+'</tbody></table>':'<div class="empty sm">No orders yet.</div>')+'</div>'+
+  '<div class="card"><div class="panel"><h3>Invoices ('+is.length+')</h3></div>'+
+    (is.length?'<table class="tbl"><thead><tr><th>Number</th><th>Date</th><th>Status</th><th class="r">Total</th></tr></thead><tbody>'+is.map(i=>docRow(i.number,'invoice',i.id,i.date,badge(IB,iStatus(i)),totals(i).total)).join('')+'</tbody></table>':'<div class="empty sm">No invoices yet.</div>')+'</div>';
+};
+
+/* ---- products ---- */
+function productsRows(){
+  const rows=db.products.filter(p=>matches(p.name+' '+p.sku+' '+p.category))
+    .sort((a,b)=>a.name.localeCompare(b.name))
+    .map(p=>'<tr class="rowlink" data-act="editProduct" data-id="'+p.id+'"><td class="num">'+esc(p.name)+(p.desc?'<div class="mut sm" style="font-weight:400">'+esc(p.desc)+'</div>':'')+'</td><td>'+esc(p.sku||'\u2014')+'</td><td>'+esc(p.category||'\u2014')+'</td><td class="r">'+money(p.price)+'</td><td class="r">'+(p.taxable?'Yes':'No')+'</td></tr>').join('');
+  return rows||'<tr><td colspan="5"><div class="empty"><i class="fa-solid fa-tag"></i>No products match.</div></td></tr>';
+}
+VIEWS.products=function(){
+  return'<div class="page-head"><h1 class="page-title">Products</h1></div>'+
+  '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search products\u2026" value="'+esc(state.q)+'"></span></div>'+
+  '<div class="actrow"><button class="b2 o" data-act="csv" data-kind="products"><i class="fa-solid fa-download"></i> CSV</button><button class="b2 p" data-act="newProduct"><i class="fa-solid fa-plus"></i> New Product</button></div></div>'+
+  '<div class="card"><table class="tbl"><thead><tr><th>Product</th><th>SKU</th><th>Category</th><th class="r">Price</th><th class="r">Taxable</th></tr></thead><tbody id="rows">'+productsRows()+'</tbody></table></div>';
+};
+
+/* ---- quotes listing ---- */
+function quotesRows(){
+  let list;
+  if(state.qChip==='templates'){
+    list=templates();
+    const rows=list.map(t=>'<tr><td class="num">'+esc(t.templateName||'Template')+'</td><td class="mut">'+t.items.length+' line item'+(t.items.length===1?'':'s')+'</td><td class="r">'+money(totals(t).total)+'</td><td class="r"><span class="actrow" style="justify-content:flex-end"><button class="b2 g" data-act="useTemplate" data-id="'+t.id+'">Use</button><button class="b2 o" data-act="open" data-type="quote" data-id="'+t.id+'">Edit</button><button class="b2 d" data-act="delQuote" data-id="'+t.id+'">Delete</button></span></td></tr>').join('');
+    return rows||'<tr><td colspan="4"><div class="empty"><i class="fa-solid fa-clone"></i>No templates yet. Open a quote and choose \u201cSave as template\u201d.</div></td></tr>';
+  }
+  list=realQuotes().filter(q=>(state.qChip==='all'||q.status===state.qChip)&&matches(q.number+' '+cname(q.contactId)));
+  const rows=list.sort((a,b)=>b.createdAt-a.createdAt)
+    .map(q=>'<tr class="rowlink" data-act="open" data-type="quote" data-id="'+q.id+'"><td class="num">'+esc(q.number)+'</td><td>'+esc(cname(q.contactId))+'</td><td>'+fmtD(q.date)+'</td><td>'+fmtD(q.expiry)+'</td><td>'+badge(QB,q.status)+'</td><td class="r">'+money(totals(q).total)+'</td></tr>').join('');
+  return rows||'<tr><td colspan="6"><div class="empty"><i class="fa-solid fa-comment-dollar"></i>No quotes here yet.</div></td></tr>';
+}
+VIEWS.quotes=function(){
+  const chips=[['all','All'],['draft','Draft'],['open','Open'],['accepted','Accepted'],['declined','Declined'],['templates','Templates']];
+  const head=state.qChip==='templates'?'<tr><th>Template</th><th>Contents</th><th class="r">Total</th><th class="r">Actions</th></tr>'
+    :'<tr><th>Number</th><th>Contact</th><th>Date</th><th>Expiry</th><th>Status</th><th class="r">Total</th></tr>';
+  return'<div class="page-head"><h1 class="page-title">Quotes</h1></div>'+
+  '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search quotes\u2026" value="'+esc(state.q)+'"></span>'+
+  '<span class="chips">'+chips.map(c=>'<button class="chip'+(state.qChip===c[0]?' on':'')+'" data-act="qChip" data-chip="'+c[0]+'">'+c[1]+'</button>').join('')+'</span></div>'+
+  '<div class="actrow"><button class="b2 o" data-act="csv" data-kind="quotes"><i class="fa-solid fa-download"></i> CSV</button><button class="b2 p" data-act="newQuote"><i class="fa-solid fa-plus"></i> New Quote</button></div></div>'+
+  '<div class="card"><table class="tbl"><thead>'+head+'</thead><tbody id="rows">'+quotesRows()+'</tbody></table></div>';
+};
+
+/* ---- shared line-item editor ---- */
+function curDoc(){
+  if(state.view==='quote')return Q(state.id);
+  if(state.view==='invoice')return I(state.id);
+  return null;
+}
+function lineRows(d){
+  return d.items.map((it,i)=>
+    '<tr><td style="min-width:240px"><input class="nm" data-li="'+i+'" data-f="name" value="'+esc(it.name)+'" placeholder="Item name">'+
+    '<input class="ds" data-li="'+i+'" data-f="desc" value="'+esc(it.desc||'')+'" placeholder="Description (optional)"></td>'+
+    '<td class="r"><input class="n" type="number" min="0" step="1" data-li="'+i+'" data-f="qty" value="'+(+it.qty||0)+'"></td>'+
+    '<td class="r"><input class="n" type="number" min="0" step="0.01" data-li="'+i+'" data-f="price" value="'+(+it.price||0)+'"></td>'+
+    '<td class="r" style="white-space:nowrap"><label class="sm mut"><input type="checkbox" data-li="'+i+'" data-f="taxable"'+(it.taxable?' checked':'')+'> '+esc(db.settings.taxName)+'</label></td>'+
+    '<td class="r" id="lt-'+i+'">'+money((+it.qty||0)*(+it.price||0))+'</td>'+
+    '<td class="r"><button class="li-rm" data-act="rmLine" data-i="'+i+'" aria-label="Remove line"><i class="fa-solid fa-xmark"></i></button></td></tr>'
+  ).join('');
+}
+function totalsBlock(d,isInvoice){
+  const t=totals(d);
+  let extra='';
+  if(isInvoice){
+    extra='<div class="row mut"><span>Paid</span><span id="t-paid">'+money(paidAmt(d))+'</span></div>'+
+          '<div class="row" style="font-weight:600"><span>Balance due</span><span id="t-bal">'+money(balance(d))+'</span></div>';
+  }
+  return'<div class="totals"><div class="row mut"><span>Subtotal</span><span id="t-sub">'+money(t.sub)+'</span></div>'+
+  '<div class="row mut"><span>Discount ('+(+d.discountPct||0)+'%)</span><span id="t-disc">\u2212'+money(t.disc)+'</span></div>'+
+  '<div class="row mut"><span>'+esc(db.settings.taxName)+' ('+db.settings.taxRate+'%)</span><span id="t-tax">'+money(t.tax)+'</span></div>'+
+  '<div class="row grand"><span>Total</span><span id="t-grand">'+money(t.total)+'</span></div>'+extra+'</div>';
+}
+function itemsPanel(d,isInvoice){
+  return'<div class="panel"><h3>Line items</h3>'+
+  '<div style="overflow-x:auto"><table class="tbl li-tbl"><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Tax</th><th class="r">Amount</th><th></th></tr></thead><tbody id="li-body">'+lineRows(d)+'</tbody></table></div>'+
+  '<div class="actrow" style="margin-top:12px"><button class="b2 o" data-act="addLine"><i class="fa-solid fa-plus"></i> Add line</button>'+
+  '<select class="select" data-chg="addProd"><option value="">Add from products\u2026</option>'+db.products.map(p=>'<option value="'+p.id+'">'+esc(p.name)+' \u2014 '+money(p.price)+'</option>').join('')+'</select></div>'+
+  '<div id="totals-wrap">'+totalsBlock(d,isInvoice)+'</div></div>';
+}
+function redrawItems(){
+  const d=curDoc();if(!d)return;
+  $('#li-body').innerHTML=lineRows(d);
+  updTotals(d);
+}
+function updTotals(d){
+  const t=totals(d);
+  d.items.forEach((it,i)=>{const el=$('#lt-'+i);if(el)el.textContent=money((+it.qty||0)*(+it.price||0));});
+  if($('#t-sub'))$('#t-sub').textContent=money(t.sub);
+  if($('#t-disc'))$('#t-disc').textContent='\u2212'+money(t.disc);
+  if($('#t-tax'))$('#t-tax').textContent=money(t.tax);
+  if($('#t-grand'))$('#t-grand').textContent=money(t.total);
+  if(state.view==='invoice'){
+    if($('#t-paid'))$('#t-paid').textContent=money(paidAmt(d));
+    if($('#t-bal'))$('#t-bal').textContent=money(balance(d));
+  }
+}
+function contactSelect(sel){
+  return'<select data-li="doc" data-f="contactId"><option value="">\u2014 Select contact \u2014</option>'+
+  db.contacts.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(c=>'<option value="'+c.id+'"'+(sel===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select>';
+}
+function locSelect(sel){
+  return'<select data-li="doc" data-f="loc">'+db.settings.locations.map(l=>'<option'+(sel===l?' selected':'')+'>'+esc(l)+'</option>').join('')+'</select>';
+}
+
+/* ---- quote editor ---- */
+VIEWS.quote=function(){
+  const q=Q(state.id);
+  if(!q){go('quotes');return'';}
+  const title=q.isTemplate?esc(q.templateName||'Template'):esc(q.number);
+  const acts=[];
+  acts.push('<button class="b2 p" data-act="saveDoc"><i class="fa-solid fa-floppy-disk"></i> Save</button>');
+  if(!q.isTemplate){
+    acts.push('<button class="b2 o" data-act="open" data-type="quote-doc" data-id="'+q.id+'"><i class="fa-solid fa-eye"></i> Preview &amp; sign</button>');
+    if(q.status==='draft')acts.push('<button class="b2 g" data-act="sendQuote" data-id="'+q.id+'"><i class="fa-solid fa-paper-plane"></i> Mark as sent</button>');
+    if(q.status==='accepted'){
+      acts.push('<button class="b2 g" data-act="toInvoice" data-id="'+q.id+'"><i class="fa-solid fa-file-invoice"></i> '+(q.invoiceId?'Open invoice':'Convert to invoice')+'</button>');
+      acts.push('<button class="b2 o" data-act="toOrder" data-id="'+q.id+'"><i class="fa-solid fa-clipboard-list"></i> '+(q.orderId?'Open order':'Convert to order')+'</button>');
+    }
+    acts.push('<button class="b2 o" data-act="saveTemplate" data-id="'+q.id+'"><i class="fa-solid fa-clone"></i> Save as template</button>');
+  }else{
+    acts.push('<button class="b2 g" data-act="useTemplate" data-id="'+q.id+'"><i class="fa-solid fa-bolt"></i> New quote from template</button>');
+  }
+  acts.push('<button class="b2 d" data-act="delQuote" data-id="'+q.id+'"><i class="fa-solid fa-trash"></i> Delete</button>');
+  return'<div class="page-head"><h1 class="page-title">'+title+(q.isTemplate?' <span class="badge b-gray">Template</span>':' '+badge(QB,q.status))+'</h1><div class="actrow">'+acts.join('')+'</div></div>'+
+  '<div class="card">'+
+    '<div class="panel"><h3>Details</h3><div class="fgrid">'+
+      (q.isTemplate?'<div class="fld"><label>Template name</label><input data-li="doc" data-f="templateName" value="'+esc(q.templateName||'')+'"></div>'
+        :'<div class="fld"><label>Contact</label>'+contactSelect(q.contactId)+'</div>')+
+      '<div class="fld"><label>Quote date</label><input type="date" data-li="doc" data-f="date" value="'+esc(q.date||'')+'"></div>'+
+      '<div class="fld"><label>Expiry</label><input type="date" data-li="doc" data-f="expiry" value="'+esc(q.expiry||'')+'"></div>'+
+      '<div class="fld"><label>Location</label>'+locSelect(q.loc)+'</div>'+
+      '<div class="fld"><label>Discount %</label><input type="number" min="0" max="100" step="0.5" data-li="doc" data-f="discountPct" value="'+(+q.discountPct||0)+'"></div>'+
+      '<div class="fld wide"><label>Notes (shown on document)</label><textarea data-li="doc" data-f="notes">'+esc(q.notes||'')+'</textarea></div>'+
+    '</div></div>'+itemsPanel(q,false)+
+  '</div>';
+};
+
+/* ---- shared document renderer ---- */
+function docHTML(d,kind){
+  const s=db.settings,t=totals(d),c=C(d.contactId);
+  const isInv=kind==='invoice';
+  const metaRows=isInv
+    ?'<tr><td>Invoice #</td><td>'+esc(d.number)+'</td></tr><tr><td>Date</td><td>'+fmtD(d.date)+'</td></tr><tr><td>Due</td><td>'+fmtD(d.dueDate)+'</td></tr>'
+    :'<tr><td>Quote #</td><td>'+esc(d.number)+'</td></tr><tr><td>Date</td><td>'+fmtD(d.date)+'</td></tr><tr><td>Valid until</td><td>'+fmtD(d.expiry)+'</td></tr>';
+  const st=isInv?badge(IB,iStatus(d)):badge(QB,d.status);
+  let totalRows='<tr><td colspan="3" class="r mut">Subtotal</td><td class="r">'+money(t.sub)+'</td></tr>';
+  if(t.disc>0)totalRows+='<tr><td colspan="3" class="r mut">Discount ('+(+d.discountPct||0)+'%)</td><td class="r">\u2212'+money(t.disc)+'</td></tr>';
+  totalRows+='<tr><td colspan="3" class="r mut">'+esc(s.taxName)+' ('+s.taxRate+'%)</td><td class="r">'+money(t.tax)+'</td></tr>'+
+  '<tr><td colspan="3" class="r" style="font-weight:700;border-bottom:none">Total</td><td class="r" style="font-weight:700;border-bottom:none">'+money(t.total)+'</td></tr>';
+  if(isInv&&paidAmt(d)>0){
+    totalRows+='<tr><td colspan="3" class="r mut" style="border-bottom:none">Paid</td><td class="r mut" style="border-bottom:none">'+money(paidAmt(d))+'</td></tr>'+
+    '<tr><td colspan="3" class="r" style="font-weight:700;border-bottom:none">Balance due</td><td class="r" style="font-weight:700;border-bottom:none">'+money(balance(d))+'</td></tr>';
+  }
+  return'<div class="doc"><div class="doc-top">'+
+    '<div class="doc-co"><img class="doc-logo" src="'+LOGO_NAVY+'" alt="'+esc(s.company)+'"><p>'+esc(s.address)+'\n'+esc(s.phone)+'\n'+esc(s.email)+'</p></div>'+
+    '<div class="doc-meta"><div class="doc-type">'+(isInv?'INVOICE':'QUOTE')+'</div><table>'+metaRows+'</table><div class="stamp">'+st+'</div></div></div>'+
+    '<div class="doc-bill"><div class="lbl">Prepared for</div><div class="who">'+esc(c?c.name:'\u2014')+'</div>'+
+    (c?'<p>'+esc([c.company,c.email,c.phone].filter(Boolean).join('\n'))+'</p>':'')+'</div>'+
+    '<table class="doc-items"><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead><tbody>'+
+    d.items.map(it=>'<tr><td>'+esc(it.name)+(it.desc?'<div class="d">'+esc(it.desc)+'</div>':'')+'</td><td class="r">'+(+it.qty||0)+'</td><td class="r">'+money(it.price)+'</td><td class="r">'+money((+it.qty||0)*(+it.price||0))+'</td></tr>').join('')+
+    totalRows+'</tbody></table>'+
+    (d.notes?'<div class="doc-notes">'+esc(d.notes)+'</div>':'')+
+    (s.terms?'<div class="doc-notes">'+esc(s.terms)+'</div>':'')+
+    '%%SIG%%<div class="doc-foot">'+esc(s.company)+'</div></div>';
+}
+
+/* ---- quote document + signature ---- */
+VIEWS['quote-doc']=function(){
+  const q=Q(state.id);
+  if(!q||q.isTemplate){go('quotes');return'';}
+  let sig='';
+  if(q.status==='accepted'){
+    sig='<div class="sig-wrap"><h4>Accepted</h4><div class="sig-done">'+
+      (q.signature?'<img src="'+q.signature+'" alt="Signature">':'')+
+      '<div class="sig-line">Signed by '+esc(q.signedBy||'')+' \u2014 '+fmtLong(q.signedAt)+'</div></div></div>';
+  }else if(q.status==='declined'){
+    sig='<div class="sig-wrap"><h4>Declined</h4><p class="mut sm">This quote was declined.</p></div>';
+  }else{
+    sig='<div class="sig-wrap no-print"><h4>Accept &amp; sign</h4>'+
+      '<p class="mut sm" style="margin-bottom:10px">Have the customer sign below (mouse or touch), then accept.</p>'+
+      '<canvas class="sig-pad" id="sigpad"></canvas>'+
+      '<div class="actrow" style="margin-top:12px"><input id="signame" placeholder="Customer full name" style="padding:9px 11px;border:1px solid var(--border);border-radius:6px;font-family:var(--sans);font-size:13.5px;min-width:220px">'+
+      '<button class="b2 o" data-act="sigClear">Clear</button>'+
+      '<button class="b2 g" data-act="acceptSign" data-id="'+q.id+'"><i class="fa-solid fa-check"></i> Accept &amp; sign</button>'+
+      '<button class="b2 d" data-act="declineQuote" data-id="'+q.id+'">Decline</button></div></div>';
+    mounts.push(initSigPad);
+  }
+  const acts=['<button class="b2 o" data-act="open" data-type="quote" data-id="'+q.id+'"><i class="fa-solid fa-arrow-left"></i> Back to editor</button>',
+    '<button class="b2 o" data-act="print"><i class="fa-solid fa-print"></i> Print / PDF</button>'];
+  if(q.status==='draft')acts.push('<button class="b2 g" data-act="sendQuote" data-id="'+q.id+'"><i class="fa-solid fa-paper-plane"></i> Mark as sent</button>');
+  if(q.status==='accepted'){
+    acts.push('<button class="b2 g" data-act="toInvoice" data-id="'+q.id+'">'+(q.invoiceId?'Open invoice':'Convert to invoice')+'</button>');
+    acts.push('<button class="b2 o" data-act="toOrder" data-id="'+q.id+'">'+(q.orderId?'Open order':'Convert to order')+'</button>');
+  }
+  return'<div class="doc-actions no-print">'+acts.join('')+'</div>'+docHTML(q,'quote').replace('%%SIG%%',sig);
+};
+let sigDrawn=false;
+function initSigPad(){
+  const cv=$('#sigpad');if(!cv)return;
+  const dpr=window.devicePixelRatio||1;
+  const w=cv.clientWidth||480,h=cv.clientHeight||140;
+  cv.width=w*dpr;cv.height=h*dpr;
+  const ctx=cv.getContext?cv.getContext('2d'):null;
+  if(!ctx)return;
+  ctx.scale(dpr,dpr);ctx.lineWidth=2;ctx.lineCap='round';ctx.strokeStyle='#1f2733';
+  sigDrawn=false;
+  let down=false;
+  const pos=e=>{const r=cv.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top];};
+  cv.addEventListener('pointerdown',e=>{down=true;sigDrawn=true;const[x,y]=pos(e);ctx.beginPath();ctx.moveTo(x,y);cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener('pointermove',e=>{if(!down)return;const[x,y]=pos(e);ctx.lineTo(x,y);ctx.stroke();});
+  const up=()=>{down=false;};
+  cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+}
+
+/* ---- orders ---- */
+function ordersRows(){
+  const rows=db.orders.filter(o=>matches(o.number+' '+cname(o.contactId)))
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''))
+    .map(o=>'<tr class="rowlink" data-act="open" data-type="order" data-id="'+o.id+'"><td class="num">'+esc(o.number)+'</td><td>'+esc(cname(o.contactId))+'</td><td>'+fmtD(o.date)+'</td><td>'+badge(OB,o.status)+'</td><td class="r">'+money(totals(o).total)+'</td><td class="r">'+o.messages.length+'</td></tr>').join('');
+  return rows||'<tr><td colspan="6"><div class="empty"><i class="fa-solid fa-clipboard-list"></i>No orders yet. Accept a quote, then convert it to an order.</div></td></tr>';
+}
+VIEWS.orders=function(){
+  return'<div class="page-head"><h1 class="page-title">Orders</h1></div>'+
+  '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search orders\u2026" value="'+esc(state.q)+'"></span></div>'+
+  '<div class="actrow"><button class="b2 o" data-act="csv" data-kind="orders"><i class="fa-solid fa-download"></i> CSV</button></div></div>'+
+  '<div class="card"><table class="tbl"><thead><tr><th>Number</th><th>Contact</th><th>Date</th><th>Status</th><th class="r">Total</th><th class="r">Messages</th></tr></thead><tbody id="rows">'+ordersRows()+'</tbody></table></div>';
+};
+VIEWS.order=function(){
+  const o=O(state.id);
+  if(!o){go('orders');return'';}
+  const q=o.quoteId?Q(o.quoteId):null;
+  const msgs=o.messages.map(m=>'<div class="msg '+(m.me?'me':'them')+'"><div class="who">'+esc(m.from)+' \u00b7 '+esc(fmtLong(m.at))+'</div>'+esc(m.text)+'</div>').join('')||'<p class="mut sm">No messages yet.</p>';
+  return'<div class="page-head"><h1 class="page-title">'+esc(o.number)+' '+badge(OB,o.status)+'</h1>'+
+  '<div class="actrow"><select class="select" data-chg="orderStatus"><option value="open"'+(o.status==='open'?' selected':'')+'>Open</option><option value="completed"'+(o.status==='completed'?' selected':'')+'>Completed</option><option value="cancelled"'+(o.status==='cancelled'?' selected':'')+'>Cancelled</option></select>'+
+  '<button class="b2 d" data-act="delOrder" data-id="'+o.id+'"><i class="fa-solid fa-trash"></i> Delete</button></div></div>'+
+  '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Order details</h3><div class="fgrid">'+
+    '<div class="fld"><label>Contact</label><div><a data-act="open" data-type="contact" data-id="'+esc(o.contactId||'')+'">'+esc(cname(o.contactId))+'</a></div></div>'+
+    '<div class="fld"><label>Date</label><div>'+fmtD(o.date)+'</div></div>'+
+    '<div class="fld"><label>From quote</label><div>'+(q?'<a data-act="open" data-type="quote-doc" data-id="'+q.id+'">'+esc(q.number)+'</a>':'\u2014')+'</div></div>'+
+    '<div class="fld"><label>Location</label><div>'+esc(o.loc||'\u2014')+'</div></div>'+
+  '</div></div>'+
+  '<table class="tbl"><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead><tbody>'+
+  o.items.map(it=>'<tr><td>'+esc(it.name)+(it.desc?'<div class="mut sm">'+esc(it.desc)+'</div>':'')+'</td><td class="r">'+(+it.qty||0)+'</td><td class="r">'+money(it.price)+'</td><td class="r">'+money((+it.qty||0)*(+it.price||0))+'</td></tr>').join('')+
+  '<tr><td colspan="3" class="r" style="font-weight:700;border-bottom:none">Total</td><td class="r" style="font-weight:700;border-bottom:none">'+money(totals(o).total)+'</td></tr></tbody></table></div>'+
+  '<div class="card"><div class="panel"><h3>Chat with '+esc(cname(o.contactId))+'</h3><div class="chat">'+msgs+'</div>'+
+  '<div class="chat-in"><input id="chatmsg" placeholder="Write a message\u2026"><button class="b2 p" data-act="sendMsg" data-id="'+o.id+'"><i class="fa-solid fa-paper-plane"></i> Send</button></div>'+
+  '<p class="mut sm" style="margin-top:10px">In the hosted product this thread is shared with the customer through their document link; here it\u2019s stored with the order.</p></div></div>';
+};
+
+/* ---- invoices ---- */
+function invoicesRows(){
+  const list=db.invoices.filter(i=>(state.iChip==='all'||iStatus(i)===state.iChip)&&matches(i.number+' '+cname(i.contactId)))
+    .sort((a,b)=>b.createdAt-a.createdAt)
+    .map(i=>{const st=iStatus(i);return'<tr class="rowlink" data-act="open" data-type="invoice" data-id="'+i.id+'"><td class="num">'+esc(i.number)+'</td><td>'+esc(cname(i.contactId))+'</td><td>'+fmtD(i.date)+'</td><td>'+fmtD(i.dueDate)+'</td><td>'+badge(IB,st)+'</td><td class="r">'+money(totals(i).total)+'</td><td class="r">'+money(balance(i))+'</td></tr>';}).join('');
+  return list||'<tr><td colspan="7"><div class="empty"><i class="fa-solid fa-file-invoice"></i>No invoices here yet. Convert an accepted quote, or create one fresh.</div></td></tr>';
+}
+VIEWS.invoices=function(){
+  const chips=[['all','All'],['open','Open'],['partial','Partially paid'],['paid','Paid'],['overdue','Overdue']];
+  return'<div class="page-head"><h1 class="page-title">Invoices</h1></div>'+
+  '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search invoices\u2026" value="'+esc(state.q)+'"></span>'+
+  '<span class="chips">'+chips.map(c=>'<button class="chip'+(state.iChip===c[0]?' on':'')+'" data-act="iChip" data-chip="'+c[0]+'">'+c[1]+'</button>').join('')+'</span></div>'+
+  '<div class="actrow"><button class="b2 o" data-act="csv" data-kind="invoices"><i class="fa-solid fa-download"></i> CSV</button><button class="b2 p" data-act="newInvoice"><i class="fa-solid fa-plus"></i> New Invoice</button></div></div>'+
+  '<div class="card"><table class="tbl"><thead><tr><th>Number</th><th>Contact</th><th>Date</th><th>Due</th><th>Status</th><th class="r">Total</th><th class="r">Balance</th></tr></thead><tbody id="rows">'+invoicesRows()+'</tbody></table></div>';
+};
+VIEWS.invoice=function(){
+  const inv=I(state.id);
+  if(!inv){go('invoices');return'';}
+  const st=iStatus(inv);
+  const pays=db.payments.filter(p=>p.invoiceId===inv.id).sort((a,b)=>a.at-b.at);
+  const q=inv.quoteId?Q(inv.quoteId):null;
+  const payRows=pays.map(p=>'<tr><td class="num">'+esc(p.number)+'</td><td>'+fmtD(p.date)+'</td><td>'+esc(p.method)+'</td><td>'+esc(p.note||'\u2014')+'</td><td class="r">'+money(p.amount)+'</td></tr>').join('');
+  return'<div class="page-head"><h1 class="page-title">'+esc(inv.number)+' '+badge(IB,st)+'</h1><div class="actrow">'+
+  '<button class="b2 p" data-act="saveDoc"><i class="fa-solid fa-floppy-disk"></i> Save</button>'+
+  '<button class="b2 o" data-act="open" data-type="invoice-doc" data-id="'+inv.id+'"><i class="fa-solid fa-eye"></i> Preview / print</button>'+
+  (balance(inv)>0?'<button class="b2 g" data-act="recPay" data-id="'+inv.id+'"><i class="fa-solid fa-dollar-sign"></i> Record payment</button>':'')+
+  '<button class="b2 d" data-act="delInvoice" data-id="'+inv.id+'"><i class="fa-solid fa-trash"></i> Delete</button></div></div>'+
+  '<div class="card">'+
+  '<div class="panel"><h3>Details</h3><div class="fgrid">'+
+  '<div class="fld"><label>Contact</label>'+contactSelect(inv.contactId)+'</div>'+
+  '<div class="fld"><label>Invoice date</label><input type="date" data-li="doc" data-f="date" value="'+esc(inv.date||'')+'"></div>'+
+  '<div class="fld"><label>Due date</label><input type="date" data-li="doc" data-f="dueDate" value="'+esc(inv.dueDate||'')+'"></div>'+
+  '<div class="fld"><label>Location</label>'+locSelect(inv.loc)+'</div>'+
+  '<div class="fld"><label>Discount %</label><input type="number" min="0" max="100" step="0.5" data-li="doc" data-f="discountPct" value="'+(+inv.discountPct||0)+'"></div>'+
+  (q?'<div class="fld"><label>From quote</label><div style="padding-top:9px"><a data-act="open" data-type="quote-doc" data-id="'+q.id+'">'+esc(q.number)+'</a></div></div>':'')+
+  '<div class="fld wide"><label>Notes (shown on document)</label><textarea data-li="doc" data-f="notes">'+esc(inv.notes||'')+'</textarea></div>'+
+  '</div></div>'+itemsPanel(inv,true)+
+  '<div class="panel"><h3>Payments ('+pays.length+')</h3>'+
+  (pays.length?'<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Number</th><th>Date</th><th>Method</th><th>Note</th><th class="r">Amount</th></tr></thead><tbody>'+payRows+'</tbody></table></div>':'<p class="mut sm">No payments yet.</p>')+
+  '</div></div>';
+};
+VIEWS['invoice-doc']=function(){
+  const inv=I(state.id);
+  if(!inv){go('invoices');return'';}
+  const acts=['<button class="b2 o" data-act="open" data-type="invoice" data-id="'+inv.id+'"><i class="fa-solid fa-arrow-left"></i> Back to editor</button>',
+  '<button class="b2 o" data-act="print"><i class="fa-solid fa-print"></i> Print / PDF</button>'];
+  if(balance(inv)>0)acts.push('<button class="b2 g" data-act="recPay" data-id="'+inv.id+'"><i class="fa-solid fa-dollar-sign"></i> Record payment</button>');
+  return'<div class="doc-actions no-print">'+acts.join('')+'</div>'+docHTML(inv,'invoice').replace('%%SIG%%','');
+};
+
+/* ---- payments ---- */
+function paymentsRows(){
+  const rows=db.payments.filter(p=>{const inv=I(p.invoiceId);return matches(p.number+' '+cname(p.contactId)+' '+(inv?inv.number:'')+' '+p.method);})
+    .sort((a,b)=>b.at-a.at)
+    .map(p=>{const inv=I(p.invoiceId);return'<tr><td class="num">'+esc(p.number)+'</td><td>'+fmtD(p.date)+'</td><td>'+esc(cname(p.contactId))+'</td><td>'+(inv?'<a data-act="open" data-type="invoice" data-id="'+inv.id+'">'+esc(inv.number)+'</a>':'\u2014')+'</td><td>'+esc(p.method)+'</td><td>'+esc(p.note||'\u2014')+'</td><td class="r">'+money(p.amount)+'</td></tr>';}).join('');
+  return rows||'<tr><td colspan="7"><div class="empty"><i class="fa-solid fa-dollar-sign"></i>No payments recorded yet. Open an invoice and use \u201cRecord payment\u201d.</div></td></tr>';
+}
+VIEWS.payments=function(){
+  const tot=db.payments.reduce((s,p)=>s+(+p.amount||0),0);
+  return'<div class="page-head"><h1 class="page-title">Payments</h1><div class="head-tools mut">Total received: <strong style="color:var(--text)">'+money(tot)+'</strong></div></div>'+
+  '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search payments\u2026" value="'+esc(state.q)+'"></span></div>'+
+  '<div class="actrow"><button class="b2 o" data-act="csv" data-kind="payments"><i class="fa-solid fa-download"></i> CSV</button></div></div>'+
+  '<div class="card"><table class="tbl"><thead><tr><th>Number</th><th>Date</th><th>Contact</th><th>Invoice</th><th>Method</th><th>Note</th><th class="r">Amount</th></tr></thead><tbody id="rows">'+paymentsRows()+'</tbody></table></div>';
+};
+
+/* ---- settings ---- */
+VIEWS.settings=function(){
+  const s=db.settings;
+  return'<div class="page-head"><h1 class="page-title">Settings</h1></div>'+
+  '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Company &amp; documents</h3><div class="fgrid">'+
+  '<div class="fld"><label>Company name</label><input id="s-company" value="'+esc(s.company)+'"></div>'+
+  '<div class="fld"><label>Email</label><input id="s-email" value="'+esc(s.email)+'"></div>'+
+  '<div class="fld"><label>Phone</label><input id="s-phone" value="'+esc(s.phone)+'"></div>'+
+  '<div class="fld"><label>Your name</label><input id="s-user" value="'+esc(s.user)+'"></div>'+
+  '<div class="fld wide"><label>Address</label><textarea id="s-address">'+esc(s.address)+'</textarea></div>'+
+  '<div class="fld"><label>Currency symbol</label><input id="s-currency" value="'+esc(s.currency)+'"></div>'+
+  '<div class="fld"><label>Tax name</label><input id="s-taxName" value="'+esc(s.taxName)+'"></div>'+
+  '<div class="fld"><label>Tax rate %</label><input id="s-taxRate" type="number" min="0" step="0.01" value="'+(+s.taxRate||0)+'"></div>'+
+  '<div class="fld"><label>Locations (comma-separated)</label><input id="s-locations" value="'+esc(s.locations.join(', '))+'"></div>'+
+  '<div class="fld wide"><label>Default terms (printed on documents)</label><textarea id="s-terms">'+esc(s.terms)+'</textarea></div>'+
+  '</div><div class="actrow" style="margin-top:16px"><button class="b2 p" data-act="saveSettings"><i class="fa-solid fa-floppy-disk"></i> Save settings</button></div></div></div>'+
+  '<div class="card"><div class="panel"><h3>Data</h3>'+
+  '<p class="mut sm" style="margin-bottom:14px">'+(hasStore?'Autosave is on \u2014 your data persists in Claude\u2019s storage for this artifact.':'Persistent storage isn\u2019t available in this environment, so data lives in memory for this session only. Export to keep it, and import it back next time.')+'</p>'+
+  '<div class="actrow">'+
+  '<button class="b2 o" data-act="exportJSON"><i class="fa-solid fa-download"></i> Export JSON</button>'+
+  '<label class="b2 o" style="cursor:pointer"><i class="fa-solid fa-upload"></i> Import JSON<input type="file" accept=".json,application/json" data-chg="importFile" style="display:none"></label>'+
+  '<button class="b2 d" data-act="resetData"><i class="fa-solid fa-rotate-left"></i> Reset to sample data</button>'+
+  '</div></div></div>';
+};
+
+/* ================= modals ================= */
+function openModal(title,body,foot){
+  $('#modal-root').innerHTML='<div class="overlay" data-act="overlayClose"><div class="modal" role="dialog" aria-label="'+esc(title)+'">'+
+  '<div class="modal-h"><h3>'+esc(title)+'</h3><button class="modal-x" data-act="closeModal" aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>'+
+  '<div class="modal-b">'+body+'</div>'+
+  (foot?'<div class="modal-f">'+foot+'</div>':'')+'</div></div>';
+}
+function closeModal(){$('#modal-root').innerHTML='';}
+let askCb=null;
+function ask(msg,onYes,okLabel){
+  askCb=onYes;
+  openModal('Please confirm','<p style="font-size:14px">'+esc(msg)+'</p>',
+  '<button class="b2 o" data-act="closeModal">Cancel</button><button class="b2 d" data-act="askYes">'+esc(okLabel||'Confirm')+'</button>');
+}
+function askText(title,defVal,onOk){
+  askCb=()=>{const v=$('#ask-input').value.trim();if(v)onOk(v);};
+  openModal(title,'<div class="fld"><label>Name</label><input id="ask-input" value="'+esc(defVal)+'"></div>',
+  '<button class="b2 o" data-act="closeModal">Cancel</button><button class="b2 p" data-act="askYes">Save</button>');
+}
+function contactModal(c){
+  openModal(c?'Edit contact':'New contact',
+  '<div class="fgrid">'+
+  '<div class="fld"><label>Name *</label><input id="m-name" value="'+esc(c?c.name:'')+'"></div>'+
+  '<div class="fld"><label>Company</label><input id="m-company" value="'+esc(c?c.company:'')+'"></div>'+
+  '<div class="fld"><label>Email</label><input id="m-email" type="email" value="'+esc(c?c.email:'')+'"></div>'+
+  '<div class="fld"><label>Phone</label><input id="m-phone" value="'+esc(c?c.phone:'')+'"></div>'+
+  '<div class="fld wide"><label>Address</label><textarea id="m-address">'+esc(c?c.address:'')+'</textarea></div>'+
+  '<div class="fld wide"><label>Notes</label><textarea id="m-notes">'+esc(c?c.notes:'')+'</textarea></div></div>',
+  '<button class="b2 o" data-act="closeModal">Cancel</button><button class="b2 p" data-act="saveContact" data-id="'+(c?c.id:'')+'">Save contact</button>');
+}
+function productModal(p){
+  const cats=Array.from(new Set(db.products.map(x=>x.category).filter(Boolean)));
+  openModal(p?'Edit product':'New product',
+  '<div class="fgrid">'+
+  '<div class="fld wide"><label>Name *</label><input id="m-pname" value="'+esc(p?p.name:'')+'"></div>'+
+  '<div class="fld"><label>SKU</label><input id="m-sku" value="'+esc(p?p.sku:'')+'"></div>'+
+  '<div class="fld"><label>Category</label><input id="m-cat" list="catlist" value="'+esc(p?p.category:'')+'"><datalist id="catlist">'+cats.map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist></div>'+
+  '<div class="fld"><label>Price</label><input id="m-price" type="number" min="0" step="0.01" value="'+(p?+p.price||0:0)+'"></div>'+
+  '<div class="fld"><label>'+esc(db.settings.taxName)+'</label><label class="sm" style="padding-top:9px;text-transform:none;letter-spacing:0;color:var(--text);font-weight:400"><input type="checkbox" id="m-tax"'+((p?p.taxable:true)?' checked':'')+'> Taxable</label></div>'+
+  '<div class="fld wide"><label>Description</label><textarea id="m-pdesc">'+esc(p?p.desc:'')+'</textarea></div></div>',
+  (p?'<button class="b2 d" data-act="delProduct" data-id="'+p.id+'" style="margin-right:auto">Delete</button>':'')+
+  '<button class="b2 o" data-act="closeModal">Cancel</button><button class="b2 p" data-act="saveProduct" data-id="'+(p?p.id:'')+'">Save product</button>');
+}
+function quickBody(){
+  return'<div class="qgrid">'+
+  '<button class="qbtn" data-act="newQuote"><i class="fa-solid fa-comment-dollar"></i>New Quote</button>'+
+  '<button class="qbtn" data-act="newInvoice"><i class="fa-solid fa-file-invoice"></i>New Invoice</button>'+
+  '<button class="qbtn" data-act="newContact"><i class="fa-solid fa-users"></i>New Contact</button>'+
+  '<button class="qbtn" data-act="newProduct"><i class="fa-solid fa-tag"></i>New Product</button></div>';
+}
+
+/* ================= creators ================= */
+const defLoc=()=>state.loc!=='all'?state.loc:(db.settings.locations[0]||'');
+const clone=x=>JSON.parse(JSON.stringify(x));
+function makeQuote(contactId){
+  const n='QUO-'+pad4(db.counters.quote++);
+  const q={id:uid(),number:n,contactId:contactId||'',date:todayISO(),expiry:plusDays(todayISO(),30),loc:defLoc(),status:'draft',
+    items:[{name:'',desc:'',qty:1,price:0,taxable:true}],discountPct:0,notes:'',
+    signedBy:null,signedAt:null,signature:null,createdAt:Date.now(),orderId:null,invoiceId:null,isTemplate:false};
+  db.quotes.push(q);
+  logAct('plus',db.settings.user,[{t:db.settings.user+' created quote '},{l:n,v:'quote',id:q.id}],null);
+  commit();return q;
+}
+function makeInvoice(contactId,src){
+  const n='INV-'+pad4(db.counters.invoice++);
+  const inv={id:uid(),number:n,contactId:contactId||'',quoteId:src?src.id:null,date:todayISO(),dueDate:plusDays(todayISO(),30),
+    loc:src?src.loc:defLoc(),items:src?clone(src.items):[{name:'',desc:'',qty:1,price:0,taxable:true}],
+    discountPct:src?(src.discountPct||0):0,notes:src?(src.notes||''):'',createdAt:Date.now()};
+  db.invoices.push(inv);
+  const parts=[{t:db.settings.user+' created invoice '},{l:n,v:'invoice',id:inv.id}].concat(src?[{t:' from '},{l:src.number,v:'quote-doc',id:src.id}]:[]);
+  logAct('file-invoice',db.settings.user,parts,null);
+  commit();return inv;
+}
+function makeOrder(q){
+  const n='ORD-'+pad4(db.counters.order++);
+  const o={id:uid(),number:n,contactId:q.contactId,quoteId:q.id,date:todayISO(),loc:q.loc,status:'open',
+    items:clone(q.items),discountPct:q.discountPct||0,notes:'',messages:[]};
+  db.orders.push(o);
+  logAct('clipboard-list',db.settings.user,[{t:db.settings.user+' created order '},{l:n,v:'order',id:o.id},{t:' from '},{l:q.number,v:'quote-doc',id:q.id}],null);
+  commit();return o;
+}
+
+/* ================= downloads ================= */
+function dl(name,text,type){
+  const b=new Blob([text],{type});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download=name;
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+}
+function csvOut(name,rows){
+  dl(name,rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n'),'text/csv');
+}
+
+/* ================= action handlers ================= */
+const ACT={
+  go:d=>go(d.view,d.id),
+  open:d=>go(d.type,d.id),
+  goChip:d=>{if(d.view==='quotes')state.qChip=d.chip;if(d.view==='invoices')state.iChip=d.chip;go(d.view);},
+  qChip:d=>{state.qChip=d.chip;render();},
+  iChip:d=>{state.iChip=d.chip;render();},
+  quickNew:()=>openModal('Create new',quickBody(),''),
+  closeModal:()=>closeModal(),
+  overlayClose:(d,el,e)=>{if(e.target===el)closeModal();},
+  help:()=>toast('Internal recreation \u2014 live support chat isn\u2019t wired up.'),
+  logout:()=>toast('Single-user recreation \u2014 nothing to log out of.'),
+  print:()=>window.print(),
+  saveDoc:()=>{commit();toast('Saved');},
+  /* contacts */
+  newContact:()=>contactModal(null),
+  editContact:d=>{const c=C(d.id);if(c)contactModal(c);},
+  saveContact:d=>{
+    const name=$('#m-name').value.trim();
+    if(!name){toast('Name is required.');return;}
+    const vals={name,company:$('#m-company').value.trim(),email:$('#m-email').value.trim(),phone:$('#m-phone').value.trim(),address:$('#m-address').value,notes:$('#m-notes').value};
+    if(d.id&&C(d.id)){Object.assign(C(d.id),vals);closeModal();commit();render();toast('Contact updated');}
+    else{const c=Object.assign({id:uid(),createdAt:Date.now()},vals);db.contacts.push(c);closeModal();commit();go('contact',c.id);toast('Contact created');}
+  },
+  delContact:d=>{
+    const c=C(d.id);if(!c)return;
+    ask('Delete '+c.name+'? Their quotes, orders and invoices stay but will show no contact.',()=>{
+      db.contacts=db.contacts.filter(x=>x.id!==d.id);
+      commit();go('contacts');toast('Contact deleted');
+    },'Delete');
+  },
+  /* products */
+  newProduct:()=>productModal(null),
+  editProduct:d=>{const p=P(d.id);if(p)productModal(p);},
+  saveProduct:d=>{
+    const name=$('#m-pname').value.trim();
+    if(!name){toast('Name is required.');return;}
+    const vals={name,sku:$('#m-sku').value.trim(),category:$('#m-cat').value.trim(),price:r2(+$('#m-price').value),taxable:$('#m-tax').checked,desc:$('#m-pdesc').value};
+    if(d.id&&P(d.id)){Object.assign(P(d.id),vals);}
+    else{db.products.push(Object.assign({id:uid()},vals));}
+    closeModal();commit();render();toast('Product saved');
+  },
+  delProduct:d=>{
+    const p=P(d.id);if(!p)return;
+    ask('Delete '+p.name+'?',()=>{
+      db.products=db.products.filter(x=>x.id!==d.id);
+      commit();render();toast('Product deleted');
+    },'Delete');
+  },
+  /* quotes */
+  newQuote:()=>{closeModal();const q=makeQuote('');go('quote',q.id);toast(q.number+' created');},
+  newQuoteFor:d=>{const q=makeQuote(d.id);go('quote',q.id);toast(q.number+' created');},
+  sendQuote:d=>{
+    const q=Q(d.id);if(!q||q.isTemplate)return;
+    q.status='open';
+    const hasC=q.contactId&&C(q.contactId);
+    const parts=[{t:db.settings.user+' marked '},{l:q.number,v:'quote-doc',id:q.id},{t:' as sent'}].concat(hasC?[{t:' to '},{l:cname(q.contactId),v:'contact',id:q.contactId}]:[]);
+    logAct('paper-plane',db.settings.user,parts,null);
+    commit();render();toast(q.number+' marked as sent');
+  },
+  saveTemplate:d=>{
+    const q=Q(d.id);if(!q)return;
+    askText('Save as template',(q.number||'Quote')+' template',name=>{
+      db.quotes.push({id:uid(),number:null,contactId:null,date:null,expiry:null,loc:q.loc,status:'draft',
+        items:clone(q.items),discountPct:q.discountPct||0,notes:q.notes||'',
+        signedBy:null,signedAt:null,signature:null,createdAt:Date.now(),orderId:null,invoiceId:null,isTemplate:true,templateName:name});
+      commit();toast('Template \u201c'+name+'\u201d saved \u2014 it\u2019s on your dashboard now');
+    });
+  },
+  useTemplate:d=>{
+    const t=Q(d.id);if(!t)return;
+    closeModal();
+    const q=makeQuote(t.contactId||'');
+    q.items=clone(t.items);q.discountPct=t.discountPct||0;q.notes=t.notes||'';if(t.loc)q.loc=t.loc;
+    commit();go('quote',q.id);toast(q.number+' created from template');
+  },
+  acceptSign:d=>{
+    const q=Q(d.id);if(!q)return;
+    const nameEl=$('#signame');
+    const name=nameEl?nameEl.value.trim():'';
+    if(!name){toast('Enter the customer\u2019s full name to sign.');return;}
+    let sig=null;
+    const cv=$('#sigpad');
+    if(cv&&sigDrawn){try{sig=cv.toDataURL('image/png');}catch(e){}}
+    q.status='accepted';q.signedBy=name;q.signedAt=Date.now();q.signature=sig;
+    const cn=cname(q.contactId);
+    const who=(q.contactId&&C(q.contactId))?{l:cn,v:'contact',id:q.contactId}:{t:name};
+    logAct('thumbs-up',cn!=='\u2014'?cn:name,[who,{t:' approved '},{l:q.number,v:'quote-doc',id:q.id},{t:' from '+db.settings.user}],null);
+    logAct('pen',cn!=='\u2014'?cn:name,[{t:'Your quote '},{l:q.number,v:'quote-doc',id:q.id},{t:' was signed by '+name}],[{t:'Open your document from '},{l:q.number,v:'quote-doc',id:q.id}]);
+    commit();render();toast(q.number+' accepted \u2014 you can convert it to an invoice or order');
+  },
+  declineQuote:d=>{
+    const q=Q(d.id);if(!q)return;
+    ask('Mark '+q.number+' as declined?',()=>{
+      q.status='declined';
+      const cn=cname(q.contactId);
+      const who=(q.contactId&&C(q.contactId))?{l:cn,v:'contact',id:q.contactId}:{t:'Customer'};
+      logAct('thumbs-down',cn!=='\u2014'?cn:db.settings.user,[who,{t:' declined '},{l:q.number,v:'quote-doc',id:q.id}],null);
+      commit();render();toast(q.number+' declined');
+    },'Decline');
+  },
+  toInvoice:d=>{
+    const q=Q(d.id);if(!q)return;
+    if(q.invoiceId&&I(q.invoiceId)){go('invoice',q.invoiceId);return;}
+    const inv=makeInvoice(q.contactId,q);
+    q.invoiceId=inv.id;commit();
+    go('invoice',inv.id);toast(inv.number+' created from '+q.number);
+  },
+  toOrder:d=>{
+    const q=Q(d.id);if(!q)return;
+    if(q.orderId&&O(q.orderId)){go('order',q.orderId);return;}
+    const o=makeOrder(q);
+    q.orderId=o.id;commit();
+    go('order',o.id);toast(o.number+' created from '+q.number);
+  },
+  delQuote:d=>{
+    const q=Q(d.id);if(!q)return;
+    const label=q.isTemplate?(q.templateName||'this template'):q.number;
+    ask('Delete '+label+'? This can\u2019t be undone.',()=>{
+      db.quotes=db.quotes.filter(x=>x.id!==d.id);
+      if(q.isTemplate)state.qChip='templates';
+      commit();go('quotes');toast('Deleted');
+    },'Delete');
+  },
+  /* line items */
+  addLine:()=>{const dd=curDoc();if(!dd)return;dd.items.push({name:'',desc:'',qty:1,price:0,taxable:true});redrawItems();commit();},
+  rmLine:d=>{const dd=curDoc();if(!dd)return;dd.items.splice(+d.i,1);if(!dd.items.length)dd.items.push({name:'',desc:'',qty:1,price:0,taxable:true});redrawItems();commit();},
+  sigClear:()=>{const cv=$('#sigpad');if(!cv||!cv.getContext)return;const ctx=cv.getContext('2d');if(ctx)ctx.clearRect(0,0,cv.width,cv.height);sigDrawn=false;},
+  /* orders */
+  sendMsg:d=>{
+    const o=O(d.id||state.id);if(!o)return;
+    const inp=$('#chatmsg');if(!inp)return;
+    const txt=inp.value.trim();if(!txt)return;
+    o.messages.push({from:db.settings.user,me:true,text:txt,at:Date.now()});
+    const hasC=o.contactId&&C(o.contactId);
+    const parts=[{t:db.settings.user+' sent a chat message'}].concat(hasC?[{t:' to '},{l:cname(o.contactId),v:'contact',id:o.contactId}]:[]).concat([{t:' in '},{l:o.number,v:'order',id:o.id}]);
+    logAct('comment',db.settings.user,parts,txt);
+    commit();render();
+  },
+  delOrder:d=>{
+    const o=O(d.id);if(!o)return;
+    ask('Delete '+o.number+'?',()=>{
+      db.orders=db.orders.filter(x=>x.id!==d.id);
+      const q=db.quotes.find(x=>x.orderId===d.id);if(q)q.orderId=null;
+      commit();go('orders');toast('Order deleted');
+    },'Delete');
+  },
+  /* invoices & payments */
+  newInvoice:()=>{closeModal();const inv=makeInvoice('',null);go('invoice',inv.id);toast(inv.number+' created');},
+  delInvoice:d=>{
+    const inv=I(d.id);if(!inv)return;
+    const pays=db.payments.filter(p=>p.invoiceId===inv.id).length;
+    ask('Delete '+inv.number+(pays?' and its '+pays+' payment record(s)':'')+'?',()=>{
+      db.payments=db.payments.filter(p=>p.invoiceId!==inv.id);
+      db.invoices=db.invoices.filter(x=>x.id!==d.id);
+      const q=db.quotes.find(x=>x.invoiceId===d.id);if(q)q.invoiceId=null;
+      commit();go('invoices');toast('Invoice deleted');
+    },'Delete');
+  },
+  recPay:d=>{
+    const inv=I(d.id);if(!inv)return;
+    openModal('Record payment \u2014 '+inv.number,
+    '<div class="fgrid">'+
+    '<div class="fld"><label>Amount</label><input id="pay-amt" type="number" min="0" step="0.01" value="'+balance(inv)+'"></div>'+
+    '<div class="fld"><label>Date</label><input id="pay-date" type="date" value="'+todayISO()+'"></div>'+
+    '<div class="fld"><label>Method</label><select id="pay-method"><option>Cash</option><option>Card</option><option>E-transfer</option><option>Wire</option><option>Cheque</option><option>Other</option></select></div>'+
+    '<div class="fld wide"><label>Reference / note</label><input id="pay-note" placeholder="Optional"></div></div>',
+    '<button class="b2 o" data-act="closeModal">Cancel</button><button class="b2 g" data-act="savePay" data-id="'+inv.id+'"><i class="fa-solid fa-check"></i> Record payment</button>');
+  },
+  savePay:d=>{
+    const inv=I(d.id);if(!inv)return;
+    const amt=r2(+$('#pay-amt').value);
+    if(!(amt>0)){toast('Enter a payment amount.');return;}
+    const p={id:uid(),number:'PAY-'+pad4(db.counters.payment++),invoiceId:inv.id,contactId:inv.contactId,amount:amt,method:$('#pay-method').value,date:$('#pay-date').value||todayISO(),note:$('#pay-note').value.trim(),at:Date.now()};
+    db.payments.push(p);
+    const cn=cname(inv.contactId);
+    const who=(inv.contactId&&C(inv.contactId))?{l:cn,v:'contact',id:inv.contactId}:{t:'A customer'};
+    logAct('dollar-sign',cn!=='\u2014'?cn:db.settings.user,[who,{t:' made a payment of '+money(amt)+' on '},{l:inv.number,v:'invoice',id:inv.id}],p.note||null);
+    closeModal();commit();render();
+    toast(p.number+' recorded \u2014 balance '+money(balance(inv)));
+  },
+  /* settings & data */
+  saveSettings:()=>{
+    const s=db.settings;
+    s.company=$('#s-company').value.trim();
+    s.email=$('#s-email').value.trim();
+    s.phone=$('#s-phone').value.trim();
+    s.address=$('#s-address').value;
+    s.user=$('#s-user').value.trim()||'User';
+    s.currency=$('#s-currency').value.trim()||'CA$';
+    s.taxName=$('#s-taxName').value.trim()||'Tax';
+    s.taxRate=+$('#s-taxRate').value||0;
+    s.locations=$('#s-locations').value.split(',').map(x=>x.trim()).filter(Boolean);
+    if(!s.locations.length)s.locations=['Main'];
+    if(state.loc!=='all'&&!s.locations.includes(state.loc))state.loc='all';
+    s.terms=$('#s-terms').value;
+    commit();render();toast('Settings saved');
+  },
+  exportJSON:()=>{dl('quotemachine-data-'+todayISO()+'.json',JSON.stringify(db,null,2),'application/json');toast('Export downloaded');},
+  resetData:()=>{
+    ask('Replace everything with the original sample data?',()=>{
+      db=seed();state.qChip='all';state.iChip='all';state.loc='all';state.feedUser='all';
+      commit();go('dashboard');toast('Sample data restored');
+    },'Reset');
+  },
+  csv:d=>{
+    const k=d.kind;let rows=[];
+    if(k==='contacts')rows=[['Name','Company','Email','Phone','Address','Notes']].concat(db.contacts.map(c=>[c.name,c.company,c.email,c.phone,c.address,c.notes]));
+    if(k==='products')rows=[['Name','SKU','Category','Price','Taxable','Description']].concat(db.products.map(p=>[p.name,p.sku,p.category,p.price,p.taxable?'Yes':'No',p.desc]));
+    if(k==='quotes')rows=[['Number','Contact','Date','Expiry','Status','Subtotal','Discount','Tax','Total']].concat(realQuotes().map(q=>{const t=totals(q);return[q.number,cname(q.contactId),q.date,q.expiry,q.status,t.sub,t.disc,t.tax,t.total];}));
+    if(k==='orders')rows=[['Number','Contact','Date','Status','Total','Messages']].concat(db.orders.map(o=>[o.number,cname(o.contactId),o.date,o.status,totals(o).total,o.messages.length]));
+    if(k==='invoices')rows=[['Number','Contact','Date','Due','Status','Total','Paid','Balance']].concat(db.invoices.map(i=>[i.number,cname(i.contactId),i.date,i.dueDate,iStatus(i),totals(i).total,paidAmt(i),balance(i)]));
+    if(k==='payments')rows=[['Number','Date','Contact','Invoice','Method','Amount','Note']].concat(db.payments.map(p=>{const inv=I(p.invoiceId);return[p.number,p.date,cname(p.contactId),inv?inv.number:'',p.method,p.amount,p.note];}));
+    if(!rows.length)return;
+    csvOut(k+'-'+todayISO()+'.csv',rows);toast('CSV downloaded');
+  }
+};
+
+ACT.askYes=()=>{const f=askCb;askCb=null;if(f)f();closeModal();};
+
+/* ================= change handlers ================= */
+const CHG={
+  loc:el=>{state.loc=el.value;render();},
+  feedUser:el=>{state.feedUser=el.value;render();},
+  addProd:el=>{
+    const p=P(el.value);el.value='';
+    if(!p)return;
+    const dd=curDoc();if(!dd)return;
+    dd.items.push({name:p.name,desc:p.desc||'',qty:1,price:+p.price||0,taxable:!!p.taxable});
+    redrawItems();commit();
+  },
+  orderStatus:el=>{
+    const o=O(state.id);if(!o)return;
+    o.status=el.value;
+    if(el.value==='completed')logAct('check',db.settings.user,[{t:db.settings.user+' marked '},{l:o.number,v:'order',id:o.id},{t:' as completed'}],null);
+    commit();render();toast('Order updated');
+  },
+  importFile:el=>{
+    const f=el.files&&el.files[0];if(!f)return;
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const parsed=JSON.parse(r.result);
+        if(!parsed||parsed.v!==1||!Array.isArray(parsed.quotes))throw new Error('bad');
+        db=parsed;commit();
+        state.view='dashboard';state.id=null;state.qChip='all';state.iChip='all';state.loc='all';state.feedUser='all';
+        render();toast('Data imported');
+      }catch(err){toast('That file doesn\u2019t look like a QuoteMachine export.');}
+    };
+    r.readAsText(f);
+  }
+};
+
+/* ================= live binding ================= */
+function liHandle(el){
+  const dd=curDoc();if(!dd)return;
+  const f=el.dataset.f;
+  if(el.dataset.li==='doc'){
+    dd[f]=(f==='discountPct')?(+el.value||0):el.value;
+  }else{
+    const it=dd.items[+el.dataset.li];if(!it)return;
+    if(f==='qty'||f==='price')it[f]=+el.value||0;
+    else if(el.type==='checkbox')it[f]=el.checked;
+    else it[f]=el.value;
+  }
+  updTotals(dd);commit();
+}
+
+/* ================= event delegation ================= */
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');
+  if(!el)return;
+  const a=el.dataset.act;
+  if(ACT[a]){e.preventDefault();ACT[a](el.dataset,el,e);}
+});
+document.addEventListener('input',e=>{
+  const li=e.target.closest('[data-li]');
+  if(li){liHandle(li);return;}
+  const s=e.target.closest('[data-srch]');
+  if(s){state.q=s.value;refreshRows();}
+});
+document.addEventListener('change',e=>{
+  const li=e.target.closest('[data-li]');
+  if(li){liHandle(li);return;}
+  const c=e.target.closest('[data-chg]');
+  if(c&&CHG[c.dataset.chg])CHG[c.dataset.chg](c);
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&e.target&&e.target.id==='chatmsg'){e.preventDefault();ACT.sendMsg({id:state.id});}
+  if(e.key==='Enter'&&e.target&&e.target.id==='ask-input'){e.preventDefault();ACT.askYes();}
+  if(e.key==='Escape')closeModal();
+});
+function refreshRows(){
+  const el=$('#rows');if(!el)return;
+  const map={contacts:contactsRows,products:productsRows,quotes:quotesRows,orders:ordersRows,invoices:invoicesRows,payments:paymentsRows};
+  const fn=map[state.view];
+  if(fn)el.innerHTML=fn();
+}
+
+/* ================= init ================= */
+(async function init(){
+  const sp=$('#splash');
+  if(sp){const li=document.querySelector('.logo img');if(li)sp.querySelector('img').src=li.src;}
+  try{
+    const loaded=await loadDB();
+    db=(loaded&&loaded.v===1)?loaded:seed();
+    if(!loaded&&hasStore)commit();
+  }catch(e){db=seed();}
+  render();
+  if(sp){setTimeout(()=>{sp.classList.add('hide');setTimeout(()=>sp.remove(),550);},420);}
+})();
+</script>
+<script>(function(){var s=document.createElement("script");s.src="./qm_module.js";s.onerror=function(){var f=document.createElement("script");f.src="https://hjcgqxszwqmzirtlaxze.supabase.co/functions/v1/qm-module";document.body.appendChild(f);};document.body.appendChild(s);})();</script>
+</body>
+</html>
