@@ -372,7 +372,7 @@ function payModal(o, kind){
     '<div class="fld"><label>Processed by</label><div style="padding-top:9px">'+esc(curUser().name)+' ('+curUser().role+')</div></div>'+
     '<div class="fld"><label>Date</label><input id="pay-date" type="date" value="'+todayISO()+'"></div>'+
     '<div class="fld wide"><label>Reference / note</label><input id="pay-note" placeholder="Terminal ref, cheque #, reason…"></div>'+
-    (isRefund?'':'<div class="fld wide"><label><input type="checkbox" id="pay-complete"'+(o.status==='ready'?' checked':'')+'> Complete service &amp; close sale if this pays the balance in full</label></div>')+
+    (isRefund?'':'<div class="fld wide"><label style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="event.stopPropagation()"><input type="checkbox" id="pay-complete" style="width:auto;flex:none"'+(o.status==='ready'?' checked':'')+'> Complete service &amp; close sale if this pays the balance in full</label></div>')+
     '<div class="fld wide mut sm">'+(isRefund?'Refunds post to Lightspeed as a negative layaway payment on the same sale (audit trail retained).':'Deposits post to the Lightspeed layaway for this order. Revenue is recognised only when the balance reaches $0 and the service is completed.')+'</div>'+
     '</div>',
     '<button class="b2 o" data-act="closeModal">Cancel</button><button class="b2 '+(isRefund?'d':'g')+'" id="pay-submit" data-act="'+(isRefund?'doRefund':'doDeposit')+'" data-id="'+o.id+'"><i class="fa-solid fa-check"></i> '+(isRefund?'Record refund':'Record payment')+'</button>');
