@@ -9,8 +9,10 @@ const PAGE = (title: string, body: string) => `<!doctype html><html><head><meta 
 
 function redirectUri(req: Request) {
   const u = new URL(req.url);
-  // Supabase functions are reachable at /functions/v1/<name>; keep exact registered redirect
-  return `${u.origin}/functions/v1/lightspeed-oauth/callback`;
+  // Supabase functions are reachable at /functions/v1/<name>; keep exact registered redirect.
+  // Behind the platform proxy req.url reports http:// — force https so the redirect_uri
+  // matches the https URI registered in the Lightspeed developer portal (exact-match check).
+  return `https://${u.host}/functions/v1/lightspeed-oauth/callback`;
 }
 
 Deno.serve(async (req) => {
