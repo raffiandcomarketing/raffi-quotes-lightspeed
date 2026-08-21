@@ -234,3 +234,28 @@ the sale (Layaway is only offered while a balance remains) — premature revenue
   the prepayment added zero revenue) + liability 35,338.00 (up exactly $9,040), delta 0, 0 violations.
 - Register-path equivalent verified earlier the same day on SO-0022: full tender auto-completes at
   the register, and the app reopens it as an open layby automatically.
+
+## 2026-08-21 (night) — Al's challenge: "Lightspeed cannot show a completed sale when paid in full" — gap closed
+- Confirmed the hole Al spotted: the register FORCE-completes a sale the moment the full amount is
+  tendered (Layaway is not offered at $0 balance — platform limitation, cannot be overridden), and
+  detection previously ran only when someone opened the order in the app — so a full-tender sale
+  could sit in Lightspeed as a completed sale (counted in LS reports) until then.
+- Fixes (build sha a3fd3c8b…): (1) **register watcher** — every order awaiting a register payment
+  is refreshed in the background every ~25s from ANY screen; a premature close is reopened within
+  seconds, no need to open the order; (2) premature-close detection no longer gated on a new
+  payment import (runs on every refresh of a closed, unreceived special); (3) guidance updated in
+  the walkthrough banner + deposit modal: **full prepayment should go through Record payment
+  (outside register)** — the sale then NEVER shows completed at any moment (proven on SO-0024
+  receipt #42, "Layaway" at $0 balance throughout).
+- E2E proof of the watcher: SO-0027 / receipt #45 (TUDOR Black Bay 58, $2,260) sent to register →
+  register full tender + completion simulated via API (state closed, $2,260 paid) → app left on
+  the DASHBOARD, order never opened → within one watcher cycle the payment was imported and the
+  sale was PUT back to pending·layby. LS truth after: state pending, $2,260 paid, note clean.
+- Live capture during the same window: Al's own register test on SO-0021 / receipt #39 — four real
+  register tenders ($3,000 cash, $1,500 CC, $2,000 CC, $4,800 CC = full $11,300) all imported;
+  sale sits fully paid at **pending·layby** ("Layaway" in Sales history), $11,300 held as unearned.
+- Residual (honest statement of the limitation): via the REGISTER path the completed state exists
+  for up to ~30 seconds before the watcher reverts it (register receipt/journal events are native
+  and immutable); the app path has no such window. Reconciliation identity after everything:
+  cash 93,197.35 = recognised 44,299.35 + liability 48,898.00, delta 0, 0 violations. Orphan test
+  orders SO-0025/26 (reload race duplicates) voided in LS and removed.
