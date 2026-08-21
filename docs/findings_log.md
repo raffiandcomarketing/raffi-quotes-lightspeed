@@ -155,3 +155,21 @@ Change requests implemented and deployed (module sha 4a20a7ec…, GitHub commits
   first paint is correct — the icon-only flash is gone; Special Orders item static in the nav with a
   safe placeholder view pre-module; special orders now post a placeholder line and switch it to
   BRAND MODEL Ref. + S/N at pickup (serial required to close).
+
+## 2026-08-21 (evening) — Register-first deposits (Al's change request) — built & verified E2E
+- New flow: the deposit modal's primary action is now **Create layaway — take at register**. The app
+  creates/updates the Lightspeed layaway (the "SO") with NO app-recorded payment; the rep collects
+  the actual money at the LS register (Continue sale → edit amount for a partial → tender → Layaway).
+  The app then imports register payments automatically (diff by LS payment id) into its ledger —
+  method + LS tender config preserved, "Processed by: Lightspeed register", sync POSTED — and holds
+  them as unearned revenue exactly like app-recorded deposits. Auto-import runs whenever an open
+  order is viewed (20s debounce) and on Sync with Lightspeed. "Record payment (outside register)"
+  remains for e-transfer/wire/phone money.
+- E2E proof (SO-0019, receipt #37): app created unpaid layaway → register took a REAL $2,500 cash
+  partial (Pay → edit amount → Cash → Layaway) → sale stayed `pending·layby` with $11,060 to pay →
+  reopening the order in the app imported PAY-0028 ($2,500 Cash, Lightspeed register) with toast.
+  Reconciliation identity holds: cash 51,647.35 = recognised 27,349.35 + liability 24,298.00, 0 violations.
+- Edge handled: if the register takes the FINAL payment, Lightspeed closes the layaway natively; on
+  import the app marks the order completed (revenue recognised) — for special orders missing a
+  serial it warns that the receipt closed on the placeholder line. Recommended process: partials at
+  the register; final payment + Complete & close through the app (or enter the serial first).
