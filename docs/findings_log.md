@@ -221,3 +221,16 @@ the sale (Layaway is only offered while a balance remains) — premature revenue
   briefly re-opened by the sweep and immediately re-voided + cache fixed — reconfirmed the rule:
   filter bulk syncs by LS truth, not the app cache.
 - Reconciliation identity: cash 70,597.35 = recognised 44,299.35 + liability 26,298.00, delta 0.
+
+## 2026-08-21 (later) — Full-prepayment lifecycle demo (Al's request): pay 100% up front, stay on layaway until pickup
+- SO-0024 / receipt #42 (Nicole Carmount, OMEGA Speedmaster Professional Ref. 310.30.42.50.01.001,
+  $8,000 + HST = $9,040): created → **full $9,040 Credit Card prepayment recorded at creation**
+  (complete-checkbox left off) → Lightspeed sale stays **`pending · layby`, Balance $0.00, status
+  "Layaway"** — not closed, not revenue → received into inventory (Raffi ID RAF-10024; line swapped
+  from Special Order Product to the actual OMEGA, sku RAF-10024) → **still an open layaway at $0
+  balance**, app status "Arrived — awaiting pickup". Order intentionally left open as the living
+  example; pickup (serial + Complete & close) is what recognises the $9,040.
+- Reconciliation identity after the prepayment: cash 79,637.35 = recognised 44,299.35 (unchanged —
+  the prepayment added zero revenue) + liability 35,338.00 (up exactly $9,040), delta 0, 0 violations.
+- Register-path equivalent verified earlier the same day on SO-0022: full tender auto-completes at
+  the register, and the app reopens it as an open layby automatically.
