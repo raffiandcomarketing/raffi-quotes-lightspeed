@@ -173,3 +173,51 @@ Change requests implemented and deployed (module sha 4a20a7ec…, GitHub commits
   import the app marks the order completed (revenue recognised) — for special orders missing a
   serial it warns that the receipt closed on the placeholder line. Recommended process: partials at
   the register; final payment + Complete & close through the app (or enter the serial first).
+
+## 2026-08-21 (late) — "Special Order Product" line, Raffi ID receive-swap, full-prepayment guard, de-branding, nav order
+Build QA-2026-08-21-LS2 · module sha 1707b8c3… (Pages + Supabase chunks byte-identical) · proxy v5.
+
+**Al's requests.** Remove every "QuoteMachine" mention; a special order must post its Lightspeed
+line as **Special Order Product** with **Brand + Model + Reference in the note**, still unearned
+revenue; when **inventory receives** the piece the line must switch to the **actual product under
+the Raffi ID generated in Salesforce**; Quotes/Orders/Invoices move below Special Orders in the
+menu. Mid-build Al hit a real register trap on SO-0022: tendering the FULL amount auto-completes
+the sale (Layaway is only offered while a balance remains) — premature revenue.
+
+**Built.**
+1. **De-branding** — sale notes now `SO-00xx — Special order: BRAND MODEL Ref. X` / `ORD-00xx —
+   <service title>` (no "| QuoteMachine"); the generic service product could NOT be renamed
+   (2026-07 products PUT rejects name/variant_name/active: "Unknown field in payload" — platform
+   limitation), so the app swapped to a clean **Service / labour** product (sku RAFFI-SERVICE),
+   re-pointed all open sales on re-sync, and deleted the old QuoteMachine-named product (proxy v5
+   allows DELETE strictly for /api/2.0/products/{id}; soft delete, receipts unaffected). Import-error
+   toast in index.html reworded. Historical closed/voided sales (SO-0012/15, ORD-0004/5/6/9) keep
+   their frozen notes — editing closed sales would falsify history.
+2. **Special Order Product** — shared LS product (sku SPECIAL-ORDER) used by every special-order
+   line while awaiting arrival; legacy specials migrated (flag at boot + lazy flag in buildSale
+   after the first migration raced the async db load — fixed).
+3. **Receive into inventory** — "Awaiting arrival" banner + Raffi ID field on special orders;
+   "Product arrived — enter Raffi ID" find-or-creates the real LS product (**sku = Raffi ID**,
+   name = Brand Model Ref) and re-syncs the OPEN layaway — same line id, product swapped, deposits
+   still unearned; status → Arrived. Choosing "Arrived" in the status dropdown routes through the
+   same modal. Close (pickup) now requires Raffi ID + serial; the closing sale note carries
+   `— S/N <serial>`.
+4. **Full-prepayment guard** — on sync, a CLOSED sale for an unreceived special triggers automatic
+   reopen (PUT state pending; fallback void+rebuild with payments carried). Register walkthrough
+   banner explains the full-amount case. SO-0022 ($11,300 CC full tender, register-completed) was
+   rescued exactly this way: PUT pending succeeded, payment imported and held as unearned.
+5. **Nav** — Special Orders sits above Quotes/Orders/Invoices (static + module fallback).
+
+**E2E verified (TEST store).**
+- SO-0022: closed→reopened `pending·layby`, note "SO-0022 — Special order: ROLEX GMT7 Ref.
+  TEST7654321", line = Special Order Product → received RAF-10022 (line → product "ROLEX GMT7
+  Ref. TEST7654321", sku RAF-10022, still pending) → closed with S/N Z8K334891; $11,300 recognised
+  only at pickup.
+- SO-0023 (fresh, receipt #41): created clean → $1,500 cash deposit held `pending·layby` under
+  Special Order Product → received RAF-10023 → close blocked without serial (negative test passed)
+  → final $4,150 + serial closed it; LS receipt shows "CARTIER Santos de Cartier Ref. WSSA0018",
+  note "SO-0023 — Special order: … — S/N WS445102". No "quotemachine" anywhere on any open sale.
+- Bulk re-sync of 10 open sales to clean products/notes; ORD-0018 (LS-voided, app cache stale) was
+  briefly re-opened by the sweep and immediately re-voided + cache fixed — reconfirmed the rule:
+  filter bulk syncs by LS truth, not the app cache.
+- Reconciliation identity: cash 70,597.35 = recognised 44,299.35 + liability 26,298.00, delta 0.
