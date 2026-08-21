@@ -303,7 +303,7 @@ const LS = {
     // service job that doesn't exist (this app is the service system), which dead-locks "Continue sale"
     // at the counter. Layby alone enforces the accounting rule and continues cleanly in Lightspeed.
     const ci2=o.customerItem||{}; const soDesc=([ci2.brand,ci2.model].filter(Boolean).join(' ')+(ci2.reference?' Ref. '+ci2.reference:'')).trim();
-    const saleNote=(o.number+' — '+(o.kind==='special' ? ('Special order: '+(soDesc||'awaiting details')) : (o.serviceTitle||'service order'))).slice(0,255);
+    const saleNote=(o.number+' — '+(o.kind==='special' ? ('Special order: '+(soDesc||'awaiting details')+(ci2.serial?' — S/N '+ci2.serial:'')) : (o.serviceTitle||'service order'))).slice(0,255);
     return {id:o.ls.saleId, state, attributes:['layby'], source:{author_id:authorId, register_id:loc.lsRegisterId}, customer_id:customerId, note:saleNote, line_items:lines, payments};
   },
   async postSale(o, state, opts={}){
