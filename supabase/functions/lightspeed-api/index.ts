@@ -2,14 +2,18 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { admin, ALLOWED_PREFIX, CORS, getConnection, json, lsFetch } from "./common.ts";
 
-const ALLOWED_METHODS = new Set(["GET", "POST", "PUT"]);
+const ALLOWED_METHODS = new Set(["GET", "POST", "PUT", "DELETE"]);
+// DELETE is deliberately narrow: only single products may be deleted (soft delete in Lightspeed).
+const DELETE_RE = /^\/api\/2\.0\/products\/[A-Za-z0-9-]+$/;
 const ALLOWED_PATHS = [
   "/api/2.0/retailer", "/api/2.0/outlets", "/api/2.0/registers", "/api/2.0/users", "/api/2.0/taxes", "/api/2.0/payment_types",
   "/api/2.0/customers", "/api/2.0/products", "/api/2.0/search", "/api/2.0/sales", "/api/2.0/brands", "/api/2.0/inventory",
   "/api/2.0/webhooks", "/api/2.0/customer_groups", "/api/2.0/product_types",
   "/api/2026-07/retailer", "/api/2026-07/sales", "/api/2026-07/products", "/api/2026-07/customers", "/api/2026-07/services",
   "/api/2026-07/service_items", "/api/2026-07/payment_types", "/api/2026-07/serial_numbers",
+  "/api/2.0/store_credits", // read-only (diagnostics: layby sales require the customer's store-credit record to exist)
 ];
+const READ_ONLY_PATHS = ["/api/2.0/store_credits"];
 const DENY_RE = /(\.\.|%2e%2e|\/api\/1\.0\/token)/i;
 
 function pathAllowed(p: string) {
@@ -28,6 +32,10 @@ Deno.serve(async (req) => {
   const opId = body.op_id ? String(body.op_id).slice(0, 120) : null;
   if (!ALLOWED_METHODS.has(method)) return json({ error: "method not allowed", method }, 405);
   if (!pathAllowed(path)) return json({ error: "path not allowed by proxy allow-list", path }, 403);
+  if (method === "DELETE" && !DELETE_RE.test(path)) return json({ error: "DELETE is limited to /api/2.0/products/{id}", path }, 403);
+  if (method !== "GET" && READ_ONLY_PATHS.some((a) => path === a || path.startsWith(a + "/") || path.startsWith(a + "?"))) {
+    return json({ error: "read-only path via proxy", path }, 403);
+  }
 
   const sb = admin();
   // idempotent replay for mutating calls
