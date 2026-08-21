@@ -39,22 +39,95 @@ T-LAYBY-INV: jewellery on layby (qty 2->1 at Cambridge immediately on layby crea
 Native Service Orders module: enabled in store. POST /api/2026-07/services {customer_id, outlet_id, register_id} => job + backing sale (state pending, attributes ["service"], status SERVICE). Adding `item` (customer-owned item) via API => HTTP 500 (both 2.0 and 2026-07) — API defect; no create endpoint for service_items. Service sale with $2,000 line + $500 payment stays SERVICE/pending, NOT in revenue (Sales report unchanged), closure lists it under "New" bucket.
 Sales history labels: "Layaway", "Layaway, completed", "On-account", "Parked", "Completed", "Voided", "Service, pending".
 
-## 2026-08-19 — module hosting + UI hosting limitation
+## 2026-08-19 (cont.) — GitHub project + hosting
+- Repo raffiandcomarketing/raffi-quotes-lightspeed populated via GitHub web upload (13 upload commits + README init; container git creds are bound to other repos). Tree: README, .gitignore, app/{index.html,qm_module.js,original/}, supabase/functions/{_shared,lightspeed-oauth,lightspeed-api,lightspeed-webhook,qm-state,qm-app,qm-module,qm}, sql/schema.sql, scripts/build_module_chunks.py, docs/{findings_log.md,DEPLOYMENT.md}.
+- Al approved: repo public + GitHub Pages; visibility flip pending GitHub sudo-mode email verification (only Al can complete).
+- LS_CLIENT_SECRET: walkthrough sent to Al (LS dev portal → Supabase Edge Function secrets).
 
-- `qm-module` redeployed as a DB-backed server: module JS now lives in `public.qm_module_chunks`
-  (6 line-aligned chunks, per-chunk md5/sha verified on insert). `/qm-module/version` reports
-  total sha256 `347aece84f764727bf137a97cc208494645f92bac9a93af3d470d253a9d1c8c8` = local
-  `app/qm_module.js` — byte-exact. Content-type `application/javascript` survives the platform edge.
-  (Root cause of earlier 500s: first deploy attempt corrupted in transcription (base64 embed);
-  second attempt used SubtleCrypto MD5, which Deno doesn't support → `NotSupportedError`. Fixed
-  by moving the module to DB chunks + sha256-only hashing.)
-- **FINDING (hosting-platform limitation, NOT app / NOT Lightspeed):** the shared `*.supabase.co`
-  domain rewrites `text/html` responses to `text/plain` (anti-phishing), so `qm-app` (and a `qm`
-  re-serving probe) render as source text in the browser. Verified via edge logs
-  (`response.headers.content_type: text/plain` despite the function setting `text/html`) and
-  matching community reports (supabase discussions #35627, #39110 — custom domains unaffected).
-  Decision: host the UI page on GitHub Pages from the project repo; keep module + JSON APIs on
-  Supabase (unaffected). `qm-app/version` remains the page-bytes integrity check.
-- GitHub project created by Al: `raffiandcomarketing/raffi-quotes-lightspeed` (private). Container
-  git/API access is repo-bound and this repo isn't bound → pushed via GitHub web upload from the
-  browser instead.
+## 2026-08-20 — Pages live, app boots, OAuth bug fix
+- Repo made public by Al; GitHub Pages enabled (main / root). App UI live at
+  https://raffiandcomarketing.github.io/raffi-quotes-lightspeed/app/ — boots clean (no console errors),
+  module active (liability/balance/revenue/LS cards, user switcher), migration applied, shared server
+  state now persisting (qm-state doc v1).
+- LS_CLIENT_SECRET set by Al; /lightspeed-oauth/status → secret_configured true.
+- **BUG FOUND & FIXED (app bug, backend): OAuth redirect_uri generated as http:// because the edge
+  function sees itself as http behind the Supabase proxy. Lightspeed registered redirect is https —
+  exact-match would fail the authorize/token exchange. Fix: force https in redirectUri(). Deployed
+  lightspeed-oauth v3; repo copies synced.** Found in Phase 3 (install/authorize) testing.
+- OAuth flow reaches secure.retail.lightspeed.app sign-in (Al's store-subdomain session doesn't carry
+  over); waiting for Al to sign in, then restarting Connect with a fresh state.
+
+## 2026-08-20 — INSTALL COMPLETE + GOLDEN PATH PASS (Phases 1–5, 8, 14 core)
+- OAuth install completed on test store (had to relaunch consent via the STORE-domain /connect route —
+  secure.retail.lightspeed.app sign-in wall + first state expired at 15 min, replay guard worked as designed).
+  ls_connections: developerdemoxeqwzt "Developer Demo xeqwzt", connected, full scopes, token exp Aug 23.
+- Auto syncRef on first connected boot: 3 outlets / 3 registers / 1 user / 6 taxes / 6 payment types;
+  all 3 locations mapped w/ correct taxes (HST 13, HST 13, GST+QST 14.975); 8/8 payment methods mapped;
+  Al ↔ LS user linked; QM-SERVICE product + No Tax id resolved.
+- T-DEP-1 PASS: $20 deposit on ORD-0003 → LS sale created state=pending attrs=["layby"] receipt #16,
+  payment posted w/ client UUID (idempotent), customer auto-created (QM-c4), native history shows
+  "Layaway" NOT a completed sale. Salesperson attribution: Sold by Al Sukara @ Cambridge.
+- T-DEP-2 PASS: 2nd deposit $10 → same sale #16, payments [20,10], still open layaway.
+- T-OVR-1 PASS: $100 > balance $15.90 → blocked client-side, no payment, no API call.
+- T-FIN-1 PASS (via Complete & close button): final $15.90 → balance $0; Complete & close → LS sale
+  state=closed (attrs layby), payments [20,10,15.90], app status completed, completedBy stamped,
+  INV-0001 auto-created, native history now "Layaway, completed". Liability $0, recognised $45.90.
+- MINOR UI BUG (severity LOW): "Complete service & close if pays in full" checkbox in pay modal did not
+  register the check on first try (automation click) — close had to run via the Complete & close button
+  (which worked). Retest checkbox path on T2; consider larger hit area.
+- Evidence: /tmp/claude-chrome-screenshots-SKd2Gl/screenshot-*.jpg (0=layby open history, 1=PAY-0002,
+  2=balance 0 still open, 3=app completed, 4=history "Layaway, completed").
+
+## 2026-08-20 — Test battery results (Phases 5–21)
+- T2 PASS refund-on-open-layaway: -$20 negative payment on same sale; LS [50,-20] pending/layby; held 30.
+- T3 PASS cancel-with-fee: refund -20 then close at $10 fee line; LS closed, payments net = fee = 10; app cancelled, fee recognised.
+- T4 PASS cancel-full-refund: LS closed at $0, payments [25,-25] net 0, nothing recognised.
+- T5 PASS cancel-net-zero → sale VOIDED (deposit 15, refund 15, cancel).
+- T6 PASS roles: associate CAN take deposits; refund/cancel/settings/users DENIED with audit rows; PIN user switch works.
+- T7 PASS idempotency: (a) re-send same payment ids → LS payment count unchanged; (b) same op_id POST → replayed:true, no duplicate customer; (c) concurrent double-submit → single payment (withLock).
+  * BUG FOUND+FIXED (backend, LOW): proxy forwarded JSON null body on GET → Deno fetch error; only reachable with explicit null (app never sends), fixed by normalizing null→undefined + never forwarding body on GET (lightspeed-api v3). All 6 historical failed requests in ls_request_log are this probe.
+  * Note: LS search indexing is eventually consistent (fresh customer not in search seconds after create) — platform behaviour.
+- T9 PASS taxes: ON/Cambridge $100 @13% → tax 13 total 113 (LS line tax.amount 13); QC/Montréal $200 @14.975% → tax 29.95 total 229.95 (LS matches). Paid-in-full-not-picked-up stays open layaway (still liability) — correct.
+- T8 PASS standalone invoice: Record payment routes to auto-created service order (ORD-0010) + deposit modal (no direct invoice payments).
+- T10 PASS restrictions: out-of-stock hard block; brand rule (Rolex→Cambridge only) blocks at Waterloo; per-location allowedBrands blocks; serialized double-allocation across open orders blocked. Real stock probe: QA-PART-001 5@Cambridge.
+- T10g PASS inventory: adding QA-PART-001 to layaway deducted stock 5→4 at sale creation (native layby commit).
+- T11 PASS delete guards (order w/ sale, linked invoice, contact w/ history all blocked). T13 PASS status transitions (terminal states locked; completed via select requires $0 + confirm; balance-due block works).
+- T12 PASS reconciliation: per-order and total identity HOLDS — cash 273.90 = recognised 55.90 + liability 218.00 across 9 orders, 0 violations. DB mirror ls_sales: 8 sales linked to orders; states 3 closed/4 open/1 voided = matches app+LS. 79 API calls, 0 unexpected failures. App cold-booted from server state v49 in a fresh tab (persistence verified).
+- Webhooks: registration required `active:true` (422 without — documented API requirement, not a bug); registered sale.update active (201). Delivery is async — nudged sale #21; delivery check pending.
+
+## 2026-08-21 — Change requests (Al) + Special Orders test cycle (T-SO)
+Change requests implemented and deployed (module sha 4a20a7ec…, GitHub commits 64c84cd/18df3d6):
+1. Sidebar open by default with visible titles (labels from data-tip; collapses to icon rail <900px).
+2. Sales now post with attributes ["layby","service"] to match the requested Lightspeed state
+   `pending | layby,service` (previously ["layby"] only).
+3. NEW "Special Orders" section (gem icon, own list + statuses Ordered/With supplier/Arrived/Picked up),
+   `SO-` numbering, capture of brand/model/reference/price/ETA, auto deposit modal on create.
+   Rule enforced: deposits (multiple) and even FULL prepayment stay an open layaway
+   (`pending · layby,service`); the sale closes (revenue recognised) only at pickup (Complete & close).
+
+- T-SO-1 **BUG FOUND (HIGH) → FIXED → RETESTED**: first special-order deposit taken as "Credit Card"
+  posted to Lightspeed as payment type **"Store Credit"** → LS 400 "Can not create sale … ensuring store
+  credit customer: store credit customer is not found" (customer had no store-credit account; sale not
+  created; app correctly kept the payment local with SYNC FAILED + Retry).
+  Root cause: payment-method auto-mapping used `/credit/i`, which matches "Store Credit" before
+  "Credit Card" in the store's payment-type list. Same defect mapped "Gift Card" → Store Credit.
+  Latent until today because every prior test paid Cash (mapping gap now covered).
+  Fix (qm_module.js syncRef): Store Credit is excluded from auto-mapping entirely (exact-name match first,
+  then safe regexes; Gift Card falls back to Cash), plus self-healing — poisoned/stale mappings are
+  re-derived on next reference sync. Verified: before {Credit Card→Store Credit, Gift Card→Store Credit}
+  → after {Credit Card→Credit Card, Debit→Debit, Gift Card→Cash, Wire→E-transfer (no Wire type in store)}.
+  Retest: Retry on PAY-0017 → posted; classification: App bug (2 = app; LS's 400 was correct behaviour).
+- T-SO-2 PASS multiple deposits on one special order: $3,000 Credit Card + $5,000 Debit Card on sale
+  receipt #26, state pending, attrs ["layby","service"].
+- T-SO-3 PASS **full prepayment ≠ sale**: final $7,763.50 (Wire→E-transfer) → balance $0, checkbox off →
+  LS sale STILL `pending · layby,service` (to_pay 0), app order stays OPEN; native Sales History shows
+  status "Layaway" (not Completed). This is Al's special-order watch scenario verified end-to-end.
+- T-SO-4 PASS pickup: Complete & close → LS sale closed (Layaway – completed #26), app status
+  Picked up, INV-0004 auto-created, completedBy stamped.
+- Reconciliation after cycle: identity HOLDS — cash 16,217.35 = recognised 16,049.35 + liability 168.00,
+  0 violations (deposit-as-sale rule intact store-wide).
+- Cleanup: 3 diagnostic $1.13 probe sales (receipts 23–25) voided; proxy v4 adds read-only
+  /api/2.0/store_credits to the allow-list (diagnostics; GET-only, writes 403).
+- Platform notes: LS OAuth token lacks a store-credits scope in this app's grant, so store-credit balances
+  are not readable via the proxy (403 upstream). Sales-history UI screenshot: back-office tab renderer
+  froze under CDP capture (page text extracted instead) — cosmetic, evidence captured via API + app UI.
