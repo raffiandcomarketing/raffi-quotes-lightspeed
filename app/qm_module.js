@@ -1094,3 +1094,47 @@ setInterval(function(){
     LS.refreshSale(o).catch(function(){});
   }catch(e){}
 }, 25000);
+
+/* ---------- inline "new contact" on document editors ----------
+   The quote and invoice editors' contact dropdown previously only listed existing contacts.
+   A "+ Add new contact…" option now opens a small form; the contact is saved to Contacts and
+   selected on the document. (Its Lightspeed customer is created automatically when the first
+   deposit is taken, exactly like contacts created anywhere else.) */
+const _contactSelect=contactSelect;
+contactSelect=function(sel){
+  return _contactSelect(sel).replace('<option value="">— Select contact —</option>',
+    '<option value="">— Select contact —</option><option value="__new__" style="font-weight:700">+ Add new contact…</option>');
+};
+const _liHandle=liHandle;
+liHandle=function(el){
+  if(el&&el.dataset&&el.dataset.li==='doc'&&el.dataset.f==='contactId'&&el.value==='__new__'){
+    const dd=(typeof curDoc==='function')?curDoc():null;
+    el.value=(dd&&dd.contactId)||'';
+    ACT.newContactInline({});
+    return;
+  }
+  _liHandle(el);
+};
+ACT.newContactInline=()=>{
+  openModal('New contact',
+    '<div class="fgrid">'+
+    '<div class="fld"><label>Name</label><input id="nc-name" placeholder="e.g. Jane Doe"></div>'+
+    '<div class="fld"><label>Company</label><input id="nc-company" placeholder="optional"></div>'+
+    '<div class="fld"><label>Email</label><input id="nc-email" type="email" placeholder="optional"></div>'+
+    '<div class="fld"><label>Phone</label><input id="nc-phone" placeholder="optional"></div>'+
+    '<div class="fld wide mut sm">Saved to Contacts and selected on this document. The Lightspeed customer is created automatically when the first deposit is taken.</div>'+
+    '</div>',
+    '<button class="b2 o" data-act="closeModal">Cancel</button><button class="b2 p" data-act="createContactInline"><i class="fa-solid fa-user-plus"></i> Create &amp; select</button>');
+  setTimeout(()=>{ const el=$('#nc-name'); if(el) el.focus(); },0);
+};
+ACT.createContactInline=()=>{
+  const name=(($('#nc-name')||{}).value||'').trim();
+  if(!name){ toast('Enter the contact name'); return; }
+  const c={id:uid(),name:name,company:(($('#nc-company')||{}).value||'').trim(),email:(($('#nc-email')||{}).value||'').trim(),phone:(($('#nc-phone')||{}).value||'').trim(),tags:'',notes:'',createdAt:Date.now(),lsCustomerId:null};
+  db.contacts.push(c);
+  const dd=(typeof curDoc==='function')?curDoc():null;
+  if(dd) dd.contactId=c.id;
+  audit('contact.created','contact',c.id,{via:'inline (document editor)'});
+  logAct('user-plus',curUser().name,[{t:curUser().name+' added contact '},{l:c.name,v:'contact',id:c.id}],null);
+  closeModal(); commit(); render(); toast('Contact “'+c.name+'” created and selected');
+};
