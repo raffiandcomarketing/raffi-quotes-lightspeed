@@ -775,3 +775,20 @@ const _render3=render; render=function(){ _render3(); mountSpecialNav(); expandS
   try{ const loaded=await loadDB(); if(loaded&&loaded.v===1) db=loaded; }catch(e){ console.warn('loadDB failed',e); }
   try{ await lsBoot(); }catch(e){ console.error('lsBoot failed', e); toast('Integration boot error: '+e.message); }
 })();
+
+/* ---------- big brand logo above the menu (official Raffi footer wordmark, white) ---------- */
+function mountBigLogo(){
+  if(!document.getElementById('qm-biglogo-css')){
+    const st=document.createElement('style'); st.id='qm-biglogo-css';
+    st.textContent='.sidebar .logo{width:158px;margin:16px auto 20px}'+
+      '.sidebar .logo img{width:100%;height:auto;display:block}'+
+      '@media(max-width:900px){.sidebar .logo{width:46px;margin:10px 0 16px}}';
+    document.head.appendChild(st);
+  }
+  const el=document.querySelector('.sidebar .logo'); if(!el) return;
+  const img=el.querySelector('img'); if(!img) return;
+  const src='raffi-logo-white.svg'; // hosted in the app folder on GitHub Pages
+  if(img.getAttribute('src')!==src){ img.src=src; img.alt='Raffi Jewellers'; }
+}
+const _render5=render; render=function(){ _render5(); mountBigLogo(); };
+try{ mountBigLogo(); }catch(e){}
