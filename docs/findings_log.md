@@ -131,3 +131,27 @@ Change requests implemented and deployed (module sha 4a20a7ec…, GitHub commits
 - Platform notes: LS OAuth token lacks a store-credits scope in this app's grant, so store-credit balances
   are not readable via the proxy (403 upstream). Sales-history UI screenshot: back-office tab renderer
   froze under CDP capture (page text extracted instead) — cosmetic, evidence captured via API + app UI.
+
+## 2026-08-21 (later) — Register "Continue sale" dead-lock: found, fixed, verified
+- Al reported: continuing a partially-paid layaway at the LS register raised "If you continue this
+  sale, the service on the sale will be completed" and the confirm button did nothing.
+- Reproduced (receipt 31): clicking "Complete service and continue" fires NO application request
+  (console/network clean) — the register wants to complete a service JOB, but the sale only carries
+  the `service` attribute; its Services tab is empty. /api/2026-07/services can't attach a job to an
+  existing sale (POST {sale_id} → 500; LS creates its own sale+job pairs), and sale attributes are
+  immutable on PUT (returned unchanged). Control test: layby-only receipt 20 continues straight to
+  the pay screen.
+- Classification: **App bug (2 = ours)** — we set `service` for display parity with the requested
+  `pending | layby,service` state without an LS service job behind it. LS behaved consistently.
+- Fix: buildSale posts attributes `["layby"]` only (accounting rule fully enforced by layby state;
+  service semantics live in-app). Four stuck open sales (receipts 27/28/30/31) were voided with a
+  "superseded" note and rebuilt as fresh layby-only sales (33/34/35/36) with all payments carried.
+  Verified: receipt 36 (SO-0017) continues straight to Pay $4,300 at the register. ORD-0018's sale,
+  briefly re-opened by the bulk re-sync, restored to voided.
+- Reconciliation after rebuilds (incl. Al's own live testing, 16 orders/27 payments):
+  cash 49,147.35 = recognised 27,349.35 + liability 21,798.00 — identity holds, 0 violations.
+- Same deploy: official white Raffi wordmark above the menu at 112px (static, from the site's own
+  footer SVG); expanded sidebar + labels now ship in index.html CSS (::after from data-tip) so the
+  first paint is correct — the icon-only flash is gone; Special Orders item static in the nav with a
+  safe placeholder view pre-module; special orders now post a placeholder line and switch it to
+  BRAND MODEL Ref. + S/N at pickup (serial required to close).
