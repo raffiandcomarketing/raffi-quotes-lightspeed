@@ -306,18 +306,43 @@
   @media print{#splash{display:none!important;}}
   @media(max-width:640px){.doc{padding:32px 20px;}.page-title{font-size:26px;}}
 </style>
+<style id="qm-sidebar-expand-static">
+  /* Expanded sidebar with visible titles from FIRST paint (no flash-of-icon-rail).
+     Labels are rendered from data-tip via ::after so no JS is needed. */
+  .sidebar{width:212px;align-items:stretch;padding:8px 12px 14px;}
+  .logo{width:112px;margin:14px auto 14px;}
+  .nav{align-items:stretch;gap:3px;}
+  .sidebar .nav-item{width:100%;justify-content:flex-start;gap:12px;padding:0 12px;font-size:16px;}
+  .sidebar .nav-item[data-tip]::after{content:attr(data-tip);position:static;transform:none;background:transparent;color:inherit;font-size:13.5px;font-family:var(--sans);font-weight:600;letter-spacing:.25px;padding:0;border-radius:0;white-space:nowrap;box-shadow:none;pointer-events:none;}
+  .sidebar .nav-item.active::before{left:-12px;}
+  .nav-divider{width:100%;}
+  .nav-add{margin-top:8px;align-self:center;}
+  .shell{margin-left:212px;}
+  @media(max-width:900px){
+    .sidebar{width:65px;align-items:center;padding:8px 0 12px;}
+    .logo{width:46px;margin:10px 0 16px;}
+    .nav{align-items:center;gap:2px;}
+    .sidebar .nav-item{width:44px;justify-content:center;padding:0;gap:0;}
+    .sidebar .nav-item[data-tip]::after{display:none;}
+    .sidebar .nav-item[data-tip]:hover::after{display:block;content:attr(data-tip);position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#11151f;color:#fff;font-size:12px;padding:5px 9px;border-radius:5px;white-space:nowrap;z-index:80;box-shadow:0 4px 12px rgba(0,0,0,.25);}
+    .sidebar .nav-item.active::before{left:-8px;}
+    .nav-divider{width:30px;}
+    .shell{margin-left:65px;}
+  }
+</style>
 </head>
 <body>
 
   <div id="splash" aria-hidden="true"><img alt=""><div class="sline"></div><div class="ssub">Quotes &amp; Invoicing</div></div>
 
   <aside class="sidebar">
-    <div class="logo" data-act="go" data-view="dashboard" title="Dashboard"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSczNDAnIGhlaWdodD0nMTEwJyB2aWV3Qm94PScwIDAgMzQwIDExMCc+PHRleHQgeD0nMTcwJyB5PSc2MicgZm9udC1mYW1pbHk9J0dlb3JnaWEsc2VyaWYnIGZvbnQtc2l6ZT0nNDYnIHRleHQtYW5jaG9yPSdtaWRkbGUnIGZpbGw9JyNmZmZmZmYnIGxldHRlci1zcGFjaW5nPSc2Jz5SQUZGSTwvdGV4dD48dGV4dCB4PScxNzAnIHk9JzkyJyBmb250LWZhbWlseT0nQXJpYWwsc2Fucy1zZXJpZicgZm9udC1zaXplPScxNicgdGV4dC1hbmNob3I9J21pZGRsZScgZmlsbD0nI2IwOGQzZicgbGV0dGVyLXNwYWNpbmc9JzUnPkpFV0VMTEVSUzwvdGV4dD48L3N2Zz4=" alt="Raffi Jewellers"></div>
+    <div class="logo" data-act="go" data-view="dashboard" title="Dashboard"><img src="raffi-logo-white.svg" alt="Raffi Jewellers"></div>
     <nav class="nav">
       <div class="nav-item" data-act="go" data-view="dashboard" data-tip="Dashboard" role="button" tabindex="0"><i class="fa-solid fa-chart-line"></i></div>
       <div class="nav-item" data-act="go" data-view="contacts" data-tip="Contacts" role="button" tabindex="0"><i class="fa-solid fa-users"></i></div>
       <div class="nav-item" data-act="go" data-view="quotes" data-tip="Quotes" role="button" tabindex="0"><i class="fa-solid fa-comment-dollar"></i></div>
       <div class="nav-item" data-act="go" data-view="orders" data-tip="Orders" role="button" tabindex="0"><i class="fa-solid fa-clipboard-list"></i></div>
+      <div class="nav-item" data-act="go" data-view="specialorders" data-tip="Special Orders" role="button" tabindex="0"><i class="fa-solid fa-gem"></i></div>
       <div class="nav-item" data-act="go" data-view="invoices" data-tip="Invoices" role="button" tabindex="0"><i class="fa-solid fa-file-invoice"></i></div>
       <div class="nav-item" data-act="go" data-view="payments" data-tip="Payments" role="button" tabindex="0"><i class="fa-solid fa-dollar-sign"></i></div>
       <div class="nav-divider"></div>
@@ -1389,6 +1414,8 @@ function refreshRows(){
   if(sp){setTimeout(()=>{sp.classList.add('hide');setTimeout(()=>sp.remove(),550);},420);}
 })();
 </script>
+<script>/* placeholder view so the static Special Orders menu item is safe to click before the module loads */
+try{ if(typeof VIEWS!=='undefined' && !VIEWS.specialorders){ VIEWS.specialorders=function(){ return '<div class="page-head"><h1 class="page-title">Special orders</h1></div><p class="mut sm" style="padding:10px 0">Loading…</p>'; }; } }catch(e){}</script>
 <script>(function(){var s=document.createElement("script");s.src="./qm_module.js";s.onerror=function(){var f=document.createElement("script");f.src="https://hjcgqxszwqmzirtlaxze.supabase.co/functions/v1/qm-module";document.body.appendChild(f);};document.body.appendChild(s);})();</script>
 </body>
 </html>

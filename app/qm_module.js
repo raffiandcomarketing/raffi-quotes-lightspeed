@@ -743,7 +743,7 @@ ACT.createSpecialOrder=()=>{
   if(!contactId){ const nm=$('#so-cname').value.trim(); if(!nm){ toast('Pick a customer or enter a new name'); return; } const c={id:uid(),name:nm,company:'',email:$('#so-cemail').value.trim(),phone:'',tags:'special-order',notes:'',createdAt:Date.now(),lsCustomerId:null}; db.contacts.push(c); contactId=c.id; }
   if(!brand&&!model){ toast('Enter at least a brand or model'); return; }
   if(!(price>0)){ toast('Enter the price'); return; }
-  const label=('Special order — '+[brand,model].filter(Boolean).join(' ')+(ref?' ('+ref+')':'')).trim();
+  const label=('Special order (placeholder) — '+[brand,model].filter(Boolean).join(' ')+(ref?' Ref. '+ref:'')+' — awaiting arrival').trim();
   const o={id:uid(),number:'SO-'+pad4(db.counters.order++),kind:'special',contactId,quoteId:null,date:todayISO(),loc,status:'open',items:[{name:label,desc:notes,qty:1,price,taxable:true}],discountPct:0,notes,messages:[],createdBy:curUser().id,createdAt:Date.now(),assignedTo:null,ownership:'store',customerItem:{brand,model,reference:ref,serial:'',description:'Special order for client',condition:'',accessories:'',warranty:'',notes,photos:[]},ls:{saleId:null,receipt:null,state:null,attrs:[],lastSyncAt:null,error:null,created:false},completedAt:null,completedBy:null,specialEta:eta||null,serviceTitle:label};
   db.orders.push(o); audit('special.created','order',o.id,{brand,model,ref,price,eta});
   logAct('gem',curUser().name,[{t:curUser().name+' created special order '},{l:o.number,v:'order',id:o.id}],label);
@@ -776,11 +776,14 @@ const _render3=render; render=function(){ _render3(); mountSpecialNav(); expandS
   try{ await lsBoot(); }catch(e){ console.error('lsBoot failed', e); toast('Integration boot error: '+e.message); }
 })();
 
-/* ---------- big brand logo above the menu (official Raffi footer wordmark, white) ---------- */
+/* ---------- big brand logo above the menu (official Raffi footer wordmark, white) ----------
+   When index.html ships the static expanded-sidebar stylesheet (#qm-sidebar-expand-static),
+   the logo + labels are correct from first paint and this JS fallback stays out of the way. */
 function mountBigLogo(){
+  if(document.getElementById('qm-sidebar-expand-static')) return; // static CSS already handles it
   if(!document.getElementById('qm-biglogo-css')){
     const st=document.createElement('style'); st.id='qm-biglogo-css';
-    st.textContent='.sidebar .logo{width:158px;margin:16px auto 20px}'+
+    st.textContent='.sidebar .logo{width:112px;margin:14px auto 14px}'+
       '.sidebar .logo img{width:100%;height:auto;display:block}'+
       '@media(max-width:900px){.sidebar .logo{width:46px;margin:10px 0 16px}}';
     document.head.appendChild(st);
@@ -790,5 +793,27 @@ function mountBigLogo(){
   const src='raffi-logo-white.svg'; // hosted in the app folder on GitHub Pages
   if(img.getAttribute('src')!==src){ img.src=src; img.alt='Raffi Jewellers'; }
 }
+const _expandSidebar=expandSidebar;
+expandSidebar=function(){ if(document.getElementById('qm-sidebar-expand-static')) return; _expandSidebar(); };
 const _render5=render; render=function(){ _render5(); mountBigLogo(); };
 try{ mountBigLogo(); }catch(e){}
+
+/* ---------- special orders: placeholder line in Lightspeed until fulfilment ----------
+   On creation the layaway carries a placeholder line ("… — awaiting arrival").
+   When the order is fulfilled (Complete & close at pickup), the line switches to
+   BRAND + MODEL + Ref. REFERENCE + S/N SERIAL before the closing sync, so the final
+   Lightspeed receipt shows the real piece. Serial is required to close a special order. */
+function specialFulfilLine(o){
+  const ci=o.customerItem||{}; const it=o.items&&o.items[0]; if(!it) return;
+  const name=([ci.brand,ci.model].filter(Boolean).join(' ')+(ci.reference?' Ref. '+ci.reference:'')+(ci.serial?' — S/N '+ci.serial:'')).trim();
+  if(name && it.name!==name){ it.name=name; it.desc='Special order fulfilled'+(o.specialEta?' (ETA was '+fmtD(o.specialEta)+')':''); audit('special.line_fulfilled','order',o.id,name); commit(); }
+}
+const _postOrderSale=postOrderSale;
+postOrderSale=async function(o, state, opts){
+  if(state==='closed' && isSpecial(o) && !(opts&&opts.lines)){
+    const ci=o.customerItem||{};
+    if(!(ci.serial&&String(ci.serial).trim())){ toast('Enter the watch serial number (Special-order item panel) before closing — the final receipt must show Brand, Model, Reference and S/N.'); throw new Error('Serial number required to fulfil a special order'); }
+    specialFulfilLine(o);
+  }
+  return _postOrderSale(o, state, opts);
+};
