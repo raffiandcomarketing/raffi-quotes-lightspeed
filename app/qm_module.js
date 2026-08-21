@@ -263,7 +263,7 @@ const LS = {
       lines.push(li);
     }
     const payments = orderPays(o).filter(p=>p.sync!=='failed_permanent').map(p=>({id:p.lsPaymentId||p.id, type:{config_id: s.paymentMap[p.method]||s.paymentMap['Other']}, amount:String(r2(+p.amount)), date: (p.date && p.date!==todayISO()) ? new Date(p.date+'T12:00:00').toISOString() : new Date(p.at||Date.now()).toISOString()}));
-    return {id:o.ls.saleId, state, attributes:['layby'], source:{author_id:authorId, register_id:loc.lsRegisterId}, customer_id:customerId, note:(o.number+' — '+(o.serviceTitle||'service order')+' | QuoteMachine').slice(0,255), line_items:lines, payments};
+    return {id:o.ls.saleId, state, attributes:['layby','service'], source:{author_id:authorId, register_id:loc.lsRegisterId}, customer_id:customerId, note:(o.number+' — '+(o.serviceTitle||'service order')+' | QuoteMachine').slice(0,255), line_items:lines, payments};
   },
   async postSale(o, state, opts={}){
     if(!o.ls.saleId){ o.ls.saleId = uuid(); commit(); }
@@ -606,7 +606,28 @@ function switchUser(target){ state.userId=target.id; localStorage.setItem('qm-cu
 ACT.pinCancel=()=>{ closeModal(); const sel=$('#userSwitch'); if(sel) sel.value=curUser().id; };
 ACT.pinConfirm=d=>{ const target=db.settings.users.find(x=>x.id===d.id); const pin=($('#pin-input')||{}).value||''; if(!target) return; if(pin!==String(target.pin)){ toast('Wrong PIN'); audit('user.pin_failed','user',target.id,null); return; } closeModal(); switchUser(target); };
 document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target&&e.target.id==='pin-input'){ e.preventDefault(); const b=document.querySelector('[data-act="pinConfirm"]'); if(b) b.click(); } });
-const _render=render; render=function(){ _render(); mountUserSwitch(); };
+/* expanded sidebar: open by default with visible titles (labels from data-tip) */
+function expandSidebar(){
+  if(!document.getElementById('qm-sidebar-expand')){
+    const st=document.createElement('style'); st.id='qm-sidebar-expand';
+    st.textContent='.sidebar{width:212px;align-items:stretch;padding:8px 12px 14px}'+
+      '.logo{width:52px;margin:12px auto 18px}'+
+      '.nav{align-items:stretch;gap:3px}'+
+      '.nav-item{width:100%;height:40px;justify-content:flex-start;gap:12px;padding:0 12px;font-size:16px}'+
+      '.nav-item .nav-label{font-family:var(--sans);font-size:13.5px;font-weight:600;letter-spacing:.25px;white-space:nowrap}'+
+      '.nav-item[data-tip]:hover:after{display:none}'+
+      '.nav-item.active::before{left:-12px}'+
+      '.nav-divider{width:100%}'+
+      '.nav-add{margin-top:8px;align-self:center}'+
+      '.shell{margin-left:212px}'+
+      '@media(max-width:900px){.sidebar{width:65px;align-items:center;padding:8px 0 12px}.shell{margin-left:65px}.nav{align-items:center}.nav-item{width:44px;justify-content:center;padding:0;gap:0}.nav-item .nav-label{display:none}.nav-item[data-tip]:hover:after{display:block}.nav-item.active::before{left:-8px}.nav-divider{width:30px}.logo{width:46px}}';
+    document.head.appendChild(st);
+  }
+  document.querySelectorAll('.sidebar .nav-item').forEach(el=>{
+    if(!el.querySelector('.nav-label')){ const t=el.getAttribute('data-tip'); if(t){ const s=document.createElement('span'); s.className='nav-label'; s.textContent=t; el.appendChild(s); } }
+  });
+}
+const _render=render; render=function(){ _render(); mountUserSwitch(); expandSidebar(); };
 /* dashboard: unearned revenue card */
 const _dash=VIEWS.dashboard; VIEWS.dashboard=function(){
   const html=_dash();
@@ -655,6 +676,76 @@ async function lsBoot(){
   if(LS.connected() && (!db.settings.ls.lastSync || !db.settings.ls.genericServiceProductId)){ try{ await LS.syncRef(); }catch(e){ console.warn('ref sync failed', e); } }
   commit(); render();
 }
+
+/* ---------- SPECIAL ORDERS: dedicated section — deposits or full prepayment stay an open
+   layaway (pending · layby,service); the sale is recognised only at pickup/fulfilment ---------- */
+const isSpecial=o=>o&&o.kind==='special';
+const SOB={open:['b-blue','Ordered'],in_progress:['b-gold','With supplier'],ready:['b-gold','Arrived — awaiting pickup'],completed:['b-green','Picked up'],cancelled:['b-red','Cancelled']};
+function mountSpecialNav(){
+  const nav=document.querySelector('.sidebar .nav'); if(!nav) return;
+  if(nav.querySelector('[data-view="specialorders"]')) return;
+  const after=nav.querySelector('[data-view="orders"]');
+  const el=document.createElement('div'); el.className='nav-item'; el.setAttribute('data-act','go'); el.setAttribute('data-view','specialorders'); el.setAttribute('data-tip','Special Orders');
+  el.innerHTML='<i class="fa-solid fa-gem"></i>';
+  if(after&&after.nextSibling) nav.insertBefore(el, after.nextSibling); else nav.appendChild(el);
+}
+VIEWS.specialorders=function(){
+  const list=db.orders.filter(o=>isSpecial(o)&&matches(o.number+' '+cname(o.contactId)+' '+((o.customerItem&&((o.customerItem.brand||'')+' '+(o.customerItem.model||'')+' '+(o.customerItem.reference||'')))||''))).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const rows=list.map(o=>{ const ci=o.customerItem||{}; const watch=[ci.brand,ci.model,ci.reference].filter(Boolean).join(' ')||o.serviceTitle||''; return '<tr class="rowlink" data-act="open" data-type="order" data-id="'+o.id+'"><td class="num">'+esc(o.number)+'</td><td>'+esc(cname(o.contactId))+'</td><td>'+esc(watch)+'</td><td>'+(o.specialEta?fmtD(o.specialEta):'—')+'</td><td>'+badge(SOB,o.status)+'</td><td>'+esc(LS_STATUS_LABEL(o.ls))+(o.ls&&o.ls.receipt?' #'+esc(o.ls.receipt):'')+'</td><td class="r">'+money(totals(o).total)+'</td><td class="r">'+money(orderPaid(o))+'</td><td class="r">'+money(orderBalance(o))+'</td></tr>'; }).join('')||'<tr><td colspan="9"><div class="empty"><i class="fa-solid fa-gem"></i>No special orders yet. Create one to take a deposit — it stays a layaway (not a sale) until the piece is picked up.</div></td></tr>';
+  return '<div class="page-head"><h1 class="page-title">Special orders</h1><div class="actrow"><button class="b2 p" data-act="newSpecialOrder"><i class="fa-solid fa-plus"></i> New special order</button></div></div>'+
+  '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search special orders…" value="'+esc(state.q)+'"></span></div></div>'+
+  '<p class="mut sm" style="margin:-6px 0 12px">Deposits — multiple, or even full prepayment — post to Lightspeed as an open layaway (<code>pending · layby,service</code>). The sale is recognised only when the piece arrives and the client picks it up (<b>Complete &amp; close</b>).</p>'+
+  '<div class="card"><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Number</th><th>Customer</th><th>Watch / item</th><th>ETA</th><th>Status</th><th>Lightspeed</th><th class="r">Value</th><th class="r">Paid</th><th class="r">Balance</th></tr></thead><tbody id="rows">'+rows+'</tbody></table></div></div>';
+};
+ACT.newSpecialOrder=()=>{ if(!requirePerm('take_deposit','create a special order')) return;
+  openModal('New special order',
+    '<div class="fgrid">'+
+    '<div class="fld wide"><label>Customer</label><select id="so-contact"><option value="">— new customer (enter below) —</option>'+db.contacts.map(c=>'<option value="'+c.id+'">'+esc(c.name)+(c.email?' · '+esc(c.email):'')+'</option>').join('')+'</select></div>'+
+    '<div class="fld"><label>New customer name</label><input id="so-cname" placeholder="only if none selected"></div>'+
+    '<div class="fld"><label>New customer email</label><input id="so-cemail" type="email" placeholder="optional"></div>'+
+    '<div class="fld"><label>Brand</label><input id="so-brand" placeholder="e.g. Rolex"></div>'+
+    '<div class="fld"><label>Model</label><input id="so-model" placeholder="e.g. GMT-Master II"></div>'+
+    '<div class="fld"><label>Reference</label><input id="so-ref" placeholder="e.g. 126710BLRO"></div>'+
+    '<div class="fld"><label>Price (before tax)</label><input id="so-price" type="number" min="0" step="0.01"></div>'+
+    '<div class="fld"><label>Location</label><select id="so-loc">'+db.settings.locations.map(l=>'<option>'+esc(l)+'</option>').join('')+'</select></div>'+
+    '<div class="fld"><label>Expected arrival</label><input id="so-eta" type="date"></div>'+
+    '<div class="fld wide"><label>Notes</label><input id="so-notes" placeholder="supplier, allocation notes…"></div>'+
+    '<div class="fld wide mut sm">Deposits (multiple allowed) and even full prepayment stay an open Lightspeed layaway — the sale is only recognised at pickup.</div>'+
+    '</div>',
+    '<button class="b2 o" data-act="closeModal">Cancel</button><button class="b2 p" data-act="createSpecialOrder"><i class="fa-solid fa-check"></i> Create &amp; take deposit</button>');
+};
+ACT.createSpecialOrder=()=>{
+  let contactId=$('#so-contact').value;
+  const brand=$('#so-brand').value.trim(), model=$('#so-model').value.trim(), ref=$('#so-ref').value.trim();
+  const price=r2(+$('#so-price').value||0), loc=$('#so-loc').value, eta=$('#so-eta').value, notes=$('#so-notes').value.trim();
+  if(!contactId){ const nm=$('#so-cname').value.trim(); if(!nm){ toast('Pick a customer or enter a new name'); return; } const c={id:uid(),name:nm,company:'',email:$('#so-cemail').value.trim(),phone:'',tags:'special-order',notes:'',createdAt:Date.now(),lsCustomerId:null}; db.contacts.push(c); contactId=c.id; }
+  if(!brand&&!model){ toast('Enter at least a brand or model'); return; }
+  if(!(price>0)){ toast('Enter the price'); return; }
+  const label=('Special order — '+[brand,model].filter(Boolean).join(' ')+(ref?' ('+ref+')':'')).trim();
+  const o={id:uid(),number:'SO-'+pad4(db.counters.order++),kind:'special',contactId,quoteId:null,date:todayISO(),loc,status:'open',items:[{name:label,desc:notes,qty:1,price,taxable:true}],discountPct:0,notes,messages:[],createdBy:curUser().id,createdAt:Date.now(),assignedTo:null,ownership:'store',customerItem:{brand,model,reference:ref,serial:'',description:'Special order for client',condition:'',accessories:'',warranty:'',notes,photos:[]},ls:{saleId:null,receipt:null,state:null,attrs:[],lastSyncAt:null,error:null,created:false},completedAt:null,completedBy:null,specialEta:eta||null,serviceTitle:label};
+  db.orders.push(o); audit('special.created','order',o.id,{brand,model,ref,price,eta});
+  logAct('gem',curUser().name,[{t:curUser().name+' created special order '},{l:o.number,v:'order',id:o.id}],label);
+  closeModal(); commit(); go('order',o.id); setTimeout(()=>ACT.takeDeposit({id:o.id}),80);
+};
+/* orders list shows service work only; special orders live in their own section */
+VIEWS.orders=function(){
+  const list=db.orders.filter(o=>!isSpecial(o)&&matches(o.number+' '+cname(o.contactId))).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const rows=list.map(o=>'<tr class="rowlink" data-act="open" data-type="order" data-id="'+o.id+'"><td class="num">'+esc(o.number)+'</td><td>'+esc(cname(o.contactId))+'</td><td>'+esc(o.loc||'')+'</td><td>'+fmtD(o.date)+'</td><td>'+badge(OB,o.status)+'</td><td>'+esc(LS_STATUS_LABEL(o.ls))+'</td><td class="r">'+money(totals(o).total)+'</td><td class="r">'+money(orderPaid(o))+'</td><td class="r">'+money(orderBalance(o))+'</td></tr>').join('')||'<tr><td colspan="9"><div class="empty"><i class="fa-solid fa-clipboard-list"></i>No service orders yet. Accept an estimate, then convert it to an order.</div></td></tr>';
+  return'<div class="page-head"><h1 class="page-title">Service orders</h1></div>'+
+  '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search orders…" value="'+esc(state.q)+'"></span></div>'+
+  '<div class="actrow"><button class="b2 o" data-act="csv" data-kind="orders"><i class="fa-solid fa-download"></i> CSV</button></div></div>'+
+  '<div class="card"><table class="tbl"><thead><tr><th>Number</th><th>Customer</th><th>Location</th><th>Date</th><th>Status</th><th>Lightspeed</th><th class="r">Value</th><th class="r">Paid</th><th class="r">Balance</th></tr></thead><tbody id="rows">'+rows+'</tbody></table></div>';
+};
+/* order detail: mark special orders and rename the intake panel */
+const _orderView2=VIEWS.order; VIEWS.order=function(){
+  const o=O(state.id); let h=_orderView2();
+  if(o&&isSpecial(o)){
+    h=h.replace('page-title">'+o.number,'page-title">'+o.number+' <span class="badge b-gold">Special order</span>');
+    h=h.replace('<h3>Customer item (intake)</h3>','<h3>Special-order item (store merchandise'+(o.specialEta?' · ETA '+fmtD(o.specialEta):'')+')</h3>');
+  }
+  return h;
+};
+const _render3=render; render=function(){ _render3(); mountSpecialNav(); expandSidebar(); };
 
 /* ---------- self-boot (module is loaded as a separate script after the app) ---------- */
 (async function(){
