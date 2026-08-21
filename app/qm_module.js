@@ -284,7 +284,7 @@ const LS = {
       if(it.lsLineId) li.id=it.lsLineId; if(salespersonId) li.salesperson_id=salespersonId;
       lines.push(li);
     }
-    const payments = orderPays(o).filter(p=>p.sync!=='failed_permanent').map(p=>({id:p.lsPaymentId||p.id, type:{config_id: s.paymentMap[p.method]||s.paymentMap['Other']}, amount:String(r2(+p.amount)), date: (p.date && p.date!==todayISO()) ? new Date(p.date+'T12:00:00').toISOString() : new Date(p.at||Date.now()).toISOString()}));
+    const payments = orderPays(o).filter(p=>p.sync!=='failed_permanent').map(p=>({id:p.lsPaymentId||p.id, type:{config_id: p.lsTypeConfigId||s.paymentMap[p.method]||s.paymentMap['Other']}, amount:String(r2(+p.amount)), date: (p.date && p.date!==todayISO()) ? new Date(p.date+'T12:00:00').toISOString() : new Date(p.at||Date.now()).toISOString()}));
     // attributes: 'layby' only. Adding 'service' makes the Lightspeed register demand completion of a
     // service job that doesn't exist (this app is the service system), which dead-locks "Continue sale"
     // at the counter. Layby alone enforces the accounting rule and continues cleanly in Lightspeed.
@@ -306,7 +306,7 @@ const LS = {
     if(method==='POST' && (r.status===409||r.status===400||r.status===422) && /exist|duplicate|already/i.test(JSON.stringify(r.data))){ o.ls.created=true; commit(); return LS.postSale(o,state,opts); }
     const msg='Lightspeed '+r.status+': '+JSON.stringify(r.data).slice(0,300); o.ls.error=msg; commit(); throw new Error(msg);
   },
-  async refreshSale(o){ if(!o.ls.saleId) return null; const r=await LS.call('GET','/api/'+LS_CFG.apiVersion+'/sales/'+o.ls.saleId); if(r.status===200){ const d=r.data.data; o.ls.state=d.state; o.ls.attrs=d.attributes||[]; o.ls.receipt=d.invoice_number; o.ls.totals=d.totals; o.ls.paid=(d.payments||[]).reduce((a,p)=>a+(+p.amount||0),0); o.ls.lastSyncAt=Date.now(); o.ls.created=true; commit(); return d; } if(r.status===404){ o.ls.created=false; } return null; }
+  async refreshSale(o){ if(!o.ls.saleId) return null; const r=await LS.call('GET','/api/'+LS_CFG.apiVersion+'/sales/'+o.ls.saleId); if(r.status===200){ const d=r.data.data; o.ls.state=d.state; o.ls.attrs=d.attributes||[]; o.ls.receipt=d.invoice_number; o.ls.totals=d.totals; o.ls.paid=(d.payments||[]).reduce((a,p)=>a+(+p.amount||0),0); o.ls.lastSyncAt=Date.now(); o.ls.created=true; try{ if(typeof importLsPayments==='function') importLsPayments(o,d); }catch(e){ console.warn('register import failed', e); } commit(); return d; } if(r.status===404){ o.ls.created=false; } return null; }
 };
 
 /* ---------- order (service) view: intake, attribution, deposits ledger, Lightspeed status ---------- */
@@ -398,9 +398,11 @@ function payModal(o, kind){
     '<div class="fld"><label>Date</label><input id="pay-date" type="date" value="'+todayISO()+'"></div>'+
     '<div class="fld wide"><label>Reference / note</label><input id="pay-note" placeholder="Terminal ref, cheque #, reason…"></div>'+
     (isRefund?'':'<div class="fld wide"><label style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="event.stopPropagation()"><input type="checkbox" id="pay-complete" style="width:auto;flex:none"'+(o.status==='ready'?' checked':'')+'> Complete service &amp; close sale if this pays the balance in full</label></div>')+
-    '<div class="fld wide mut sm">'+(isRefund?'Refunds post to Lightspeed as a negative layaway payment on the same sale (audit trail retained).':'Deposits post to the Lightspeed layaway for this order. Revenue is recognised only when the balance reaches $0 and the service is completed.')+'</div>'+
+    '<div class="fld wide mut sm">'+(isRefund?'Refunds post to Lightspeed as a negative layaway payment on the same sale (audit trail retained).':'Recommended: <b>Create layaway — take at register</b> pushes the sale into Lightspeed so the rep collects the money at the register (terminal / cash drawer); the payment flows back here automatically and is held as unearned revenue. Use <b>Record payment</b> only for money already collected outside the register (e-transfer, wire, phone). Revenue is recognised only when the service is completed and the balance is $0.')+'</div>'+
     '</div>',
-    '<button class="b2 o" data-act="closeModal">Cancel</button><button class="b2 '+(isRefund?'d':'g')+'" id="pay-submit" data-act="'+(isRefund?'doRefund':'doDeposit')+'" data-id="'+o.id+'"><i class="fa-solid fa-check"></i> '+(isRefund?'Record refund':'Record payment')+'</button>');
+    '<button class="b2 o" data-act="closeModal">Cancel</button>'+(isRefund
+      ?'<button class="b2 d" id="pay-submit" data-act="doRefund" data-id="'+o.id+'"><i class="fa-solid fa-check"></i> Record refund</button>'
+      :'<button class="b2 o" data-act="doDeposit" data-id="'+o.id+'">Record payment (outside register)</button><button class="b2 g" id="pay-submit" data-act="toRegister" data-id="'+o.id+'"><i class="fa-solid fa-cash-register"></i> Create layaway — take at register</button>'));
 }
 function newPayment(o, kind, amt, method, date, note){
   const u=curUser();
@@ -820,3 +822,61 @@ postOrderSale=async function(o, state, opts){
   }
   return _postOrderSale(o, state, opts);
 };
+
+/* ---------- register-first deposits: the app creates/updates the Lightspeed layaway (the "SO"),
+   the rep takes the actual money at the Lightspeed register, and the payment flows back into the
+   app ledger automatically — held as unearned revenue until the service/pickup completes. ---------- */
+ACT.toRegister=async d=>{ const o=O(d.id); if(!o) return;
+  const amt=r2(+(($('#pay-amt')||{}).value)||0);
+  await withLock(o, async()=>{
+    try{
+      const dd=await postOrderSale(o,'pending',{opId:'to-register-'+o.id+'-'+Date.now(), op:'to_register'});
+      if(dd){
+        o.ls.expectAtRegister={amount:amt||null, at:Date.now()};
+        audit('payment.sent_to_register','order',o.id,{amount:amt||null, receipt:o.ls.receipt});
+        logAct('cash-register',curUser().name,[{t:curUser().name+' sent '},{l:o.number,v:'order',id:o.id},{t:' to the Lightspeed register'+(amt?' to collect '+money(amt):'')}],null);
+        closeModal(); commit(); render();
+        toast('Layaway ready in Lightspeed — receipt #'+(o.ls.receipt||'?')+'. At the register: Sales history → Continue sale → take '+(amt?money(amt):'the deposit')+'. The payment will appear here automatically.');
+      } else { closeModal(); render(); }
+    }catch(e){ render(); toast('Could not create the layaway in Lightspeed: '+String(e.message||e).slice(0,140)); }
+  });
+};
+function importLsPayments(o, d){
+  if(!d || !Array.isArray(d.payments) || !d.payments.length) return 0;
+  const known=new Set(orderPays(o).map(p=>String(p.lsPaymentId||p.id)));
+  let added=0;
+  d.payments.forEach(lp=>{
+    const lid=String(lp.id||''); if(!lid||known.has(lid)) return;
+    const cfg=(lp.type&&(lp.type.config_id||lp.type.id))||null;
+    const name=(lp.type&&lp.type.name)||'Register payment';
+    const p={id:uuid(), number:'PAY-'+pad4(db.counters.payment++), kind:'deposit', orderId:o.id, invoiceId:(db.invoices.find(i=>i.orderId===o.id)||{}).id||null, contactId:o.contactId, amount:r2(+lp.amount||0), method:name, date:((lp.date||'').slice(0,10))||todayISO(), note:'Taken at the Lightspeed register', at:(lp.date?Date.parse(lp.date):Date.now())||Date.now(), userId:null, userName:'Lightspeed register', opId:null, lsPaymentId:lid, lsTypeConfigId:cfg, sync:'posted', error:null, source:'register'};
+    db.payments.push(p); known.add(lid); added++;
+    audit('payment.imported_from_register','order',o.id,{number:p.number, amount:p.amount, method:name});
+  });
+  if(added){
+    if(orderBalance(o)<=0.004){ const ps=orderPays(o).filter(p=>p.source==='register'); if(ps.length) ps[ps.length-1].kind='final'; }
+    if(o.ls) o.ls.expectAtRegister=null;
+    logAct('cash-register','Lightspeed',[{t:added+' register payment(s) imported for '},{l:o.number,v:'order',id:o.id},{t:' — deposits held '+money(orderPaid(o))}],null);
+    if(d.state==='closed' && o.status!=='completed' && o.status!=='cancelled'){
+      o.status='completed'; o.completedAt=Date.now(); o.completedBy=null; ensureInvoiceForOrder(o);
+      audit('order.completed','order',o.id,{via:'register final payment (Lightspeed closed the layaway)'});
+      const ci=o.customerItem||{};
+      if(isSpecial(o) && !(ci.serial&&String(ci.serial).trim())) toast(o.number+': the register closed this sale before a serial number was recorded — add the serial on the order for your records.');
+    }
+    commit();
+  }
+  return added;
+}
+let __pullBusy=false;
+async function maybeAutoPull(id){
+  if(__pullBusy) return; const o=O(id); if(!o) return;
+  if(!(o.ls&&o.ls.saleId&&o.ls.created)) return;
+  if(o.status==='completed'||o.status==='cancelled') return;
+  if(!LS.connected()) return;
+  const now=Date.now(); if(o.ls.lastAutoPull && now-o.ls.lastAutoPull<20000) return;
+  o.ls.lastAutoPull=now; __pullBusy=true;
+  try{ const before=orderPays(o).length; await LS.refreshSale(o); if(orderPays(o).length!==before){ render(); toast('Payment taken at the Lightspeed register has been added to '+o.number); } }
+  catch(e){ /* quiet */ }
+  finally{ __pullBusy=false; }
+}
+const _render6=render; render=function(){ _render6(); if(state.view==='order'&&state.id){ setTimeout(function(){ maybeAutoPull(state.id); },50); } };
