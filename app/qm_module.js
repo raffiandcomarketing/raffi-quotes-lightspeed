@@ -12,7 +12,7 @@ const LS_CFG = {
   anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqY2dxeHN6d3FtemlydGxheHplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMjg5ODgsImV4cCI6MjEwMTcwNDk4OH0.NeeSPn4xcX91-3nyK2o3N0i4XhTIsMe5MGCHvS-htbA',
   storePrefix: 'developerdemoxeqwzt',
   apiVersion: '2026-07',
-  genericServiceSku: 'QM-SERVICE',
+  genericServiceSku: 'RAFFI-SERVICE',
   specialOrderSku: 'SPECIAL-ORDER',
   build: 'QA-2026-08-21-LS2'
 };
@@ -1029,9 +1029,14 @@ const _orderView4=VIEWS.order; VIEWS.order=function(){
         const g=await LS.call('GET','/api/'+LS_CFG.apiVersion+'/products/'+s.genericServiceProductId);
         const p=g.status===200&&g.data&&g.data.data;
         if(p&&/quotemachine/i.test((p.name||'')+' '+(p.description||''))){
-          const u=await LS.call('PUT','/api/'+LS_CFG.apiVersion+'/products/'+s.genericServiceProductId,{name:'Service / labour', sku:p.sku||LS_CFG.genericServiceSku, description:'Generic service/labour line used by the Raffi Quotes & Invoicing app. Price is set per sale line.'});
-          if(u.status>=200&&u.status<300){ s.svcNameFixed=true; audit('ls.product.renamed','settings',null,{id:s.genericServiceProductId, name:'Service / labour'}); commit(); console.info('[QM] generic service product renamed — QuoteMachine label removed'); }
-          else console.warn('service product rename failed', u.status, u.data);
+          /* Lightspeed's 2026-07 products PUT rejects name changes through the proxy, so swap to a
+             clean product instead. Open sales re-point to it on their next sync; the old
+             QuoteMachine-named product is deleted from the catalogue afterwards (soft delete). */
+          s.qmOldServiceProductId=s.genericServiceProductId;
+          s.genericServiceProductId=null; commit();
+          const nid=await LS.ensureGenericService();
+          if(nid){ s.svcNameFixed=true; audit('ls.product.swapped','settings',null,{from:s.qmOldServiceProductId, to:nid, name:'Service / labour'}); commit(); console.info('[QM] generic service product swapped to clean "Service / labour" ('+nid+')'); }
+          else { s.genericServiceProductId=s.qmOldServiceProductId; commit(); }
         } else if(p){ s.svcNameFixed=true; commit(); }
       }
     }
