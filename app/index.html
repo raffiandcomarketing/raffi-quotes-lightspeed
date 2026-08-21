@@ -341,9 +341,9 @@
     <nav class="nav">
       <div class="nav-item" data-act="go" data-view="dashboard" data-tip="Dashboard" role="button" tabindex="0"><i class="fa-solid fa-chart-line"></i></div>
       <div class="nav-item" data-act="go" data-view="contacts" data-tip="Contacts" role="button" tabindex="0"><i class="fa-solid fa-users"></i></div>
+      <div class="nav-item" data-act="go" data-view="specialorders" data-tip="Special Orders" role="button" tabindex="0"><i class="fa-solid fa-gem"></i></div>
       <div class="nav-item" data-act="go" data-view="quotes" data-tip="Quotes" role="button" tabindex="0"><i class="fa-solid fa-comment-dollar"></i></div>
       <div class="nav-item" data-act="go" data-view="orders" data-tip="Orders" role="button" tabindex="0"><i class="fa-solid fa-clipboard-list"></i></div>
-      <div class="nav-item" data-act="go" data-view="specialorders" data-tip="Special Orders" role="button" tabindex="0"><i class="fa-solid fa-gem"></i></div>
       <div class="nav-item" data-act="go" data-view="invoices" data-tip="Invoices" role="button" tabindex="0"><i class="fa-solid fa-file-invoice"></i></div>
       <div class="nav-item" data-act="go" data-view="payments" data-tip="Payments" role="button" tabindex="0"><i class="fa-solid fa-dollar-sign"></i></div>
       <div class="nav-divider"></div>
@@ -1350,7 +1350,7 @@ const CHG={
         db=parsed;commit();
         state.view='dashboard';state.id=null;state.qChip='all';state.iChip='all';state.loc='all';state.feedUser='all';
         render();toast('Data imported');
-      }catch(err){toast('That file doesn\u2019t look like a QuoteMachine export.');}
+      }catch(err){toast('That file doesn\u2019t look like a valid backup export.');}
     };
     r.readAsText(f);
   }

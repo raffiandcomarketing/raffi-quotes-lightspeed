@@ -13,7 +13,8 @@ const LS_CFG = {
   storePrefix: 'developerdemoxeqwzt',
   apiVersion: '2026-07',
   genericServiceSku: 'QM-SERVICE',
-  build: 'QA-2026-08-18-LS1'
+  specialOrderSku: 'SPECIAL-ORDER',
+  build: 'QA-2026-08-21-LS2'
 };
 const uuid = () => (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);});
 const ROLES = { associate:1, advisor:2, manager:3, admin:4 };
@@ -231,9 +232,19 @@ const LS = {
     const r = await LS.call('GET','/api/2.0/search?type=products&sku='+encodeURIComponent(LS_CFG.genericServiceSku));
     const hit = r.status===200 && r.data.data && r.data.data[0];
     if(hit){ s.genericServiceProductId=hit.id; return hit.id; }
-    const c = await LS.call('POST','/api/'+LS_CFG.apiVersion+'/products',{name:'Service / labour (QuoteMachine line)', sku:LS_CFG.genericServiceSku, price_excluding_tax:0, supply_price:0, description:'Generic service/labour line used by the Quotes & Invoicing app. Price is set per sale line.'},{opId:'ensure-generic-'+LS_CFG.genericServiceSku});
+    const c = await LS.call('POST','/api/'+LS_CFG.apiVersion+'/products',{name:'Service / labour', sku:LS_CFG.genericServiceSku, price_excluding_tax:0, supply_price:0, description:'Generic service/labour line used by the Raffi Quotes & Invoicing app. Price is set per sale line.'},{opId:'ensure-generic-'+LS_CFG.genericServiceSku});
     if(c.status>=200&&c.status<300){ const id=(c.data.data&&c.data.data[0])||(c.data.data&&c.data.data.id); s.genericServiceProductId=id; commit(); return id; }
     throw new Error('could not create generic service product: '+c.status);
+  },
+  async ensureSpecialOrderProduct(){
+    const s = db.settings.ls;
+    if(s.specialOrderProductId) return s.specialOrderProductId;
+    const r = await LS.call('GET','/api/2.0/search?type=products&sku='+encodeURIComponent(LS_CFG.specialOrderSku));
+    const hit = r.status===200 && r.data.data && r.data.data[0];
+    if(hit){ s.specialOrderProductId=hit.id; commit(); return hit.id; }
+    const c = await LS.call('POST','/api/'+LS_CFG.apiVersion+'/products',{name:'Special Order Product', sku:LS_CFG.specialOrderSku, price_excluding_tax:0, supply_price:0, description:'Client special orders awaiting arrival. The line note carries Brand, Model and Reference; when inventory receives the piece the line switches to the actual product (Raffi ID).'},{opId:'ensure-special-'+LS_CFG.specialOrderSku});
+    if(c.status>=200&&c.status<300){ const id=(c.data.data&&c.data.data[0])||(c.data.data&&c.data.data.id); s.specialOrderProductId=id; commit(); return id; }
+    throw new Error('could not create the Special Order Product: '+c.status);
   },
   /* customers */
   async ensureCustomer(contact){
@@ -257,6 +268,7 @@ const LS = {
   async ensureLineProduct(it){
     if(it.lsProductId) return it.lsProductId;
     if(it.sku){ const r=await LS.call('GET','/api/2.0/search?type=products&sku='+encodeURIComponent(it.sku)); const hit=r.status===200&&r.data.data&&r.data.data.find(p=>(p.sku||'').toLowerCase()===String(it.sku).toLowerCase()); if(hit){ it.lsProductId=hit.id; return hit.id; } }
+    if(it.special) return await LS.ensureSpecialOrderProduct();
     return await LS.ensureGenericService();
   },
   /* inventory lookup for store-owned lines */
@@ -288,7 +300,9 @@ const LS = {
     // attributes: 'layby' only. Adding 'service' makes the Lightspeed register demand completion of a
     // service job that doesn't exist (this app is the service system), which dead-locks "Continue sale"
     // at the counter. Layby alone enforces the accounting rule and continues cleanly in Lightspeed.
-    return {id:o.ls.saleId, state, attributes:['layby'], source:{author_id:authorId, register_id:loc.lsRegisterId}, customer_id:customerId, note:(o.number+' — '+(o.serviceTitle||'service order')+' | QuoteMachine').slice(0,255), line_items:lines, payments};
+    const ci2=o.customerItem||{}; const soDesc=([ci2.brand,ci2.model].filter(Boolean).join(' ')+(ci2.reference?' Ref. '+ci2.reference:'')).trim();
+    const saleNote=(o.number+' — '+(o.kind==='special' ? ('Special order: '+(soDesc||'awaiting details')) : (o.serviceTitle||'service order'))).slice(0,255);
+    return {id:o.ls.saleId, state, attributes:['layby'], source:{author_id:authorId, register_id:loc.lsRegisterId}, customer_id:customerId, note:saleNote, line_items:lines, payments};
   },
   async postSale(o, state, opts={}){
     if(!o.ls.saleId){ o.ls.saleId = uuid(); commit(); }
@@ -705,23 +719,23 @@ async function lsBoot(){
 }
 
 /* ---------- SPECIAL ORDERS: dedicated section — deposits or full prepayment stay an open
-   layaway (pending · layby,service); the sale is recognised only at pickup/fulfilment ---------- */
+   layaway (pending · layby); the sale is recognised only at pickup/fulfilment ---------- */
 const isSpecial=o=>o&&o.kind==='special';
 const SOB={open:['b-blue','Ordered'],in_progress:['b-gold','With supplier'],ready:['b-gold','Arrived — awaiting pickup'],completed:['b-green','Picked up'],cancelled:['b-red','Cancelled']};
 function mountSpecialNav(){
   const nav=document.querySelector('.sidebar .nav'); if(!nav) return;
   if(nav.querySelector('[data-view="specialorders"]')) return;
-  const after=nav.querySelector('[data-view="orders"]');
+  const before=nav.querySelector('[data-view="quotes"]');
   const el=document.createElement('div'); el.className='nav-item'; el.setAttribute('data-act','go'); el.setAttribute('data-view','specialorders'); el.setAttribute('data-tip','Special Orders');
   el.innerHTML='<i class="fa-solid fa-gem"></i>';
-  if(after&&after.nextSibling) nav.insertBefore(el, after.nextSibling); else nav.appendChild(el);
+  if(before) nav.insertBefore(el, before); else nav.appendChild(el);
 }
 VIEWS.specialorders=function(){
   const list=db.orders.filter(o=>isSpecial(o)&&matches(o.number+' '+cname(o.contactId)+' '+((o.customerItem&&((o.customerItem.brand||'')+' '+(o.customerItem.model||'')+' '+(o.customerItem.reference||'')))||''))).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   const rows=list.map(o=>{ const ci=o.customerItem||{}; const watch=[ci.brand,ci.model,ci.reference].filter(Boolean).join(' ')||o.serviceTitle||''; return '<tr class="rowlink" data-act="open" data-type="order" data-id="'+o.id+'"><td class="num">'+esc(o.number)+'</td><td>'+esc(cname(o.contactId))+'</td><td>'+esc(watch)+'</td><td>'+(o.specialEta?fmtD(o.specialEta):'—')+'</td><td>'+badge(SOB,o.status)+'</td><td>'+esc(LS_STATUS_LABEL(o.ls))+(o.ls&&o.ls.receipt?' #'+esc(o.ls.receipt):'')+'</td><td class="r">'+money(totals(o).total)+'</td><td class="r">'+money(orderPaid(o))+'</td><td class="r">'+money(orderBalance(o))+'</td></tr>'; }).join('')||'<tr><td colspan="9"><div class="empty"><i class="fa-solid fa-gem"></i>No special orders yet. Create one to take a deposit — it stays a layaway (not a sale) until the piece is picked up.</div></td></tr>';
   return '<div class="page-head"><h1 class="page-title">Special orders</h1><div class="actrow"><button class="b2 p" data-act="newSpecialOrder"><i class="fa-solid fa-plus"></i> New special order</button></div></div>'+
   '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search special orders…" value="'+esc(state.q)+'"></span></div></div>'+
-  '<p class="mut sm" style="margin:-6px 0 12px">Deposits — multiple, or even full prepayment — post to Lightspeed as an open layaway (<code>pending · layby,service</code>). The sale is recognised only when the piece arrives and the client picks it up (<b>Complete &amp; close</b>).</p>'+
+  '<p class="mut sm" style="margin:-6px 0 12px">Deposits — multiple, or even full prepayment — post to Lightspeed as an open layaway (<code>pending · layby</code>) under <b>Special Order Product</b>. When inventory receives the piece (Raffi ID), the line switches to the actual product; the sale is recognised only at pickup (<b>Complete &amp; close</b>).</p>'+
   '<div class="card"><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Number</th><th>Customer</th><th>Watch / item</th><th>ETA</th><th>Status</th><th>Lightspeed</th><th class="r">Value</th><th class="r">Paid</th><th class="r">Balance</th></tr></thead><tbody id="rows">'+rows+'</tbody></table></div></div>';
 };
 ACT.newSpecialOrder=()=>{ if(!requirePerm('take_deposit','create a special order')) return;
@@ -748,8 +762,9 @@ ACT.createSpecialOrder=()=>{
   if(!contactId){ const nm=$('#so-cname').value.trim(); if(!nm){ toast('Pick a customer or enter a new name'); return; } const c={id:uid(),name:nm,company:'',email:$('#so-cemail').value.trim(),phone:'',tags:'special-order',notes:'',createdAt:Date.now(),lsCustomerId:null}; db.contacts.push(c); contactId=c.id; }
   if(!brand&&!model){ toast('Enter at least a brand or model'); return; }
   if(!(price>0)){ toast('Enter the price'); return; }
-  const label=('Special order (placeholder) — '+[brand,model].filter(Boolean).join(' ')+(ref?' Ref. '+ref:'')+' — awaiting arrival').trim();
-  const o={id:uid(),number:'SO-'+pad4(db.counters.order++),kind:'special',contactId,quoteId:null,date:todayISO(),loc,status:'open',items:[{name:label,desc:notes,qty:1,price,taxable:true}],discountPct:0,notes,messages:[],createdBy:curUser().id,createdAt:Date.now(),assignedTo:null,ownership:'store',customerItem:{brand,model,reference:ref,serial:'',description:'Special order for client',condition:'',accessories:'',warranty:'',notes,photos:[]},ls:{saleId:null,receipt:null,state:null,attrs:[],lastSyncAt:null,error:null,created:false},completedAt:null,completedBy:null,specialEta:eta||null,serviceTitle:label};
+  const soDesc=([brand,model].filter(Boolean).join(' ')+(ref?' Ref. '+ref:'')).trim();
+  const label=('Special order — '+(soDesc||'item')).trim();
+  const o={id:uid(),number:'SO-'+pad4(db.counters.order++),kind:'special',contactId,quoteId:null,date:todayISO(),loc,status:'open',items:[{name:(soDesc||'Special order item'),desc:'Special order — awaiting arrival'+(notes?' · '+notes:''),qty:1,price,taxable:true,special:true}],discountPct:0,notes,messages:[],createdBy:curUser().id,createdAt:Date.now(),assignedTo:null,ownership:'store',customerItem:{brand,model,reference:ref,serial:'',raffiId:'',description:'Special order for client',condition:'',accessories:'',warranty:'',notes,photos:[]},ls:{saleId:null,receipt:null,state:null,attrs:[],lastSyncAt:null,error:null,created:false},completedAt:null,completedBy:null,specialEta:eta||null,serviceTitle:label};
   db.orders.push(o); audit('special.created','order',o.id,{brand,model,ref,price,eta});
   logAct('gem',curUser().name,[{t:curUser().name+' created special order '},{l:o.number,v:'order',id:o.id}],label);
   closeModal(); commit(); go('order',o.id); setTimeout(()=>ACT.takeDeposit({id:o.id}),80);
@@ -803,20 +818,24 @@ expandSidebar=function(){ if(document.getElementById('qm-sidebar-expand-static')
 const _render5=render; render=function(){ _render5(); mountBigLogo(); };
 try{ mountBigLogo(); }catch(e){}
 
-/* ---------- special orders: placeholder line in Lightspeed until fulfilment ----------
-   On creation the layaway carries a placeholder line ("… — awaiting arrival").
-   When the order is fulfilled (Complete & close at pickup), the line switches to
-   BRAND + MODEL + Ref. REFERENCE + S/N SERIAL before the closing sync, so the final
-   Lightspeed receipt shows the real piece. Serial is required to close a special order. */
+/* ---------- special orders: Lightspeed line lifecycle ----------
+   1) Created  → line posts as the shared "Special Order Product"; the line + sale note carry
+      BRAND MODEL Ref. REFERENCE. Open layaway = unearned revenue.
+   2) Received → inventory receives the piece: the rep enters the Raffi ID generated in
+      Salesforce and the open layaway line switches to the actual product (sku = Raffi ID,
+      name = Brand Model Ref). Still an open layaway — nothing recognised yet.
+   3) Pickup   → Complete & close requires the Raffi ID (received) and the serial number;
+      the final receipt shows the real piece with S/N in the line note. */
 function specialFulfilLine(o){
   const ci=o.customerItem||{}; const it=o.items&&o.items[0]; if(!it) return;
   const name=([ci.brand,ci.model].filter(Boolean).join(' ')+(ci.reference?' Ref. '+ci.reference:'')+(ci.serial?' — S/N '+ci.serial:'')).trim();
-  if(name && it.name!==name){ it.name=name; it.desc='Special order fulfilled'+(o.specialEta?' (ETA was '+fmtD(o.specialEta)+')':''); audit('special.line_fulfilled','order',o.id,name); commit(); }
+  if(name && it.name!==name){ it.name=name; it.desc='Special order fulfilled — Raffi ID '+(ci.raffiId||'—'); audit('special.line_fulfilled','order',o.id,name); commit(); }
 }
 const _postOrderSale=postOrderSale;
 postOrderSale=async function(o, state, opts){
   if(state==='closed' && isSpecial(o) && !(opts&&opts.lines)){
     const ci=o.customerItem||{};
+    if(!(ci.raffiId&&String(ci.raffiId).trim())){ toast('Mark the product as received first (Raffi ID from Salesforce) — the layaway line must switch to the actual product before pickup.'); throw new Error('Receive the product (Raffi ID) before closing a special order'); }
     if(!(ci.serial&&String(ci.serial).trim())){ toast('Enter the watch serial number (Special-order item panel) before closing — the final receipt must show Brand, Model, Reference and S/N.'); throw new Error('Serial number required to fulfil a special order'); }
     specialFulfilLine(o);
   }
@@ -858,10 +877,17 @@ function importLsPayments(o, d){
     if(o.ls) o.ls.expectAtRegister=null;
     logAct('cash-register','Lightspeed',[{t:added+' register payment(s) imported for '},{l:o.number,v:'order',id:o.id},{t:' — deposits held '+money(orderPaid(o))}],null);
     if(d.state==='closed' && o.status!=='completed' && o.status!=='cancelled'){
-      o.status='completed'; o.completedAt=Date.now(); o.completedBy=null; ensureInvoiceForOrder(o);
-      audit('order.completed','order',o.id,{via:'register final payment (Lightspeed closed the layaway)'});
       const ci=o.customerItem||{};
-      if(isSpecial(o) && !(ci.serial&&String(ci.serial).trim())) toast(o.number+': the register closed this sale before a serial number was recorded — add the serial on the order for your records.');
+      if(isSpecial(o) && !(ci.raffiId&&String(ci.raffiId).trim())){
+        /* The register auto-completes a sale when the FULL amount is tendered (Layaway is only
+           offered while a balance remains). The piece hasn't been received/picked up, so this
+           close is premature revenue — reopen it as an open layby, keep the money unearned. */
+        setTimeout(function(){ reopenPrematureClose(o); },0);
+      } else {
+        o.status='completed'; o.completedAt=Date.now(); o.completedBy=null; ensureInvoiceForOrder(o);
+        audit('order.completed','order',o.id,{via:'register final payment (Lightspeed closed the layaway)'});
+        if(isSpecial(o) && !(ci.serial&&String(ci.serial).trim())) toast(o.number+': the register closed this sale before a serial number was recorded — add the serial on the order for your records.');
+      }
     }
     commit();
   }
@@ -896,6 +922,7 @@ const _orderView3=VIEWS.order; VIEWS.order=function(){
       '<li>On the Pay screen the amount box <b>pre-fills the FULL balance</b> — tap it and change it to <b>'+want+'</b> <span class="mut">(“Edit to make a partial payment”)</span>.</li>'+
       '<li>Choose the tender — Cash, Credit card, Debit, Moneris — and take the payment.</li>'+
       '<li>Then press <b>Layaway</b> → <b>Complete sale</b>. Do <b>not</b> pay the remaining balance — it stays on the layaway until pickup.</li>'+
+      (isSpecial(o)?'<li>Client paying the <b>full amount</b> today? The register will complete the sale (Layaway isn’t offered at $0 balance) — that’s OK: the app detects it and <b>reopens the layaway automatically</b>, so the money stays unearned revenue until the piece arrives and is picked up.</li>':'')+
       '</ol>'+
       '<div class="actrow" style="margin-top:12px"><button class="b2 o" data-act="syncOrder" data-id="'+o.id+'"><i class="fa-solid fa-arrows-rotate"></i> Check for the payment now</button><button class="b2 o" data-act="cancelExpect" data-id="'+o.id+'">Dismiss</button></div>'+
       '</div></div>';
@@ -903,3 +930,138 @@ const _orderView3=VIEWS.order; VIEWS.order=function(){
   }
   return h;
 };
+
+/* ---------- inventory receipt: switch the open layaway line to the actual product ----------
+   The rep enters the Raffi ID generated in Salesforce when the piece physically arrives.
+   The app find-or-creates the real Lightspeed product (sku = Raffi ID, name = Brand Model Ref)
+   and re-syncs the OPEN layaway so the line switches from "Special Order Product" to the real
+   piece. Deposits stay unearned — recognition still only happens at pickup (Complete & close). */
+async function specialReceive(o, raffiId){
+  const ci=o.customerItem=o.customerItem||{};
+  const rid=String(raffiId||'').trim();
+  if(!rid) throw new Error('Raffi ID is required');
+  const it=o.items&&o.items[0]; if(!it) throw new Error('No line item on this order');
+  const name=(([ci.brand,ci.model].filter(Boolean).join(' ')+(ci.reference?' Ref. '+ci.reference:'')).trim())||('Special order '+o.number);
+  let pid=null;
+  const r=await LS.call('GET','/api/2.0/search?type=products&sku='+encodeURIComponent(rid));
+  const hit=r.status===200&&r.data.data&&r.data.data.find(p=>(p.sku||'').toLowerCase()===rid.toLowerCase());
+  if(hit){ pid=hit.id; }
+  else{
+    const c=await LS.call('POST','/api/'+LS_CFG.apiVersion+'/products',{name:name, sku:rid, price_excluding_tax:+it.price||0, supply_price:0, description:'Special order '+o.number+' — received into inventory (Raffi ID '+rid+')'},{opId:'so-receive-product-'+o.id});
+    if(!(c.status>=200&&c.status<300)) throw new Error('Could not create the product in Lightspeed: '+c.status+' '+JSON.stringify(c.data).slice(0,160));
+    pid=(c.data.data&&c.data.data[0])||(c.data.data&&c.data.data.id);
+  }
+  ci.raffiId=rid;
+  it.lsProductId=pid; it.sku=rid; it.name=name; it.special=false;
+  it.desc='Received into inventory — Raffi ID '+rid;
+  if(o.status==='open'||o.status==='in_progress') o.status='ready';
+  audit('special.received','order',o.id,{raffiId:rid, lsProductId:pid});
+  logAct('box-open',curUser().name,[{t:curUser().name+' received '},{l:o.number,v:'order',id:o.id},{t:' into inventory — layaway line switched to '+name+' (Raffi ID '+rid+')'}],null);
+  commit();
+  if(o.ls&&o.ls.saleId&&o.ls.created&&o.ls.state!=='closed'&&o.ls.state!=='voided'){
+    await postOrderSale(o,'pending',{op:'special_receive', opId:'so-receive-'+o.id+'-'+Date.now()});
+  }
+}
+ACT.receiveSpecial=d=>{ const o=O(d.id); if(!o) return; if(!requirePerm('edit_service','receive a special order')) return;
+  const ci=o.customerItem||{};
+  const piece=([ci.brand,ci.model].filter(Boolean).join(' ')+(ci.reference?' Ref. '+ci.reference:'')).trim()||'—';
+  openModal('Product arrived — '+o.number,
+    '<div class="fgrid">'+
+    '<div class="fld wide"><label>Raffi ID (generated in Salesforce)</label><input id="so-raffi" value="'+esc(ci.raffiId||'')+'" placeholder="e.g. RAF-10234"></div>'+
+    '<div class="fld wide mut sm">The open layaway line switches from <b>Special Order Product</b> to the actual product — <b>'+esc(piece)+'</b> — with the Raffi ID as its SKU. Deposits stay unearned; the sale is still only recognised at pickup.</div>'+
+    '</div>',
+    '<button class="b2 o" data-act="closeModal">Cancel</button><button class="b2 p" data-act="confirmReceiveSpecial" data-id="'+o.id+'"><i class="fa-solid fa-box-open"></i> Receive into inventory</button>');
+  setTimeout(()=>{ const el=$('#so-raffi'); if(el) el.focus(); },0);
+};
+ACT.confirmReceiveSpecial=async d=>{ const o=O(d.id); if(!o) return;
+  const rid=(($('#so-raffi')||{}).value||'').trim();
+  if(!rid){ toast('Enter the Raffi ID from Salesforce'); return; }
+  await withLock(o, async()=>{
+    try{ await specialReceive(o, rid); closeModal(); render(); toast('Received — the Lightspeed line is now the actual product (SKU '+rid+'). Layaway stays open until pickup.'); }
+    catch(e){ render(); toast('Receive failed: '+String(e.message||e).slice(0,160)); }
+  });
+};
+/* choosing "Arrived — awaiting pickup" on an unreceived special routes through the Raffi ID modal */
+const _chgOrderStatus=CHG.orderStatus;
+CHG.orderStatus=el=>{
+  const o=O(state.id);
+  if(o&&isSpecial(o)&&el.value==='ready'&&!((o.customerItem||{}).raffiId)){ el.value=o.status; ACT.receiveSpecial({id:o.id}); return; }
+  _chgOrderStatus(el);
+};
+/* order view: arrival banner + read-only Raffi ID field on special orders */
+const _orderView4=VIEWS.order; VIEWS.order=function(){
+  let h=_orderView4();
+  const o=O(state.id);
+  if(o&&isSpecial(o)){
+    const ci=o.customerItem||{};
+    const terminal=o.status==='completed'||o.status==='cancelled';
+    const raffiFld='<div class="fld"><label>Raffi ID (Salesforce)</label><div style="padding-top:9px">'+(ci.raffiId?'<b>'+esc(ci.raffiId)+'</b> <span class="badge b-green">In inventory</span>':'<span class="mut">not received yet</span>'+(terminal?'':' — <a data-act="receiveSpecial" data-id="'+o.id+'" style="cursor:pointer">enter Raffi ID</a>'))+'</div></div>';
+    h=h.replace('<div class="fld"><label>Serial number</label>', raffiFld+'<div class="fld"><label>Serial number</label>');
+    if(!ci.raffiId&&!terminal){
+      const banner='<div class="card" style="margin-bottom:18px;border-left:5px solid #B08D3F"><div class="panel">'+
+        '<h3><i class="fa-solid fa-box-open"></i> Awaiting arrival'+(o.specialEta?' — ETA '+fmtD(o.specialEta):'')+'</h3>'+
+        '<p class="mut sm" style="margin:6px 0 10px">The Lightspeed layaway line is <b>Special Order Product</b> (note: '+esc(([ci.brand,ci.model].filter(Boolean).join(' ')+(ci.reference?' Ref. '+ci.reference:'')).trim()||'—')+'). When inventory receives the piece, enter the Raffi ID generated in Salesforce — the line switches to the actual product. Deposits stay unearned until pickup.</p>'+
+        '<div class="actrow"><button class="b2 p" data-act="receiveSpecial" data-id="'+o.id+'"><i class="fa-solid fa-box-open"></i> Product arrived — enter Raffi ID</button></div>'+
+        '</div></div>';
+      h=h.replace('<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Service order details', banner+'<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Service order details');
+    }
+  }
+  return h;
+};
+/* one-time migrations: legacy special-order lines get the special flag (so they post as
+   "Special Order Product"), and the old QuoteMachine-branded generic service product in
+   Lightspeed is renamed to plain "Service / labour". */
+(async function(){
+  let n=0; while(typeof db==='undefined'||!db||!db.settings){ await new Promise(r=>setTimeout(r,50)); if(++n>200) return; }
+  try{
+    (db.orders||[]).forEach(o=>{ if(isSpecial(o)){ const it=o.items&&o.items[0]; if(it&&!it.sku&&!it.lsProductId&&!it.special){ it.special=true; } if(o.customerItem&&o.customerItem.raffiId===undefined) o.customerItem.raffiId=''; } });
+    commit();
+  }catch(e){ console.warn('special-order line migration failed', e); }
+  try{
+    const s=db.settings.ls;
+    if(s && s.genericServiceProductId && !s.svcNameFixed){
+      let w=0; while(!(LS.connected&&LS.connected()) && w<120){ await new Promise(r=>setTimeout(r,500)); w++; }
+      if(LS.connected&&LS.connected()){
+        const g=await LS.call('GET','/api/'+LS_CFG.apiVersion+'/products/'+s.genericServiceProductId);
+        const p=g.status===200&&g.data&&g.data.data;
+        if(p&&/quotemachine/i.test((p.name||'')+' '+(p.description||''))){
+          const u=await LS.call('PUT','/api/'+LS_CFG.apiVersion+'/products/'+s.genericServiceProductId,{name:'Service / labour', sku:p.sku||LS_CFG.genericServiceSku, description:'Generic service/labour line used by the Raffi Quotes & Invoicing app. Price is set per sale line.'});
+          if(u.status>=200&&u.status<300){ s.svcNameFixed=true; audit('ls.product.renamed','settings',null,{id:s.genericServiceProductId, name:'Service / labour'}); commit(); console.info('[QM] generic service product renamed — QuoteMachine label removed'); }
+          else console.warn('service product rename failed', u.status, u.data);
+        } else if(p){ s.svcNameFixed=true; commit(); }
+      }
+    }
+  }catch(e){ console.warn('service product rename failed', e); }
+})();
+
+/* ---------- full-prepayment guard ----------
+   The Lightspeed register auto-completes a sale the moment the FULL amount is tendered — the
+   Layaway button is only offered while a balance remains. For a special order whose piece has
+   not been received (no Raffi ID) that close is premature revenue recognition. The app detects
+   it on sync and reopens the sale as an open layby (PUT pending; if Lightspeed refuses, it
+   voids and rebuilds the layaway with every payment carried over). Money stays unearned. */
+async function reopenPrematureClose(o){
+  if(o.__reopening) return; o.__reopening=true;
+  try{
+    let d=null;
+    try{ d=await postOrderSale(o,'pending',{op:'reopen_layby', opId:'reopen-'+o.id+'-'+Date.now()}); }
+    catch(e1){ console.warn('PUT pending on closed sale refused — rebuilding', e1); d=await rebuildAsLayby(o); }
+    if(d && d.state!=='closed'){
+      audit('special.reopened_layby','order',o.id,{receipt:o.ls.receipt, paid:orderPaid(o)});
+      logAct('rotate-left','Lightspeed',[{t:'Register completed '},{l:o.number,v:'order',id:o.id},{t:' before the piece arrived — reopened as an open layaway; '+money(orderPaid(o))+' held as unearned revenue'}],null);
+      render(); toast(o.number+': the register completed this sale, but the piece has not arrived — it has been reopened as an open layaway. The prepayment stays unearned revenue until pickup.');
+    }
+  }catch(e){
+    o.ls.error='The register completed this sale prematurely and it could not be reopened: '+String(e.message||e).slice(0,140);
+    commit(); render(); toast(o.number+': could not reopen the completed register sale — see the order for details.');
+  }finally{ o.__reopening=false; }
+}
+async function rebuildAsLayby(o){
+  const old=o.ls.saleId;
+  const v=await LS.call('PUT','/api/'+LS_CFG.apiVersion+'/sales/'+old,{state:'voided'},{opId:'void-premature-'+old+'-'+Date.now()});
+  if(!(v.status>=200&&v.status<300)) throw new Error('void failed: '+v.status+' '+JSON.stringify(v.data).slice(0,120));
+  audit('ls.sale.voided','order',o.id,{saleId:old, reason:'premature register completion'});
+  o.ls.saleId=uuid(); o.ls.created=false; o.ls.receipt=null; o.ls.state=null; o.ls.attrs=[];
+  commit();
+  return await postOrderSale(o,'pending',{op:'rebuild_layby', opId:'rebuild-'+o.id+'-'+Date.now()});
+}
