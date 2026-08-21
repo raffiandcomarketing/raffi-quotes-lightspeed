@@ -285,6 +285,8 @@ const LS = {
     const salespersonId = creator&&creator.lsUserId ? creator.lsUserId : null;
     const rate = locTaxRate(o.loc)/100; const taxId = loc.taxId; const noTax = s.noTaxId;
     const items = overrideLines || o.items;
+    // lazy migration: legacy special-order lines always post as the shared Special Order Product
+    if(o.kind==='special'&&!overrideLines){ const it0=items[0]; if(it0&&!it0.sku&&!it0.lsProductId&&!it0.special) it0.special=true; }
     const lines=[];
     for(const it of items){
       const pid = await LS.ensureLineProduct(it);
@@ -1012,7 +1014,9 @@ const _orderView4=VIEWS.order; VIEWS.order=function(){
    "Special Order Product"), and the old QuoteMachine-branded generic service product in
    Lightspeed is renamed to plain "Service / labour". */
 (async function(){
-  let n=0; while(typeof db==='undefined'||!db||!db.settings){ await new Promise(r=>setTimeout(r,50)); if(++n>200) return; }
+  /* wait for the SUPABASE-loaded db (the seed db is replaced asynchronously at boot — the
+     loaded one is recognisable by a non-null genericServiceProductId from earlier syncs) */
+  let n=0; while(typeof db==='undefined'||!db||!db.settings||!db.settings.ls||!db.settings.ls.genericServiceProductId){ await new Promise(r=>setTimeout(r,100)); if(++n>600) return; }
   try{
     (db.orders||[]).forEach(o=>{ if(isSpecial(o)){ const it=o.items&&o.items[0]; if(it&&!it.sku&&!it.lsProductId&&!it.special){ it.special=true; } if(o.customerItem&&o.customerItem.raffiId===undefined) o.customerItem.raffiId=''; } });
     commit();
