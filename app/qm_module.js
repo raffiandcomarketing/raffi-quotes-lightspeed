@@ -414,7 +414,7 @@ function payModal(o, kind){
     '<div class="fld"><label>Date</label><input id="pay-date" type="date" value="'+todayISO()+'"></div>'+
     '<div class="fld wide"><label>Reference / note</label><input id="pay-note" placeholder="Terminal ref, cheque #, reason…"></div>'+
     (isRefund?'':'<div class="fld wide"><label style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="event.stopPropagation()"><input type="checkbox" id="pay-complete" style="width:auto;flex:none"'+(o.status==='ready'?' checked':'')+'> Complete service &amp; close sale if this pays the balance in full</label></div>')+
-    '<div class="fld wide mut sm">'+(isRefund?'Refunds post to Lightspeed as a negative layaway payment on the same sale (audit trail retained).':'Recommended: <b>Create layaway — take at register</b> pushes the sale into Lightspeed so the rep collects the money at the register (terminal / cash drawer); the payment flows back here automatically and is held as unearned revenue. Use <b>Record payment</b> only for money already collected outside the register (e-transfer, wire, phone). Revenue is recognised only when the service is completed and the balance is $0.')+'</div>'+
+    '<div class="fld wide mut sm">'+(isRefund?'Refunds post to Lightspeed as a negative layaway payment on the same sale (audit trail retained).':'Recommended: <b>Create layaway — take at register</b> pushes the sale into Lightspeed so the rep collects the money at the register (terminal / cash drawer); the payment flows back here automatically and is held as unearned revenue. Use <b>Record payment</b> for money already collected outside the register (e-transfer, wire, phone) — <b>and for full prepayment</b>: paying 100% up front through Record payment keeps the sale an open Lightspeed layaway at $0 balance (the register would instead force-complete it for a moment before the app reopens it). Revenue is recognised only when the service is completed and the balance is $0.')+'</div>'+
     '</div>',
     '<button class="b2 o" data-act="closeModal">Cancel</button>'+(isRefund
       ?'<button class="b2 d" id="pay-submit" data-act="doRefund" data-id="'+o.id+'"><i class="fa-solid fa-check"></i> Record refund</button>'
@@ -874,22 +874,22 @@ function importLsPayments(o, d){
     db.payments.push(p); known.add(lid); added++;
     audit('payment.imported_from_register','order',o.id,{number:p.number, amount:p.amount, method:name});
   });
+  /* premature close: the register force-completes a sale when the FULL amount is tendered
+     (Layaway is not offered at $0 balance — platform behaviour). An unreceived special must not
+     sit in Lightspeed as a completed sale, so this check runs on EVERY refresh — even when the
+     payment was already imported on an earlier pull. */
+  const ciR=o.customerItem||{};
+  const premature = d.state==='closed' && o.status!=='completed' && o.status!=='cancelled' && isSpecial(o) && !(ciR.raffiId&&String(ciR.raffiId).trim());
+  if(premature) setTimeout(function(){ reopenPrematureClose(o); },0);
   if(added){
     if(orderBalance(o)<=0.004){ const ps=orderPays(o).filter(p=>p.source==='register'); if(ps.length) ps[ps.length-1].kind='final'; }
     if(o.ls) o.ls.expectAtRegister=null;
     logAct('cash-register','Lightspeed',[{t:added+' register payment(s) imported for '},{l:o.number,v:'order',id:o.id},{t:' — deposits held '+money(orderPaid(o))}],null);
-    if(d.state==='closed' && o.status!=='completed' && o.status!=='cancelled'){
+    if(!premature && d.state==='closed' && o.status!=='completed' && o.status!=='cancelled'){
       const ci=o.customerItem||{};
-      if(isSpecial(o) && !(ci.raffiId&&String(ci.raffiId).trim())){
-        /* The register auto-completes a sale when the FULL amount is tendered (Layaway is only
-           offered while a balance remains). The piece hasn't been received/picked up, so this
-           close is premature revenue — reopen it as an open layby, keep the money unearned. */
-        setTimeout(function(){ reopenPrematureClose(o); },0);
-      } else {
-        o.status='completed'; o.completedAt=Date.now(); o.completedBy=null; ensureInvoiceForOrder(o);
-        audit('order.completed','order',o.id,{via:'register final payment (Lightspeed closed the layaway)'});
-        if(isSpecial(o) && !(ci.serial&&String(ci.serial).trim())) toast(o.number+': the register closed this sale before a serial number was recorded — add the serial on the order for your records.');
-      }
+      o.status='completed'; o.completedAt=Date.now(); o.completedBy=null; ensureInvoiceForOrder(o);
+      audit('order.completed','order',o.id,{via:'register final payment (Lightspeed closed the layaway)'});
+      if(isSpecial(o) && !(ci.serial&&String(ci.serial).trim())) toast(o.number+': the register closed this sale before a serial number was recorded — add the serial on the order for your records.');
     }
     commit();
   }
@@ -924,7 +924,7 @@ const _orderView3=VIEWS.order; VIEWS.order=function(){
       '<li>On the Pay screen the amount box <b>pre-fills the FULL balance</b> — tap it and change it to <b>'+want+'</b> <span class="mut">(“Edit to make a partial payment”)</span>.</li>'+
       '<li>Choose the tender — Cash, Credit card, Debit, Moneris — and take the payment.</li>'+
       '<li>Then press <b>Layaway</b> → <b>Complete sale</b>. Do <b>not</b> pay the remaining balance — it stays on the layaway until pickup.</li>'+
-      (isSpecial(o)?'<li>Client paying the <b>full amount</b> today? The register will complete the sale (Layaway isn’t offered at $0 balance) — that’s OK: the app detects it and <b>reopens the layaway automatically</b>, so the money stays unearned revenue until the piece arrives and is picked up.</li>':'')+
+      (isSpecial(o)?'<li>Client paying the <b>full amount</b> today? Prefer <b>Record payment (outside register)</b> on this order (take the money on the terminal first) — the sale then stays an open Lightspeed layaway at $0 balance and is <b>never shown as completed</b>. If the full amount does get tendered at the register, Lightspeed force-completes the sale for a moment (Layaway isn’t offered at $0 balance) — the app catches it within ~30 seconds and reopens the layaway automatically, so it does not stay in Lightspeed as a completed sale.</li>':'')+
       '</ol>'+
       '<div class="actrow" style="margin-top:12px"><button class="b2 o" data-act="syncOrder" data-id="'+o.id+'"><i class="fa-solid fa-arrows-rotate"></i> Check for the payment now</button><button class="b2 o" data-act="cancelExpect" data-id="'+o.id+'">Dismiss</button></div>'+
       '</div></div>';
@@ -1074,3 +1074,23 @@ async function rebuildAsLayby(o){
   commit();
   return await postOrderSale(o,'pending',{op:'rebuild_layby', opId:'rebuild-'+o.id+'-'+Date.now()});
 }
+
+/* ---------- register watcher: catch premature closes within seconds, from ANY screen ----------
+   While an order is waiting on the register (expectAtRegister), it is refreshed in the background
+   every ~25s regardless of which page is open. If the rep tenders the FULL amount, the register
+   force-completes the sale (platform behaviour) — without this watcher the sale could sit in
+   Lightspeed looking like a completed sale until someone opened the order in the app. The refresh
+   imports the payment and reopenPrematureClose() puts the sale straight back to an open layby, so
+   Lightspeed's sales reports do not keep a completed sale for an unreceived special order. */
+setInterval(function(){
+  try{
+    if(typeof db==='undefined'||!db||!db.orders) return;
+    if(!LS.connected||!LS.connected()) return;
+    const watch=db.orders.filter(function(o){ return o.ls&&o.ls.saleId&&o.ls.created&&o.ls.expectAtRegister&&o.status!=='completed'&&o.status!=='cancelled'; });
+    if(!watch.length) return;
+    const o=watch.sort(function(a,b){ return (a.ls.lastAutoPull||0)-(b.ls.lastAutoPull||0); })[0];
+    const now=Date.now(); if(o.ls.lastAutoPull&&now-o.ls.lastAutoPull<20000) return;
+    o.ls.lastAutoPull=now;
+    LS.refreshSale(o).catch(function(){});
+  }catch(e){}
+}, 25000);
