@@ -285,7 +285,10 @@ const LS = {
       lines.push(li);
     }
     const payments = orderPays(o).filter(p=>p.sync!=='failed_permanent').map(p=>({id:p.lsPaymentId||p.id, type:{config_id: s.paymentMap[p.method]||s.paymentMap['Other']}, amount:String(r2(+p.amount)), date: (p.date && p.date!==todayISO()) ? new Date(p.date+'T12:00:00').toISOString() : new Date(p.at||Date.now()).toISOString()}));
-    return {id:o.ls.saleId, state, attributes:['layby','service'], source:{author_id:authorId, register_id:loc.lsRegisterId}, customer_id:customerId, note:(o.number+' — '+(o.serviceTitle||'service order')+' | QuoteMachine').slice(0,255), line_items:lines, payments};
+    // attributes: 'layby' only. Adding 'service' makes the Lightspeed register demand completion of a
+    // service job that doesn't exist (this app is the service system), which dead-locks "Continue sale"
+    // at the counter. Layby alone enforces the accounting rule and continues cleanly in Lightspeed.
+    return {id:o.ls.saleId, state, attributes:['layby'], source:{author_id:authorId, register_id:loc.lsRegisterId}, customer_id:customerId, note:(o.number+' — '+(o.serviceTitle||'service order')+' | QuoteMachine').slice(0,255), line_items:lines, payments};
   },
   async postSale(o, state, opts={}){
     if(!o.ls.saleId){ o.ls.saleId = uuid(); commit(); }
