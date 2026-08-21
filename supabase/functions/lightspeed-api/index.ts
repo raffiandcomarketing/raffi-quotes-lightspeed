@@ -40,7 +40,9 @@ Deno.serve(async (req) => {
 
   let status = 0, data: unknown = null, errText: string | null = null;
   try {
-    const r = await lsFetch(sb, conn, method, path, body.body);
+    // GET/HEAD must never carry a body; JSON null normalizes to "no body" for all methods
+    const fwdBody = method === "GET" ? undefined : (body.body ?? undefined);
+    const r = await lsFetch(sb, conn, method, path, fwdBody);
     status = r.status; data = r.json ?? { raw: r.text.slice(0, 2000) }; conn = r.conn;
     if (status >= 400) errText = (r.text || "").slice(0, 500);
   } catch (e) {
