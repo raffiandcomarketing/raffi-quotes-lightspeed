@@ -191,11 +191,33 @@ const LS = {
         if(t){ l.taxId=t.id; if(l.taxRate==null) l.taxRate=r2(t.rate*100); if(!l.taxName) l.taxName=t.name; }
       }
     });
-    // auto-map payment methods by name
+    // auto-map payment methods by name.
+    // BUGFIX (T-SO-1): never auto-map a tender to Lightspeed "Store Credit" — the old /credit/i pattern
+    // matched "Store Credit" before "Credit Card", so card deposits posted as store-credit redemptions and
+    // Lightspeed 400'd the whole sale ("ensuring store credit customer") for customers with no credit account.
     const pm = s.paymentMap||{};
-    const find = re => ref.paymentTypes.find(p=>re.test(p.name));
-    const defaults = {'Cash':find(/^cash$/i),'Credit Card':find(/credit/i)||find(/card/i),'Debit Card':find(/debit/i)||find(/card/i),'E-transfer':find(/e-?transfer|interac/i)||find(/^cash$/i),'Wire':find(/wire|e-?transfer/i)||find(/^cash$/i),'Cheque':find(/cheque|check/i)||find(/^cash$/i),'Gift Card':find(/gift/i)||find(/store credit/i),'Other':find(/other|manual/i)||find(/credit/i)||ref.paymentTypes[0]};
-    Object.keys(defaults).forEach(k=>{ if(!pm[k]&&defaults[k]) pm[k]=defaults[k].id; });
+    const isStoreCredit = p => /store\s*credit/i.test(p.name);
+    const scIds = ref.paymentTypes.filter(isStoreCredit).map(p=>p.id);
+    const pool = ref.paymentTypes.filter(p=>!isStoreCredit(p));
+    const find = re => pool.find(p=>re.test(p.name));
+    const exact = n => pool.find(p=>p.name.trim().toLowerCase()===n.trim().toLowerCase());
+    const defaults = {
+      'Cash': exact('Cash')||find(/^cash$/i),
+      'Credit Card': exact('Credit Card')||find(/credit\s*card/i)||find(/\bcredit\b/i)||find(/card/i),
+      'Debit Card': exact('Debit Card')||find(/debit/i)||find(/card/i),
+      'E-transfer': exact('E-transfer')||find(/e-?transfer|interac/i)||find(/^cash$/i),
+      'Wire': exact('Wire')||find(/wire|e-?transfer/i)||find(/^cash$/i),
+      'Cheque': exact('Cheque')||find(/cheque|check/i)||find(/^cash$/i),
+      'Gift Card': exact('Gift Card')||find(/gift/i)||find(/^cash$/i),
+      'Other': find(/other|manual/i)||find(/^cash$/i)||pool[0]
+    };
+    const validIds = new Set(ref.paymentTypes.map(p=>p.id));
+    Object.keys(defaults).forEach(k=>{
+      const cur = pm[k];
+      const poisoned = cur && scIds.indexOf(cur)>=0;   // auto-poisoned by the old matcher — heal it
+      const stale = cur && !validIds.has(cur);         // type deleted/disabled in Lightspeed
+      if((!cur || poisoned || stale) && defaults[k]) pm[k]=defaults[k].id;
+    });
     s.paymentMap = pm;
     // users: link by name/email
     (db.settings.users||[]).forEach(u=>{ if(!u.lsUserId){ const m=ref.users.find(x=>x.name&&u.name&&x.name.trim().toLowerCase()===u.name.trim().toLowerCase()); if(m) u.lsUserId=m.id; } });
