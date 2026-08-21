@@ -836,7 +836,7 @@ ACT.toRegister=async d=>{ const o=O(d.id); if(!o) return;
         audit('payment.sent_to_register','order',o.id,{amount:amt||null, receipt:o.ls.receipt});
         logAct('cash-register',curUser().name,[{t:curUser().name+' sent '},{l:o.number,v:'order',id:o.id},{t:' to the Lightspeed register'+(amt?' to collect '+money(amt):'')}],null);
         closeModal(); commit(); render();
-        toast('Layaway ready in Lightspeed — receipt #'+(o.ls.receipt||'?')+'. At the register: Sales history → Continue sale → take '+(amt?money(amt):'the deposit')+'. The payment will appear here automatically.');
+        toast('Layaway ready — receipt #'+(o.ls.receipt||'?')+'. At the register: Continue sale, CHANGE the pre-filled amount to '+(amt?money(amt):'the deposit')+', take it, then press LAYAWAY (not the remaining balance). Steps are shown on this order.');
       } else { closeModal(); render(); }
     }catch(e){ render(); toast('Could not create the layaway in Lightspeed: '+String(e.message||e).slice(0,140)); }
   });
@@ -880,3 +880,26 @@ async function maybeAutoPull(id){
   finally{ __pullBusy=false; }
 }
 const _render6=render; render=function(){ _render6(); if(state.view==='order'&&state.id){ setTimeout(function(){ maybeAutoPull(state.id); },50); } };
+
+/* ---------- on-order walkthrough while a register payment is awaited ---------- */
+ACT.cancelExpect=d=>{ const o=O(d.id); if(!o||!o.ls) return; o.ls.expectAtRegister=null; commit(); render(); };
+const _orderView3=VIEWS.order; VIEWS.order=function(){
+  let h=_orderView3();
+  const o=O(state.id);
+  if(o && o.ls && o.ls.expectAtRegister && o.status!=='completed' && o.status!=='cancelled'){
+    const ex=o.ls.expectAtRegister;
+    const want=ex.amount?money(ex.amount):'the deposit amount';
+    const banner='<div class="card" style="margin-bottom:18px;border-left:5px solid #B08D3F"><div class="panel">'+
+      '<h3><i class="fa-solid fa-cash-register"></i> Waiting on the register — collect '+(ex.amount?money(ex.amount):'the deposit')+'</h3>'+
+      '<ol style="margin:8px 0 0 20px;line-height:1.8;font-size:14.5px">'+
+      '<li>In Lightspeed: <b>Sell → Sales history</b> → receipt <b>#'+esc(String(o.ls.receipt||'?'))+'</b> → <b>Continue sale</b>.</li>'+
+      '<li>On the Pay screen the amount box <b>pre-fills the FULL balance</b> — tap it and change it to <b>'+want+'</b> <span class="mut">(“Edit to make a partial payment”)</span>.</li>'+
+      '<li>Choose the tender — Cash, Credit card, Debit, Moneris — and take the payment.</li>'+
+      '<li>Then press <b>Layaway</b> → <b>Complete sale</b>. Do <b>not</b> pay the remaining balance — it stays on the layaway until pickup.</li>'+
+      '</ol>'+
+      '<div class="actrow" style="margin-top:12px"><button class="b2 o" data-act="syncOrder" data-id="'+o.id+'"><i class="fa-solid fa-arrows-rotate"></i> Check for the payment now</button><button class="b2 o" data-act="cancelExpect" data-id="'+o.id+'">Dismiss</button></div>'+
+      '</div></div>';
+    h=h.replace('<div class="card"', banner+'<div class="card"');
+  }
+  return h;
+};
