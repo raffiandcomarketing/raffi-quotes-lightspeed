@@ -1431,3 +1431,128 @@ ACT.printOrder=d=>{
   if(o&&rxIsEligible(o)){ _printOrder3(d); return; }   // Rolex service keeps its stage chooser
   ACT.servicePrint(d||{});
 };
+
+/* ---------- intake camera: one click → 3-second countdown → automatic capture ----------
+   Sales presses "Photograph item" on a service or special-order intake; the rear camera
+   opens full-screen, counts 3 · 2 · 1 and takes the picture by itself, then stays open so
+   the next angle is one press away. Shots are stored on the order exactly like uploaded
+   photos (max 6) and appear on the intake panel and the printed document. */
+const CAM={stream:null,timer:null};
+function camEnsureCss(){
+  if(document.getElementById('qm-cam-css')) return;
+  const st=document.createElement('style'); st.id='qm-cam-css';
+  st.textContent=
+    '#qm-cam{position:fixed;inset:0;z-index:10000;background:rgba(9,12,20,.95);display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:22px}'+
+    'body.camopen{overflow:hidden}body.camopen #qm-cam{display:flex}'+
+    '#qm-cam .camstage{position:relative;width:min(94vw,900px);max-height:64vh;aspect-ratio:4/3;background:#000;border-radius:16px;overflow:hidden;border:1px solid rgba(200,166,77,.38);box-shadow:0 40px 90px -40px rgba(0,0,0,.95)}'+
+    '#qm-cam video{width:100%;height:100%;object-fit:cover;display:block}'+
+    '#qm-cam .camcount{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:Georgia,"Times New Roman",serif;font-size:clamp(80px,16vw,170px);color:#f5f1e6;text-shadow:0 8px 40px rgba(0,0,0,.75);pointer-events:none;opacity:0}'+
+    '#qm-cam .camcount.pulse{animation:camtick 1s ease-out}'+
+    '@keyframes camtick{0%{opacity:0;transform:scale(1.45)}18%{opacity:1;transform:scale(1)}82%{opacity:1}100%{opacity:0;transform:scale(.92)}}'+
+    '#qm-cam .camflash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}'+
+    '#qm-cam .camflash.go{animation:camflash .42s ease-out}'+
+    '@keyframes camflash{0%{opacity:.92}100%{opacity:0}}'+
+    '#qm-cam .camhint{position:absolute;left:0;right:0;bottom:0;padding:10px 16px;background:linear-gradient(0deg,rgba(0,0,0,.62),transparent);color:rgba(245,241,230,.9);font-family:Helvetica,Arial,sans-serif;font-size:10px;letter-spacing:.2em;text-transform:uppercase;text-align:center}'+
+    '#qm-cam .camstrip{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;min-height:56px;align-items:center}'+
+    '#qm-cam .camstrip img{height:56px;border-radius:7px;border:1px solid rgba(245,241,230,.28);box-shadow:0 6px 18px -8px rgba(0,0,0,.8)}'+
+    '#qm-cam .camstrip .none{color:rgba(245,241,230,.45);font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:.16em;text-transform:uppercase}'+
+    '#qm-cam .cambar{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}'+
+    '#qm-cam .cambtn{border:1px solid rgba(245,241,230,.5);background:transparent;color:#f5f1e6;font-family:Helvetica,Arial,sans-serif;font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;font-weight:600;padding:13px 26px;border-radius:999px;cursor:pointer;transition:all .18s ease}'+
+    '#qm-cam .cambtn:hover{background:#f5f1e6;color:#0b1120}'+
+    '#qm-cam .cambtn.gold{border-color:#c8a64d;color:#e6c877}'+
+    '#qm-cam .cambtn.gold:hover{background:#c8a64d;color:#0b1120}'+
+    '#qm-cam .cambtn[disabled]{opacity:.4;cursor:default}'+
+    '#qm-cam .camtitle{color:rgba(245,241,230,.6);font-family:Helvetica,Arial,sans-serif;font-size:10px;letter-spacing:.26em;text-transform:uppercase}';
+  document.head.appendChild(st);
+}
+function camStop(){
+  if(CAM.timer){ clearInterval(CAM.timer); CAM.timer=null; }
+  try{ if(CAM.stream) CAM.stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+  CAM.stream=null;
+}
+function camStrip(o){
+  const layer=document.getElementById('qm-cam'); if(!layer) return;
+  const ci=o.customerItem||{}; const ph=ci.photos||[];
+  const strip=layer.querySelector('.camstrip');
+  if(strip) strip.innerHTML = ph.length ? ph.map(p=>'<img src="'+p.data+'" alt="">').join('') : '<span class="none">No photos yet</span>';
+  const t=layer.querySelector('.camtitle'); if(t) t.textContent=(ph.length)+' of 6 photographs · '+o.number;
+  const again=layer.querySelector('[data-act="camAgain"]');
+  if(again){ again.disabled = ph.length>=6; again.textContent = ph.length>=6 ? 'Maximum reached' : 'Take another (3s)'; }
+}
+function camSnap(o){
+  const layer=document.getElementById('qm-cam'); if(!layer) return;
+  const v=layer.querySelector('video');
+  if(!v||!v.videoWidth){ toast('Camera is still warming up — press Take another.'); const a=layer.querySelector('[data-act="camAgain"]'); if(a) a.disabled=false; return; }
+  const max=1280, sc=Math.min(1,max/Math.max(v.videoWidth,v.videoHeight));
+  const cv=document.createElement('canvas'); cv.width=Math.round(v.videoWidth*sc); cv.height=Math.round(v.videoHeight*sc);
+  cv.getContext('2d').drawImage(v,0,0,cv.width,cv.height);
+  const ci=o.customerItem=o.customerItem||{}; ci.photos=ci.photos||[];
+  ci.photos.push({data:cv.toDataURL('image/jpeg',0.85), at:Date.now(), by:curUser().name, name:'intake-'+(ci.photos.length+1)+'.jpg'});
+  audit('order.photo_captured','order',o.id,{count:ci.photos.length});
+  commit();
+  const fl=layer.querySelector('.camflash'); if(fl){ fl.classList.remove('go'); void fl.offsetWidth; fl.classList.add('go'); }
+  camStrip(o);
+  toast('Photograph '+ci.photos.length+' of 6 captured');
+}
+function camCountdown(o){
+  const layer=document.getElementById('qm-cam'); if(!layer) return;
+  const el=layer.querySelector('.camcount'); const again=layer.querySelector('[data-act="camAgain"]');
+  const ci=o.customerItem||{}; if((ci.photos||[]).length>=6){ toast('Maximum 6 photos on an intake.'); return; }
+  if(again) again.disabled=true;
+  if(CAM.timer){ clearInterval(CAM.timer); CAM.timer=null; }
+  let n=3;
+  const tick=()=>{
+    if(!document.body.classList.contains('camopen')){ clearInterval(CAM.timer); CAM.timer=null; return; }
+    if(n>0){ el.textContent=n; el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); n--; return; }
+    clearInterval(CAM.timer); CAM.timer=null; el.classList.remove('pulse'); el.textContent='';
+    camSnap(o);
+    const a=document.querySelector('#qm-cam [data-act="camAgain"]'); if(a&&((o.customerItem||{}).photos||[]).length<6) a.disabled=false;
+  };
+  tick();
+  CAM.timer=setInterval(tick,1000);
+}
+ACT.camOpen=async d=>{
+  const o=O((d&&d.id)||state.id); if(!o) return;
+  if(!requirePerm('edit_service','photograph the item')) return;
+  const ci=o.customerItem=o.customerItem||{}; ci.photos=ci.photos||[];
+  if(ci.photos.length>=6){ toast('Maximum 6 photos on an intake — remove one first.'); return; }
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){ toast('This browser cannot open a camera — use “Add photo” to upload instead.'); return; }
+  camEnsureCss();
+  let layer=document.getElementById('qm-cam');
+  if(!layer){ layer=document.createElement('div'); layer.id='qm-cam'; document.body.appendChild(layer); }
+  layer.innerHTML='<div class="camtitle">Preparing camera · '+esc(o.number)+'</div>'+
+    '<div class="camstage"><video playsinline muted autoplay></video><div class="camcount"></div><div class="camflash"></div>'+
+    '<div class="camhint">Hold the piece in frame — the photograph is taken automatically</div></div>'+
+    '<div class="camstrip"><span class="none">No photos yet</span></div>'+
+    '<div class="cambar"><button class="cambtn gold" data-act="camAgain" data-id="'+o.id+'" disabled>Take another (3s)</button>'+
+    '<button class="cambtn" data-act="camClose">Done</button></div>';
+  document.body.classList.add('camopen');
+  camStrip(o);
+  try{
+    CAM.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1440}},audio:false});
+  }catch(e){
+    document.body.classList.remove('camopen'); layer.innerHTML='';
+    const why=(e&&e.name==='NotAllowedError')?'permission was denied — allow camera access for this site in the browser':((e&&e.name==='NotFoundError')?'no camera was found on this device':String((e&&e.message)||e).slice(0,80));
+    toast('Camera unavailable: '+why);
+    return;
+  }
+  const v=layer.querySelector('video');
+  v.srcObject=CAM.stream; v.muted=true; v.playsInline=true;
+  try{ await v.play(); }catch(e){}
+  const start=()=>camCountdown(o);
+  if(v.videoWidth) start(); else v.addEventListener('loadedmetadata', start, {once:true});
+};
+ACT.camAgain=d=>{ const o=O((d&&d.id)||state.id); if(o) camCountdown(o); };
+ACT.camClose=()=>{ camStop(); document.body.classList.remove('camopen'); const l=document.getElementById('qm-cam'); if(l) l.innerHTML=''; render(); };
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&document.body.classList.contains('camopen')) ACT.camClose(); });
+/* intake panel: camera button beside the upload control */
+const _orderView5=VIEWS.order; VIEWS.order=function(){
+  let h=_orderView5();
+  const o=O(state.id);
+  if(o && h.indexOf('data-chg="addPhoto"')>-1){
+    h=h.replace('data-chg="addPhoto" style="display:none"></label>',
+      'data-chg="addPhoto" style="display:none"></label>'+
+      '<button class="b2 p" data-act="camOpen" data-id="'+o.id+'" style="margin-top:6px;margin-left:8px"><i class="fa-solid fa-camera-retro"></i> Photograph item (3s)</button>');
+  }
+  return h;
+};
