@@ -1174,7 +1174,8 @@ const rxNF = x => (+x||0).toLocaleString('en-CA',{minimumFractionDigits:2,maximu
 function rxIsEligible(o){ return o && !isSpecial(o) && /rolex/i.test(((o.customerItem||{}).brand||'')); }
 function rxHead(o, dateStr){
   const c=C(o.contactId)||{};
-  return '<div class="rxhd"><div><b>'+esc(RX.store[0])+'</b><br>'+esc(RX.store[1])+'<br>'+esc(RX.store[2])+'</div>'+
+  return '<div class="rxlogo"><img src="raffi-logo.svg" alt="Raffi Jewellers"></div>'+
+    '<div class="rxhd"><div><b>'+esc(RX.store[0])+'</b><br>'+esc(RX.store[1])+'<br>'+esc(RX.store[2])+'</div>'+
     '<div class="rxbill"><div class="rxlbl">Bill to/Deliver to</div>'+esc(c.name||'')+'<br>'+esc(c.email||'')+'<br><span class="rxdate">'+esc(dateStr||'')+'</span></div></div>';
 }
 function rxRef(o){
@@ -1262,6 +1263,8 @@ function rxEnsureCss(){
     'body.rxopen #rolex-print{display:block}'+
     '#rolex-print .rxbar{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;padding:10px 16px;display:flex;gap:10px;z-index:2}'+
     '#rolex-print .rxp{background:#fff;max-width:790px;margin:18px auto;padding:46px 54px;box-shadow:0 2px 14px rgba(0,0,0,.10);font-size:11.5px;line-height:1.5}'+
+    '#rolex-print .rxlogo{text-align:center;margin:0 0 24px}'+
+    '#rolex-print .rxlogo img{width:92px;height:auto;display:inline-block}'+
     '#rolex-print .rxhd{display:flex;justify-content:space-between;margin-bottom:22px;font-size:11px;line-height:1.55}'+
     '#rolex-print .rxbill{min-width:230px}'+
     '#rolex-print .rxlbl{color:#666;font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:3px}'+
