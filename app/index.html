@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Raffi Jewellers — Quotes &amp; Invoicing (Lightspeed DEV)</title>
+<title>Raffi Jewellers — Estimates &amp; Invoicing (Lightspeed DEV)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -306,6 +306,35 @@
   @media print{#splash{display:none!important;}}
   @media(max-width:640px){.doc{padding:32px 20px;}.page-title{font-size:26px;}}
 </style>
+<style id="lux-dash">
+  /* ---- premium dashboard (luxury refresh) ---- */
+  .lux-ledger{display:grid;grid-template-columns:repeat(4,1fr);background:#fff;border:1px solid var(--border);border-top:2px solid var(--gold);border-radius:14px;overflow:hidden;margin:4px 0 14px;box-shadow:0 1px 3px rgba(23,32,69,.05);}
+  .lux-stat{padding:24px 28px 22px;cursor:pointer;position:relative;transition:background .15s ease;}
+  .lux-stat:not(:first-child)::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:1px;background:linear-gradient(180deg,transparent,var(--border) 35%,var(--border) 65%,transparent);}
+  .lux-stat:hover{background:#fbf9f4;}
+  .lux-lab{font-family:var(--sans);font-size:9.5px;letter-spacing:.24em;color:#93949f;text-transform:uppercase;font-weight:600;margin-bottom:12px;white-space:nowrap;}
+  .lux-lab span{color:var(--gold);margin-left:6px;letter-spacing:.1em;}
+  .lux-val{font-family:var(--serif);font-size:31px;color:var(--navy);line-height:1;font-weight:600;}
+  .lux-val.warn{color:var(--red);}
+  .lux-band{display:grid;grid-template-columns:1.25fr 1fr 1fr auto;background:var(--navy);color:#f5f1e6;border-radius:14px;padding:26px 30px;margin:0 0 18px;align-items:center;position:relative;overflow:hidden;box-shadow:0 10px 30px -18px rgba(23,32,69,.55);}
+  .lux-band::before{content:'';position:absolute;left:30px;right:30px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(200,166,77,.65),transparent);}
+  .lux-band::after{content:'';position:absolute;inset:0;background:radial-gradient(130% 200% at 100% 0%,rgba(200,166,77,.12),transparent 55%);pointer-events:none;}
+  .lux-cell{cursor:pointer;position:relative;padding-right:28px;}
+  .lux-cell+.lux-cell{padding-left:28px;}
+  .lux-cell+.lux-cell::before{content:'';position:absolute;left:0;top:10%;bottom:10%;width:1px;background:rgba(245,241,230,.14);}
+  .lux-band .lux-lab{color:rgba(245,241,230,.52);}
+  .lux-band .lux-lab span{color:rgba(200,166,77,.9);}
+  .lux-band .lux-val{color:#f5f1e6;font-size:27px;}
+  .lux-band .lux-val.gold{color:#d9b96a;}
+  .lux-ls{position:relative;align-self:start;text-align:right;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(245,241,230,.5);white-space:nowrap;padding-left:28px;cursor:pointer;}
+  .lux-ls .ok{display:inline-block;width:6px;height:6px;border-radius:50%;background:#8fc79a;box-shadow:0 0 6px rgba(143,199,154,.8);margin-right:7px;vertical-align:1px;}
+  .lux-actions{display:flex;gap:12px;margin:2px 0 28px;flex-wrap:wrap;}
+  .lux-btn{border:1px solid rgba(23,32,69,.45);background:transparent;color:var(--navy);font-family:var(--sans);font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;font-weight:600;padding:13px 28px;border-radius:999px;cursor:pointer;transition:all .18s ease;}
+  .lux-btn:hover{background:var(--navy);border-color:var(--navy);color:#f5f1e6;}
+  @media(max-width:1100px){.lux-ledger{grid-template-columns:repeat(2,1fr)}.lux-band{grid-template-columns:1fr 1fr;row-gap:20px}.lux-ls{grid-column:1/-1;text-align:left;padding-left:0}}
+  @media(max-width:640px){.lux-ledger{grid-template-columns:1fr}.lux-stat:not(:first-child)::before{display:none}.lux-band{grid-template-columns:1fr}.lux-cell+.lux-cell{padding-left:0}.lux-cell+.lux-cell::before{display:none}}
+  @media print{.lux-band{background:#fff;color:var(--navy)}}
+</style>
 <style id="qm-sidebar-expand-static">
   /* Expanded sidebar with visible titles from FIRST paint (no flash-of-icon-rail).
      Labels are rendered from data-tip via ::after so no JS is needed. */
@@ -334,7 +363,7 @@
 </head>
 <body>
 
-  <div id="splash" aria-hidden="true"><img alt=""><div class="sline"></div><div class="ssub">Quotes &amp; Invoicing</div></div>
+  <div id="splash" aria-hidden="true"><img alt=""><div class="sline"></div><div class="ssub">Estimates &amp; Invoicing</div></div>
 
   <aside class="sidebar">
     <div class="logo" data-act="go" data-view="dashboard" title="Dashboard"><img src="raffi-logo-white.svg" alt="Raffi Jewellers"></div>
@@ -342,7 +371,7 @@
       <div class="nav-item" data-act="go" data-view="dashboard" data-tip="Dashboard" role="button" tabindex="0"><i class="fa-solid fa-chart-line"></i></div>
       <div class="nav-item" data-act="go" data-view="contacts" data-tip="Contacts" role="button" tabindex="0"><i class="fa-solid fa-users"></i></div>
       <div class="nav-item" data-act="go" data-view="specialorders" data-tip="Special Orders" role="button" tabindex="0"><i class="fa-solid fa-gem"></i></div>
-      <div class="nav-item" data-act="go" data-view="quotes" data-tip="Quotes" role="button" tabindex="0"><i class="fa-solid fa-comment-dollar"></i></div>
+      <div class="nav-item" data-act="go" data-view="quotes" data-tip="Estimates" role="button" tabindex="0"><i class="fa-solid fa-comment-dollar"></i></div>
       <div class="nav-item" data-act="go" data-view="orders" data-tip="Orders" role="button" tabindex="0"><i class="fa-solid fa-clipboard-list"></i></div>
       <div class="nav-item" data-act="go" data-view="invoices" data-tip="Invoices" role="button" tabindex="0"><i class="fa-solid fa-file-invoice"></i></div>
       <div class="nav-item" data-act="go" data-view="payments" data-tip="Payments" role="button" tabindex="0"><i class="fa-solid fa-dollar-sign"></i></div>
@@ -412,7 +441,7 @@ function seed(){
       address:'100 City Centre Dr\nMississauga, ON',
       user:'Al Sukara', currency:'CA$', taxName:'HST', taxRate:13,
       locations:['Mississauga','Toronto'],
-      terms:'Quote valid until the expiry date shown. Prices in Canadian dollars. All sales subject to availability.'
+      terms:'Estimate valid until the expiry date shown. Prices in Canadian dollars. All sales subject to availability.'
     },
     counters:{quote:5,order:4,invoice:1,payment:1},
     contacts:[
@@ -523,7 +552,7 @@ function markNav(){
   $$('.nav-item[data-view]').forEach(el=>el.classList.toggle('active',el.dataset.view===p));
 }
 function crumbs(){
-  const base={dashboard:'Dashboard',contacts:'Contacts',quotes:'Quotes',orders:'Orders',invoices:'Invoices',payments:'Payments',products:'Products',settings:'Settings'};
+  const base={dashboard:'Dashboard',contacts:'Contacts',quotes:'Estimates',orders:'Orders',invoices:'Invoices',payments:'Payments',products:'Products',settings:'Settings'};
   const parent=NAVPARENT[state.view];
   let html='<div class="home-tab" data-act="go" data-view="dashboard"><i class="fa-solid fa-house"></i></div>';
   html+='<span class="crumb-sep"><i class="fa-solid fa-chevron-right"></i></span>';
@@ -596,7 +625,6 @@ VIEWS.dashboard=function(){
   const overI=invs.filter(i=>iStatus(i)==='overdue');
   const sum=(arr,fn)=>arr.reduce((s,x)=>s+fn(x),0);
   const mv=n=>{const v=r2(n);return (db.settings.currency||'CA$')+(v%1===0?v.toLocaleString('en-CA'):v.toLocaleString('en-CA',{minimumFractionDigits:1,maximumFractionDigits:2}));};
-  const tmplBtns=templates().map(t=>'<button class="btn btn-green" data-act="useTemplate" data-id="'+t.id+'"><i class="fa-solid fa-clone"></i> '+esc(t.templateName||'Template')+'</button>').join('');
   const actors=Array.from(new Set(db.activity.map(a=>a.actor).filter(Boolean)));
   const feedItems=db.activity.filter(a=>state.feedUser==='all'||a.actor===state.feedUser).slice().sort((a,b)=>b.at-a.at);
   let feed='',lastDay=null;
@@ -609,22 +637,23 @@ VIEWS.dashboard=function(){
       (a.preview?'<div class="event-preview">'+renderParts(a.preview)+'</div>':'')+
       '</div></div></div>';
   });
-  if(!feedItems.length)feed='<div class="event"><span class="dot" style="background:#c4cbd6"></span><div class="event-card"><div class="event-body mut">No activity yet \u2014 create a quote to get started.</div></div></div>';
+  if(!feedItems.length)feed='<div class="event"><span class="dot" style="background:#c4cbd6"></span><div class="event-card"><div class="event-body mut">No activity yet \u2014 create an estimate to get started.</div></div></div>';
   return ''+
   '<div class="page-head"><div><div class="kicker">'+esc(new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}))+'</div><h1 class="page-title">Hi '+esc(s.user)+', <em>here\u2019s what\u2019s new.</em></h1></div>'+
     '<div class="head-tools"><button class="configure" data-act="go" data-view="settings"><i class="fa-solid fa-gear"></i> Configure</button>'+
     '<select class="select" data-chg="loc" aria-label="Location filter"><option value="all"'+(state.loc==='all'?' selected':'')+'>All locations</option>'+
     s.locations.map(l=>'<option'+(state.loc===l?' selected':'')+'>'+esc(l)+'</option>').join('')+'</select></div></div>'+
-  '<section class="metrics">'+
-    '<div class="metric" data-act="goChip" data-view="quotes" data-chip="open"><div class="label">Open Quotes <span>('+openQ.length+')</span></div><div class="value v-blue">'+mv(sum(openQ,q=>totals(q).total))+'</div></div>'+
-    '<div class="metric" data-act="goChip" data-view="quotes" data-chip="accepted"><div class="label">Accepted Quotes <span>('+accQ.length+')</span></div><div class="value v-gold">'+mv(sum(accQ,q=>totals(q).total))+'</div></div>'+
-    '<div class="metric" data-act="goChip" data-view="invoices" data-chip="open"><div class="label">Open Invoices <span>('+openI.length+')</span></div><div class="value v-blue">'+mv(sum(openI,i=>balance(i)))+'</div></div>'+
-    '<div class="metric" data-act="goChip" data-view="invoices" data-chip="overdue"><div class="label">Overdue Invoices <span>('+overI.length+')</span></div><div class="value v-red">'+mv(sum(overI,i=>balance(i)))+'</div></div>'+
+  '<section class="lux-ledger">'+
+    '<div class="lux-stat" data-act="goChip" data-view="quotes" data-chip="open"><div class="lux-lab">Open Estimates <span>'+openQ.length+'</span></div><div class="lux-val">'+mv(sum(openQ,q=>totals(q).total))+'</div></div>'+
+    '<div class="lux-stat" data-act="goChip" data-view="quotes" data-chip="accepted"><div class="lux-lab">Accepted Estimates <span>'+accQ.length+'</span></div><div class="lux-val">'+mv(sum(accQ,q=>totals(q).total))+'</div></div>'+
+    '<div class="lux-stat" data-act="goChip" data-view="invoices" data-chip="open"><div class="lux-lab">Open Invoices <span>'+openI.length+'</span></div><div class="lux-val">'+mv(sum(openI,i=>balance(i)))+'</div></div>'+
+    '<div class="lux-stat" data-act="goChip" data-view="invoices" data-chip="overdue"><div class="lux-lab">Overdue <span>'+overI.length+'</span></div><div class="lux-val'+(overI.length?' warn':'')+'">'+mv(sum(overI,i=>balance(i)))+'</div></div>'+
   '</section>'+
-  '<section class="actions">'+tmplBtns+
-    '<button class="btn btn-blue" data-act="newContact"><i class="fa-solid fa-users"></i> New Contact</button>'+
-    '<button class="btn btn-blue" data-act="newQuote"><i class="fa-solid fa-comment-dollar"></i> New Quote</button>'+
-    '<button class="btn btn-blue" data-act="newInvoice"><i class="fa-solid fa-file-invoice"></i> New Invoice</button>'+
+  '<div id="svc-metrics"></div>'+
+  '<section class="lux-actions">'+
+    '<button class="lux-btn" data-act="newContact">New Contact</button>'+
+    '<button class="lux-btn" data-act="newQuote">New Estimate</button>'+
+    '<button class="lux-btn" data-act="newInvoice">New Invoice</button>'+
   '</section>'+
   '<div class="feed-head"><h2 class="feed-title">Activity Feed</h2>'+
     '<div class="feed-filter"><i class="fa-solid fa-user"></i><select class="select" data-chg="feedUser" aria-label="Filter feed by user"><option value="all"'+(state.feedUser==='all'?' selected':'')+'>All users</option>'+
@@ -647,7 +676,7 @@ VIEWS.contacts=function(){
   return'<div class="page-head"><h1 class="page-title">Contacts</h1></div>'+
   '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search contacts\u2026" value="'+esc(state.q)+'"></span></div>'+
   '<div class="actrow"><button class="b2 o" data-act="csv" data-kind="contacts"><i class="fa-solid fa-download"></i> CSV</button><button class="b2 p" data-act="newContact"><i class="fa-solid fa-plus"></i> New Contact</button></div></div>'+
-  '<div class="card"><table class="tbl"><thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Phone</th><th class="r">Quotes</th><th class="r">Invoices</th></tr></thead><tbody id="rows">'+contactsRows()+'</tbody></table></div>';
+  '<div class="card"><table class="tbl"><thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Phone</th><th class="r">Estimates</th><th class="r">Invoices</th></tr></thead><tbody id="rows">'+contactsRows()+'</tbody></table></div>';
 };
 VIEWS.contact=function(){
   const c=C(state.id);
@@ -657,7 +686,7 @@ VIEWS.contact=function(){
   const os=db.orders.filter(o=>o.contactId===c.id);
   const docRow=(num,view,id,date,st,total)=>'<tr class="rowlink" data-act="open" data-type="'+view+'" data-id="'+id+'"><td class="num">'+esc(num)+'</td><td>'+fmtD(date)+'</td><td>'+st+'</td><td class="r">'+money(total)+'</td></tr>';
   return'<div class="page-head"><h1 class="page-title">'+esc(c.name)+'</h1>'+
-  '<div class="actrow"><button class="b2 p" data-act="newQuoteFor" data-id="'+c.id+'"><i class="fa-solid fa-comment-dollar"></i> New quote</button>'+
+  '<div class="actrow"><button class="b2 p" data-act="newQuoteFor" data-id="'+c.id+'"><i class="fa-solid fa-comment-dollar"></i> New estimate</button>'+
   '<button class="b2 o" data-act="editContact" data-id="'+c.id+'"><i class="fa-solid fa-pen"></i> Edit</button>'+
   '<button class="b2 d" data-act="delContact" data-id="'+c.id+'"><i class="fa-solid fa-trash"></i> Delete</button></div></div>'+
   '<div class="card" style="margin-bottom:22px"><div class="panel"><div class="fgrid">'+
@@ -667,7 +696,7 @@ VIEWS.contact=function(){
     '<div class="fld"><label>Address</label><div style="white-space:pre-line">'+esc(c.address||'\u2014')+'</div></div>'+
     (c.notes?'<div class="fld wide"><label>Notes</label><div>'+esc(c.notes)+'</div></div>':'')+
   '</div></div></div>'+
-  '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Quotes ('+qs.length+')</h3></div>'+
+  '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Estimates ('+qs.length+')</h3></div>'+
     (qs.length?'<table class="tbl"><thead><tr><th>Number</th><th>Date</th><th>Status</th><th class="r">Total</th></tr></thead><tbody>'+qs.map(q=>docRow(q.number,'quote',q.id,q.date,badge(QB,q.status),totals(q).total)).join('')+'</tbody></table>':'<div class="empty sm">No quotes yet.</div>')+'</div>'+
   '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Orders ('+os.length+')</h3></div>'+
     (os.length?'<table class="tbl"><thead><tr><th>Number</th><th>Date</th><th>Status</th><th class="r">Total</th></tr></thead><tbody>'+os.map(o=>docRow(o.number,'order',o.id,o.date,badge(OB,o.status),totals(o).total)).join('')+'</tbody></table>':'<div class="empty sm">No orders yet.</div>')+'</div>'+
@@ -695,21 +724,21 @@ function quotesRows(){
   if(state.qChip==='templates'){
     list=templates();
     const rows=list.map(t=>'<tr><td class="num">'+esc(t.templateName||'Template')+'</td><td class="mut">'+t.items.length+' line item'+(t.items.length===1?'':'s')+'</td><td class="r">'+money(totals(t).total)+'</td><td class="r"><span class="actrow" style="justify-content:flex-end"><button class="b2 g" data-act="useTemplate" data-id="'+t.id+'">Use</button><button class="b2 o" data-act="open" data-type="quote" data-id="'+t.id+'">Edit</button><button class="b2 d" data-act="delQuote" data-id="'+t.id+'">Delete</button></span></td></tr>').join('');
-    return rows||'<tr><td colspan="4"><div class="empty"><i class="fa-solid fa-clone"></i>No templates yet. Open a quote and choose \u201cSave as template\u201d.</div></td></tr>';
+    return rows||'<tr><td colspan="4"><div class="empty"><i class="fa-solid fa-clone"></i>No templates yet. Open an estimate and choose \u201cSave as template\u201d.</div></td></tr>';
   }
   list=realQuotes().filter(q=>(state.qChip==='all'||q.status===state.qChip)&&matches(q.number+' '+cname(q.contactId)));
   const rows=list.sort((a,b)=>b.createdAt-a.createdAt)
     .map(q=>'<tr class="rowlink" data-act="open" data-type="quote" data-id="'+q.id+'"><td class="num">'+esc(q.number)+'</td><td>'+esc(cname(q.contactId))+'</td><td>'+fmtD(q.date)+'</td><td>'+fmtD(q.expiry)+'</td><td>'+badge(QB,q.status)+'</td><td class="r">'+money(totals(q).total)+'</td></tr>').join('');
-  return rows||'<tr><td colspan="6"><div class="empty"><i class="fa-solid fa-comment-dollar"></i>No quotes here yet.</div></td></tr>';
+  return rows||'<tr><td colspan="6"><div class="empty"><i class="fa-solid fa-comment-dollar"></i>No estimates here yet.</div></td></tr>';
 }
 VIEWS.quotes=function(){
   const chips=[['all','All'],['draft','Draft'],['open','Open'],['accepted','Accepted'],['declined','Declined'],['templates','Templates']];
   const head=state.qChip==='templates'?'<tr><th>Template</th><th>Contents</th><th class="r">Total</th><th class="r">Actions</th></tr>'
     :'<tr><th>Number</th><th>Contact</th><th>Date</th><th>Expiry</th><th>Status</th><th class="r">Total</th></tr>';
-  return'<div class="page-head"><h1 class="page-title">Quotes</h1></div>'+
-  '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search quotes\u2026" value="'+esc(state.q)+'"></span>'+
+  return'<div class="page-head"><h1 class="page-title">Estimates</h1></div>'+
+  '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search estimates\u2026" value="'+esc(state.q)+'"></span>'+
   '<span class="chips">'+chips.map(c=>'<button class="chip'+(state.qChip===c[0]?' on':'')+'" data-act="qChip" data-chip="'+c[0]+'">'+c[1]+'</button>').join('')+'</span></div>'+
-  '<div class="actrow"><button class="b2 o" data-act="csv" data-kind="quotes"><i class="fa-solid fa-download"></i> CSV</button><button class="b2 p" data-act="newQuote"><i class="fa-solid fa-plus"></i> New Quote</button></div></div>'+
+  '<div class="actrow"><button class="b2 o" data-act="csv" data-kind="quotes"><i class="fa-solid fa-download"></i> CSV</button><button class="b2 p" data-act="newQuote"><i class="fa-solid fa-plus"></i> New Estimate</button></div></div>'+
   '<div class="card"><table class="tbl"><thead>'+head+'</thead><tbody id="rows">'+quotesRows()+'</tbody></table></div>';
 };
 
@@ -798,7 +827,7 @@ VIEWS.quote=function(){
     '<div class="panel"><h3>Details</h3><div class="fgrid">'+
       (q.isTemplate?'<div class="fld"><label>Template name</label><input data-li="doc" data-f="templateName" value="'+esc(q.templateName||'')+'"></div>'
         :'<div class="fld"><label>Contact</label>'+contactSelect(q.contactId)+'</div>')+
-      '<div class="fld"><label>Quote date</label><input type="date" data-li="doc" data-f="date" value="'+esc(q.date||'')+'"></div>'+
+      '<div class="fld"><label>Estimate date</label><input type="date" data-li="doc" data-f="date" value="'+esc(q.date||'')+'"></div>'+
       '<div class="fld"><label>Expiry</label><input type="date" data-li="doc" data-f="expiry" value="'+esc(q.expiry||'')+'"></div>'+
       '<div class="fld"><label>Location</label>'+locSelect(q.loc)+'</div>'+
       '<div class="fld"><label>Discount %</label><input type="number" min="0" max="100" step="0.5" data-li="doc" data-f="discountPct" value="'+(+q.discountPct||0)+'"></div>'+
@@ -813,7 +842,7 @@ function docHTML(d,kind){
   const isInv=kind==='invoice';
   const metaRows=isInv
     ?'<tr><td>Invoice #</td><td>'+esc(d.number)+'</td></tr><tr><td>Date</td><td>'+fmtD(d.date)+'</td></tr><tr><td>Due</td><td>'+fmtD(d.dueDate)+'</td></tr>'
-    :'<tr><td>Quote #</td><td>'+esc(d.number)+'</td></tr><tr><td>Date</td><td>'+fmtD(d.date)+'</td></tr><tr><td>Valid until</td><td>'+fmtD(d.expiry)+'</td></tr>';
+    :'<tr><td>Estimate #</td><td>'+esc(d.number)+'</td></tr><tr><td>Date</td><td>'+fmtD(d.date)+'</td></tr><tr><td>Valid until</td><td>'+fmtD(d.expiry)+'</td></tr>';
   const st=isInv?badge(IB,iStatus(d)):badge(QB,d.status);
   let totalRows='<tr><td colspan="3" class="r mut">Subtotal</td><td class="r">'+money(t.sub)+'</td></tr>';
   if(t.disc>0)totalRows+='<tr><td colspan="3" class="r mut">Discount ('+(+d.discountPct||0)+'%)</td><td class="r">\u2212'+money(t.disc)+'</td></tr>';
@@ -825,7 +854,7 @@ function docHTML(d,kind){
   }
   return'<div class="doc"><div class="doc-top">'+
     '<div class="doc-co"><img class="doc-logo" src="'+LOGO_NAVY+'" alt="'+esc(s.company)+'"><p>'+esc(s.address)+'\n'+esc(s.phone)+'\n'+esc(s.email)+'</p></div>'+
-    '<div class="doc-meta"><div class="doc-type">'+(isInv?'INVOICE':'QUOTE')+'</div><table>'+metaRows+'</table><div class="stamp">'+st+'</div></div></div>'+
+    '<div class="doc-meta"><div class="doc-type">'+(isInv?'INVOICE':'ESTIMATE')+'</div><table>'+metaRows+'</table><div class="stamp">'+st+'</div></div></div>'+
     '<div class="doc-bill"><div class="lbl">Prepared for</div><div class="who">'+esc(c?c.name:'\u2014')+'</div>'+
     (c?'<p>'+esc([c.company,c.email,c.phone].filter(Boolean).join('\n'))+'</p>':'')+'</div>'+
     '<table class="doc-items"><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead><tbody>'+
@@ -1054,7 +1083,7 @@ function productModal(p){
 }
 function quickBody(){
   return'<div class="qgrid">'+
-  '<button class="qbtn" data-act="newQuote"><i class="fa-solid fa-comment-dollar"></i>New Quote</button>'+
+  '<button class="qbtn" data-act="newQuote"><i class="fa-solid fa-comment-dollar"></i>New Estimate</button>'+
   '<button class="qbtn" data-act="newInvoice"><i class="fa-solid fa-file-invoice"></i>New Invoice</button>'+
   '<button class="qbtn" data-act="newContact"><i class="fa-solid fa-users"></i>New Contact</button>'+
   '<button class="qbtn" data-act="newProduct"><i class="fa-solid fa-tag"></i>New Product</button></div>';
@@ -1064,7 +1093,7 @@ function quickBody(){
 const defLoc=()=>state.loc!=='all'?state.loc:(db.settings.locations[0]||'');
 const clone=x=>JSON.parse(JSON.stringify(x));
 function makeQuote(contactId){
-  const n='QUO-'+pad4(db.counters.quote++);
+  const n='EST-'+pad4(db.counters.quote++);
   const q={id:uid(),number:n,contactId:contactId||'',date:todayISO(),expiry:plusDays(todayISO(),30),loc:defLoc(),status:'draft',
     items:[{name:'',desc:'',qty:1,price:0,taxable:true}],discountPct:0,notes:'',
     signedBy:null,signedAt:null,signature:null,createdAt:Date.now(),orderId:null,invoiceId:null,isTemplate:false};

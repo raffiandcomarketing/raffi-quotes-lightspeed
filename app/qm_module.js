@@ -252,15 +252,15 @@ const LS = {
     if(contact.lsCustomerId) return contact.lsCustomerId;
     // 1) email match
     if(contact.email){ const r = await LS.call('GET','/api/2.0/search?type=customers&email='+encodeURIComponent(contact.email)); const hit=r.status===200&&r.data.data&&r.data.data.find(c=>(c.email||'').toLowerCase()===contact.email.toLowerCase()); if(hit){ contact.lsCustomerId=hit.id; audit('ls.customer.linked','contact',contact.id,{lsCustomerId:hit.id,by:'email'}); commit(); return hit.id; } }
-    // 2) customer_code match (QM-<id>)
-    { const r = await LS.call('GET','/api/2.0/search?type=customers&customer_code='+encodeURIComponent('QM-'+contact.id)); const hit=r.status===200&&r.data.data&&r.data.data[0]; if(hit){ contact.lsCustomerId=hit.id; commit(); return hit.id; } }
+    // 2) customer_code match — RJ- for new records, QM- kept as a legacy fallback
+    for(const pre of ['RJ-','QM-']){ const r = await LS.call('GET','/api/2.0/search?type=customers&customer_code='+encodeURIComponent(pre+contact.id)); const hit=r.status===200&&r.data.data&&r.data.data[0]; if(hit){ contact.lsCustomerId=hit.id; commit(); return hit.id; } }
     // 3) create (idempotent by op id)
     const parts=(contact.name||'').trim().split(/\s+/); const first=parts.shift()||contact.name||'Customer'; const last=parts.join(' ')||'';
-    const body={first_name:first,last_name:last,email:contact.email||undefined,phone:contact.phone||undefined,company_name:contact.company||undefined,customer_code:'QM-'+contact.id,note:(contact.notes||'').slice(0,500)||undefined};
+    const body={first_name:first,last_name:last,email:contact.email||undefined,phone:contact.phone||undefined,company_name:contact.company||undefined,customer_code:'RJ-'+contact.id,note:(contact.notes||'').slice(0,500)||undefined};
     const r = await LS.call('POST','/api/2.0/customers',body,{opId:'customer-create-'+contact.id});
     if(r.status===201||r.status===200){ const id=r.data.data.id; contact.lsCustomerId=id; audit('ls.customer.created','contact',contact.id,{lsCustomerId:id}); commit(); return id; }
     if(r.status===409||r.status===400){ // maybe duplicate code/email -> search again
-      const rr = await LS.call('GET','/api/2.0/search?type=customers&customer_code='+encodeURIComponent('QM-'+contact.id)); const hit=rr.status===200&&rr.data.data&&rr.data.data[0]; if(hit){ contact.lsCustomerId=hit.id; commit(); return hit.id; }
+      for(const pre of ['RJ-','QM-']){ const rr = await LS.call('GET','/api/2.0/search?type=customers&customer_code='+encodeURIComponent(pre+contact.id)); const hit=rr.status===200&&rr.data.data&&rr.data.data[0]; if(hit){ contact.lsCustomerId=hit.id; commit(); return hit.id; } }
     }
     throw new Error('Lightspeed customer create failed: '+r.status+' '+JSON.stringify(r.data).slice(0,200));
   },
@@ -620,7 +620,7 @@ VIEWS.settings=function(){
     '<h3 style="margin-top:14px">Payment methods → Lightspeed payment types</h3><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>App method</th><th>Lightspeed payment type</th></tr></thead><tbody>'+pmRows+'</tbody></table></div>'+
     '<h3 style="margin-top:14px">Brand restrictions (brand may only be sold at these locations)</h3><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Brand</th><th>Locations</th><th></th></tr></thead><tbody>'+brandRows+'</tbody></table></div><div class="actrow" style="margin-top:8px"><button class="b2 o" data-act="addBrandRule">+ Add brand rule</button></div>'+
     '<div class="actrow" style="margin-top:16px"><button class="b2 p" data-act="saveLsSettings"><i class="fa-solid fa-floppy-disk"></i> Save Lightspeed settings</button></div></div></div>';
-  const usersCard='<div class="card" style="margin-bottom:22px"><div class="panel"><h3><i class="fa-solid fa-users-gear"></i> Users &amp; roles</h3><p class="mut sm" style="margin-bottom:10px">Roles: associate (quotes, deposits) · advisor (+ service edits/completion) · manager (+ refunds, cancel, void, overrides, settings) · admin (+ users). Switch user from the top bar (PIN).</p>'+
+  const usersCard='<div class="card" style="margin-bottom:22px"><div class="panel"><h3><i class="fa-solid fa-users-gear"></i> Users &amp; roles</h3><p class="mut sm" style="margin-bottom:10px">Roles: associate (estimates, deposits) · advisor (+ service edits/completion) · manager (+ refunds, cancel, void, overrides, settings) · admin (+ users). Switch user from the top bar (PIN).</p>'+
     '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Lightspeed user</th><th>PIN</th><th></th></tr></thead><tbody>'+userRows+'</tbody></table></div>'+
     '<div class="actrow" style="margin-top:8px"><button class="b2 o" data-act="addUser">+ Add user</button><button class="b2 p" data-act="saveUsers"><i class="fa-solid fa-floppy-disk"></i> Save users</button></div></div></div>';
   const auditCard='<div class="card" style="margin-bottom:22px"><div class="panel"><h3><i class="fa-solid fa-clipboard-check"></i> Audit log (last 40)</h3><div style="overflow-x:auto"><table class="tbl"><thead><tr><th>When</th><th>User</th><th>Action</th><th>Entity</th><th>Detail</th></tr></thead><tbody>'+(db.audit||[]).slice(-40).reverse().map(a=>'<tr><td>'+esc(fmtLong(a.at))+'</td><td>'+esc(a.userName)+'</td><td>'+esc(a.action)+'</td><td>'+esc(a.entity||'')+'</td><td class="mut sm">'+esc((a.detail||'').slice(0,120))+'</td></tr>').join('')+'</tbody></table></div><div class="actrow" style="margin-top:8px"><button class="b2 o" data-act="csv" data-kind="audit"><i class="fa-solid fa-download"></i> Audit CSV</button></div></div></div>';
@@ -677,11 +677,14 @@ const _dash=VIEWS.dashboard; VIEWS.dashboard=function(){
   const open=db.orders.filter(o=>o.status!=='completed'&&o.status!=='cancelled');
   const held=r2(open.reduce((s,o)=>s+orderPaid(o),0)); const outstanding=r2(open.reduce((s,o)=>s+Math.max(0,orderBalance(o)),0));
   const recog=r2(db.orders.filter(o=>o.status==='completed').reduce((s,o)=>s+totals(o).total,0)+db.orders.filter(o=>o.status==='cancelled').reduce((s,o)=>s+(+o.cancelFee||0),0));
-  const card='<section class="metrics" style="margin-top:-8px"><div class="metric" data-act="go" data-view="orders"><div class="label">Deposits held — unearned revenue (liability) <span>('+open.length+' open)</span></div><div class="value v-gold">'+money(held)+'</div></div>'+
-  '<div class="metric" data-act="go" data-view="orders"><div class="label">Open service balances</div><div class="value v-blue">'+money(outstanding)+'</div></div>'+
-  '<div class="metric" data-act="go" data-view="payments"><div class="label">Recognised service revenue (completed)</div><div class="value v-green" style="color:var(--green)">'+money(recog)+'</div></div>'+
-  '<div class="metric" data-act="go" data-view="settings"><div class="label">Lightspeed</div><div class="value" style="font-size:16px">'+(LS.connected()?'Connected · '+esc(db.settings.ls.store):'Not connected')+'</div></div></section>';
-  return html.replace('<section class="actions">', card+'<section class="actions">');
+  const band='<section class="lux-band">'+
+    '<div class="lux-cell" data-act="go" data-view="orders"><div class="lux-lab">Deposits Held — Unearned <span>'+open.length+' open</span></div><div class="lux-val gold">'+money(held)+'</div></div>'+
+    '<div class="lux-cell" data-act="go" data-view="orders"><div class="lux-lab">Open Service Balances</div><div class="lux-val">'+money(outstanding)+'</div></div>'+
+    '<div class="lux-cell" data-act="go" data-view="payments"><div class="lux-lab">Recognised Revenue</div><div class="lux-val">'+money(recog)+'</div></div>'+
+    '<div class="lux-ls" data-act="go" data-view="settings">'+(LS.connected()?'<span class="ok"></span>Lightspeed · '+esc(db.settings.ls.store||'connected'):'Lightspeed · not connected')+'</div>'+
+  '</section>';
+  if(html.indexOf('<div id="svc-metrics"></div>')>-1) return html.replace('<div id="svc-metrics"></div>', band);
+  return html.replace('<section class="lux-actions">', band+'<section class="lux-actions">');
 };
 /* payments view: reconciliation table */
 const _payView=VIEWS.payments; VIEWS.payments=function(){
