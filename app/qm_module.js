@@ -1295,6 +1295,14 @@ function rxEnsureCss(){
     '#rolex-print .rxsign{display:flex;gap:44px;margin-top:30px}'+
     '#rolex-print .rxsign div{flex:1;border-top:1px solid #111;padding-top:5px;font-size:10px}'+
     '#rolex-print .rxck{display:inline-block;width:11px;height:11px;border:1.3px solid #111;margin-right:8px;vertical-align:-1px}'+
+    /* label/value grid + ledger used by the standard service document */
+    '#rolex-print .rxgrid{display:grid;grid-template-columns:1fr 1fr;gap:13px 34px;margin:6px 0 4px}'+
+    '#rolex-print .rxgrid.one{grid-template-columns:1fr}'+
+    '#rolex-print .rxk{font-size:8.5px;letter-spacing:.17em;text-transform:uppercase;color:#8a8a93;margin-bottom:3px}'+
+    '#rolex-print .rxv{font-size:11.5px;color:#111;border-bottom:1px solid #e6e6e6;padding-bottom:5px;min-height:17px}'+
+    '#rolex-print .rxrule{height:1px;background:#111;opacity:.85;margin:16px 0 4px}'+
+    '#rolex-print .rxbadge{font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;border:1px solid #c8a64d;color:#8a6f26;padding:3px 9px;border-radius:999px;display:inline-block}'+
+    '#rolex-print .rxnote{font-size:10.5px;color:#444;line-height:1.55;margin:4px 0 0}'+
     '@media print{'+
     ' body.rxopen>*:not(#rolex-print){display:none!important}'+
     ' body.rxopen #rolex-print{display:block;position:static;background:#fff;overflow:visible}'+
@@ -1332,4 +1340,94 @@ ACT.printOrder=d=>{
   if(rxIsEligible(o)){ rolexPrintChooser(o); return; }
   _printOrder2(d);
 };
-ACT.rolexStandardPrint=()=>{ closeModal(); setTimeout(()=>window.print(),80); };
+ACT.rolexStandardPrint=()=>{ closeModal(); ACT.servicePrint({id:state.id}); };
+
+/* ---------- standard service / special-order print document ----------
+   Printing an order used to print the working screen itself — buttons, dropdowns and
+   input boxes on the page. It now renders a flat, luxury document: the Raffi wordmark,
+   a reference block, every intake field as a label above a written value, the work
+   table, the deposits ledger, totals and a signature line. Nothing else reaches paper. */
+function svcKV(label, value){
+  return '<div class="rxkv"><div class="rxk">'+esc(label)+'</div><div class="rxv">'+(esc(value||'')||'&nbsp;')+'</div></div>';
+}
+function svcStore(o){
+  if(/cambridge/i.test(o.loc||'')) return RX.store;
+  const s=db.settings;
+  return [(s.company||'Raffi Jewellers'), [o.loc,(s.address||'')].filter(Boolean).join(' · '), [(s.phone||''),(s.email||'')].filter(Boolean).join(' / ')];
+}
+function serviceDoc(o){
+  const s=db.settings, c=C(o.contactId)||{}, ci=o.customerItem||{}, t=totals(o);
+  const special=isSpecial(o), st=svcStore(o);
+  const paid=orderPaid(o), bal=orderBalance(o);
+  const pays=orderPays(o).slice().sort((a,b)=>(a.at||0)-(b.at||0));
+  const piece=([ci.brand,ci.model].filter(Boolean).join(' ')+(ci.reference?' Ref. '+ci.reference:'')).trim();
+  const statusLabel=((special?SOB:OB)[o.status]||[,o.status])[1];
+  const disc=(+o.discountPct||0)/100;
+  const lines=(o.items||[]).map(it=>'<tr><td>'+esc(it.name||'')+(it.desc?'<div style="color:#777;font-size:10px;margin-top:2px">'+esc(it.desc)+'</div>':'')+'</td>'+
+    '<td class="r">'+(+it.qty||0)+'</td><td class="r">'+rxNF(r2((+it.price||0)*(1-disc)))+'</td>'+
+    '<td class="r">'+rxNF(r2((+it.qty||0)*(+it.price||0)*(1-disc)))+'</td></tr>').join('')||'<tr><td colspan="4" style="color:#999">No work recorded yet.</td></tr>';
+  const payRows=pays.length?('<div class="rxsec">Deposits &amp; Payments Received</div><table class="rxtbl">'+
+    '<tr><th>Reference</th><th style="width:120px">Date</th><th style="width:130px">Method</th><th class="r" style="width:90px">Amount CAD $</th></tr>'+
+    pays.map(p=>'<tr><td>'+esc(p.number||'')+(p.kind?' · '+esc(p.kind):'')+'</td><td>'+esc(fmtD(p.date||todayISO()))+'</td><td>'+esc(p.method||'')+'</td><td class="r">'+rxNF(p.amount)+'</td></tr>').join('')+
+    '</table>'):'';
+  const totalsTbl='<table class="rxtot">'+
+    '<tr><td class="lab">Subtotal</td><td class="r" style="width:95px">'+rxNF(r2((t.sub||0)-(t.disc||0)))+'</td></tr>'+
+    '<tr><td class="lab">'+esc(locTaxName(o.loc))+' '+t.rate+'%</td><td class="r">'+rxNF(t.tax)+'</td></tr>'+
+    '<tr class="grand"><td class="lab">'+(special?'Total CAD':'Service Total CAD')+'</td><td class="r">'+rxNF(t.total)+'</td></tr>'+
+    (paid>0?'<tr><td class="lab">Deposits received</td><td class="r">'+rxNF(paid)+'</td></tr>':'')+
+    (paid>0?'<tr class="grand"><td class="lab">Balance due on collection</td><td class="r">'+rxNF(Math.max(0,bal))+'</td></tr>':'')+
+    '</table>';
+  const heldNote=(paid>0&&o.status!=='completed')
+    ? '<p class="rxnote">Deposits shown above are held as unearned revenue against this order. The sale is recognised only when the '+(special?'piece is collected':'service is completed and collected')+' and the balance is settled.</p>' : '';
+  return '<div class="rxp">'+
+    '<div class="rxlogo"><img src="raffi-logo.svg" alt="Raffi Jewellers"></div>'+
+    '<div class="rxhd"><div><b>'+esc(st[0])+'</b><br>'+esc(st[1])+'<br>'+esc(st[2])+'</div>'+
+      '<div class="rxbill"><div class="rxlbl">Prepared for</div>'+esc(c.name||'—')+
+      (c.company?'<br>'+esc(c.company):'')+(c.email?'<br>'+esc(c.email):'')+(c.phone?'<br>'+esc(c.phone):'')+
+      '<br><span class="rxdate">'+esc(fmtD(o.date))+'</span></div></div>'+
+    rxTitle(special?'SPECIAL ORDER':'SERVICE ORDER')+
+    '<table class="rxref">'+
+      '<tr><td class="k">Our Reference</td><td>'+esc(o.number)+'</td></tr>'+
+      '<tr><td class="k">'+(special?'Piece':'Timepiece')+'</td><td>'+(esc(piece)||'&nbsp;')+'</td></tr>'+
+      '<tr><td class="k">Serial No</td><td>'+(esc(ci.serial||'')||'&nbsp;')+'</td></tr>'+
+      '<tr><td class="k">Location</td><td>'+esc(o.loc||'')+'</td></tr>'+
+      '<tr><td class="k">Status</td><td>'+esc(statusLabel||'')+(o.ls&&o.ls.receipt?' · Receipt #'+esc(o.ls.receipt):'')+'</td></tr>'+
+    '</table>'+
+    (special&&ci.raffiId?'<div style="margin:2px 0 10px"><span class="rxbadge">Raffi ID '+esc(ci.raffiId)+' · received</span></div>':'')+
+    '<div class="rxsec">'+(special?'Special-Order Item':'Client Item — Intake Record')+'</div>'+
+    '<div class="rxgrid">'+
+      svcKV('Brand',ci.brand)+svcKV('Model',ci.model)+
+      svcKV('Reference',ci.reference)+svcKV('Serial number',ci.serial)+
+      svcKV('Warranty',ci.warranty)+svcKV(special?'Expected arrival':'Ownership',special?(o.specialEta?fmtD(o.specialEta):''):(o.ownership==='store'?'Raffi-owned merchandise':'Client-owned property'))+
+    '</div>'+
+    '<div class="rxgrid one">'+
+      svcKV(special?'Client request':'Client description',ci.description)+
+      (special?'':svcKV('Condition at intake',ci.condition))+
+      (special?'':svcKV('Accessories received',ci.accessories))+
+    '</div>'+
+    '<div class="rxsec">'+(special?'Order Detail':'Work &amp; Parts')+'</div>'+
+    '<table class="rxtbl"><tr><th>Description</th><th class="r" style="width:60px">Qty</th><th class="r" style="width:95px">Price CAD $</th><th class="r" style="width:100px">Amount CAD $</th></tr>'+lines+'</table>'+
+    totalsTbl+heldNote+
+    payRows+
+    (o.notes?'<div class="rxsec">Notes</div><p class="rxnote">'+esc(o.notes)+'</p>':'')+
+    '<div class="rxrule"></div>'+
+    '<p class="rxnote">Received by <b>'+esc(userName(o.createdBy)||s.user||'')+'</b>'+(o.assignedTo?' · Assigned to <b>'+esc(userName(o.assignedTo))+'</b>':'')+'. Please present this document on collection.</p>'+
+    rxSig()+
+    '<div class="rxfoot">'+esc(s.company||'Raffi Jewellers')+' — '+esc(o.number)+' · Printed '+esc(fmtD(todayISO()))+'</div>'+
+  '</div>';
+}
+ACT.servicePrint=d=>{
+  const o=O((d&&d.id)||state.id); if(!o) return;
+  rxEnsureCss(); closeModal();
+  let layer=document.getElementById('rolex-print');
+  if(!layer){ layer=document.createElement('div'); layer.id='rolex-print'; document.body.appendChild(layer); }
+  layer.innerHTML='<div class="rxbar no-print"><button class="b2 o" data-act="rolexClosePreview">← Back</button><button class="b2 p" data-act="print"><i class="fa-solid fa-print"></i> Print / PDF</button><span class="mut sm" style="align-self:center">'+(isSpecial(o)?'Special order':'Service order')+' document — '+esc(o.number)+'</span></div>'+serviceDoc(o);
+  document.body.classList.add('rxopen');
+  audit('order.print','order',o.id,isSpecial(o)?'special':'service');
+};
+const _printOrder3=ACT.printOrder;
+ACT.printOrder=d=>{
+  const o=O((d&&d.id)||state.id);
+  if(o&&rxIsEligible(o)){ _printOrder3(d); return; }   // Rolex service keeps its stage chooser
+  ACT.servicePrint(d||{});
+};

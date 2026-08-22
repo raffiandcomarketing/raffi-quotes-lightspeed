@@ -168,7 +168,7 @@
   .doc{max-width:860px;margin:0 auto;background:#fff;border:1px solid var(--border);border-top:4px solid var(--gold);border-radius:8px;box-shadow:0 2px 10px rgba(28,40,64,.07);padding:46px 52px;}
   .doc-top{display:flex;justify-content:space-between;gap:24px;margin-bottom:30px;padding-bottom:24px;border-bottom:1px solid var(--gold-soft);flex-wrap:wrap;}
   .doc-co h2{font-family:var(--serif);font-size:24px;color:var(--navy);}
-  .doc-logo{width:175px;height:auto;display:block;margin-bottom:14px;}
+  .doc-logo{width:92px;height:auto;display:block;margin-bottom:16px;}
   .doc-co p{color:var(--muted);font-size:12.5px;margin-top:4px;white-space:pre-line;}
   .doc-meta{text-align:right;}
   .doc-type{font-family:var(--serif);font-size:30px;color:var(--navy);letter-spacing:.12em;}
@@ -334,6 +334,19 @@
   @media(max-width:1100px){.lux-ledger{grid-template-columns:repeat(2,1fr)}.lux-band{grid-template-columns:1fr 1fr;row-gap:20px}.lux-ls{grid-column:1/-1;text-align:left;padding-left:0}}
   @media(max-width:640px){.lux-ledger{grid-template-columns:1fr}.lux-stat:not(:first-child)::before{display:none}.lux-band{grid-template-columns:1fr}.lux-cell+.lux-cell{padding-left:0}.lux-cell+.lux-cell::before{display:none}}
   @media print{.lux-band{background:#fff;color:var(--navy)}}
+  /* ---- flat print: a document prints as plain paper — no card, no shadow, no canvas ---- */
+  @page{margin:14mm 13mm;}
+  @media print{
+    html,body,.shell,.content{background:#fff!important;}
+    .shell{margin:0!important;}
+    .content{padding:0!important;max-width:none!important;}
+    .sidebar,.topbar,.no-print,.help-fab,footer,.banner,.doc-actions,.toast,.page-head .actrow{display:none!important;}
+    .doc{border:none!important;border-top:none!important;border-radius:0!important;box-shadow:none!important;
+         max-width:none!important;margin:0!important;padding:0!important;overflow:visible!important;}
+    .doc::before,.doc::after{display:none!important;}
+    .doc-items thead th{background:transparent!important;}
+    .doc-foot{border-top:1px solid var(--gold-soft)!important;}
+  }
 </style>
 <style id="qm-sidebar-expand-static">
   /* Expanded sidebar with visible titles from FIRST paint (no flash-of-icon-rail).
@@ -401,7 +414,7 @@
 <script>
 'use strict';
 /* Raffi brand mark (embedded, navy) */
-const LOGO_NAVY='data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSczNDAnIGhlaWdodD0nMTEwJyB2aWV3Qm94PScwIDAgMzQwIDExMCc+PHRleHQgeD0nMTcwJyB5PSc2MicgZm9udC1mYW1pbHk9J0dlb3JnaWEsc2VyaWYnIGZvbnQtc2l6ZT0nNDYnIHRleHQtYW5jaG9yPSdtaWRkbGUnIGZpbGw9JyMwYjIwM2YnIGxldHRlci1zcGFjaW5nPSc2Jz5SQUZGSTwvdGV4dD48dGV4dCB4PScxNzAnIHk9JzkyJyBmb250LWZhbWlseT0nQXJpYWwsc2Fucy1zZXJpZicgZm9udC1zaXplPScxNicgdGV4dC1hbmNob3I9J21pZGRsZScgZmlsbD0nI2IwOGQzZicgbGV0dGVyLXNwYWNpbmc9JzUnPkpFV0VMTEVSUzwvdGV4dD48L3N2Zz4=';
+const LOGO_NAVY='raffi-logo.svg';
 /* ================= utils ================= */
 const $=s=>document.querySelector(s);
 const $$=s=>Array.from(document.querySelectorAll(s));
