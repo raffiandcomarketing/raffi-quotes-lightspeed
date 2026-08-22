@@ -281,3 +281,17 @@ the sale (Layaway is only offered while a balance remains) — premature revenue
 - Deploy note: a hand-pasted DB chunk diverged from the file by two invisible NBSP characters —
   caught by the concat-sha check, located via segment hashes, normalised on both sides. The
   byte-exact sha pipeline continues to prove its worth.
+
+## 2026-08-22 — Premium dashboard, Quotes → Estimates, de-branding pass 2
+- Dashboard redesigned for the luxury context: hairline stat ledger (gold top rule, letterspaced
+  micro-labels, serif navy numerals) for Open/Accepted Estimates + Open/Overdue Invoices; a navy
+  "position band" for the accounting heart — Deposits Held (unearned, champagne gold), Open Service
+  Balances, Recognised Revenue — with the Lightspeed connection as a quiet status chip; slim
+  outlined pill actions (New Contact · New Estimate · New Invoice). "Rolex Template -TEST" quick
+  action and the template record removed.
+- Quotes renamed **Estimates** everywhere user-facing (nav, pages, buttons, editor labels, doc
+  header now ESTIMATE, terms text); new documents number **EST-xxxx** (existing QUO- documents
+  keep their numbers). App title now "Raffi Jewellers — Estimates & Invoicing".
+- QuoteMachine IP distance: no visible "QuoteMachine" anywhere; Lightspeed customer codes for new
+  contacts now **RJ-<id>** (legacy QM- codes still matched so existing links keep working); app is
+  an original from-scratch build using generic estimate/invoice/service terminology.
