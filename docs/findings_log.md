@@ -259,3 +259,25 @@ the sale (Layaway is only offered while a balance remains) — premature revenue
   and immutable); the app path has no such window. Reconciliation identity after everything:
   cash 93,197.35 = recognised 44,299.35 + liability 48,898.00, delta 0, 0 violations. Orphan test
   orders SO-0025/26 (reload race duplicates) voided in LS and removed.
+
+## 2026-08-21 (night) — Rolex service document set (RAFCAM011924), inline new-contact, locations
+- **Rolex service documents** built from Al's "Rolex Receipt Estimate Invoice.xlsx" (DATA tab + 4
+  print tabs). Scope per Al: printouts only, auto-applied when Brand = Rolex (service orders only —
+  special orders keep standard documents). Print on a Rolex service order now opens a stage chooser
+  (Receipt → Estimate → Confirmation → Invoice, suggested by order status, with "Standard document
+  instead" as the fallback); each renders a print-faithful document — verbatim letters,
+  acknowledgement/decision signature blocks, HST/GST from the order's location, and the full
+  two-column LEGAL NOTICES appendix page (Document ID RAFCAM011924) — in an on-screen preview with
+  Print/PDF. Bracelet/Dial print blank (handwriting) until fields are added; letterhead is the
+  Cambridge Rolex corner per the workbook. Verified E2E on ORD-0030 (Rolex Submariner Date Ref.
+  126610LN): chooser, Receipt, Estimate (necessary work 1,070.00 + HST 139.10 = 1,209.10, decision
+  page), legal page all correct.
+- **Inline new contact**: quote/invoice editors' contact dropdown gained "+ Add new contact…" —
+  modal creates the contact and selects it on the document (verified on QUO-0009).
+- **Locations** updated per Al: Cambridge, Waterloo, **Montréal - Rolex Boutique**, **Montréal -
+  TUDOR Boutique** (renamed from "Montréal – TUDOR Royalmount"; its LS outlet/register + GST+QST
+  mapping carried over; 2 existing docs migrated). The new Rolex Boutique temporarily shares the
+  Montréal outlet/register mapping — remap in Settings → Lightspeed when its own outlet exists.
+- Deploy note: a hand-pasted DB chunk diverged from the file by two invisible NBSP characters —
+  caught by the concat-sha check, located via segment hashes, normalised on both sides. The
+  byte-exact sha pipeline continues to prove its worth.
