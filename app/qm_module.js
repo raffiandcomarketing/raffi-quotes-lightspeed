@@ -1138,3 +1138,192 @@ ACT.createContactInline=()=>{
   logAct('user-plus',curUser().name,[{t:curUser().name+' added contact '},{l:c.name,v:'contact',id:c.id}],null);
   closeModal(); commit(); render(); toast('Contact “'+c.name+'” created and selected');
 };
+
+/* ---------- Rolex service documents (Document ID RAFCAM011924) ----------
+   Source: "Rolex Receipt Estimate Invoice.xlsx" — DATA tab feeds four print documents:
+   RECEIPT (intake), ESTIMATE, CONFIRMATION, INVOICE, each with the verbatim legal notices
+   as the final page. A service order whose Brand is Rolex prints through this document set
+   (a chooser offers the stage documents plus the standard document as a fallback).
+   Printouts-only scope: fields map from the existing order/intake; Bracelet and Dial print
+   from ci.bracelet / ci.dial when present, otherwise stay blank for handwriting. */
+const RX = {
+  store: ['RAFFI JEWELLERS INC.','299-101 Hespeler Road, Cambridge, ON. N1R 3H8','519.740.7720 / cambridge@raffiandco.com'],
+  docId: 'This document does not attest to or guarantee the authenticity of a watch. All component prices are calculated on an exchange basis including any potential return of precious metal. Document ID RAFCAM011924',
+  receiptLetter: 'Thank you for entrusting the above-mentioned watch to us for an estimate of the potential work required, based on the details below.  We will contact you to review the completed estimate and next steps shortly. Retain this document and present it alongside government issued photo ID upon pick up. Our responsibility ends when the timepiece is delivered to the bearer of this claim letter.',
+  ack: 'declare that I have read and accepted the legal notices applicable to the establishment of the estimate (appendix page). I confirm that the data transmitted on the watch is correct.',
+  estReturn: 'Kindly return this estimate duly completed and signed by email only to cambridge@raffiandco.com so that we can initiate the service. A confirmation by telephone cannot be taken into consideration. The estimate is valid for fourteen (14) days from the date of issue. Delivery: approximately three (3) weeks on approval.',
+  confLetter: 'Thank you for providing your decision with regards to the Rolex Quote that was shared with you after careful review of your Rolex watch. This document confirms that your decision has been recorded and the Necessary Work, if approved, has commenced and is expected to be completed within three (3) weeks. Reversal of your decision is no longer possible at this point. If you have declined the Quote, you will be notified as soon as your watch is ready for collection.',
+  invLetter: 'Thank you for allowing Raffi Jewellers to be a part of your servicing needs. Your watch and any accompanying documentation has been returned to you and the balance, if any, has been settled. Please remember that your watch may need to be fully wound before wearing it for the first time after a service. We remain at your complete disposal should you have any questions or require further assistance.',
+  legalL: [
+    ['Client','A contractual relationship exists between the Client and Raffi Jewellers Inc. Rolex is not directly part of the contractual relationship. The Client fully discharges the Official Retailer from liability and guarantees that they have the necessary authority and powers to act on the Owner’s behalf.'],
+    ['Analysis and Service of a Watch','Great care is taken when handling and working on watches.  An estimate includes the opening and a meticulous analysis of the watch which may result in damage. Raffi Jewellers Inc. accepts no liability for any damage that may occur to the watch during analysis and/or servicing as a result of its original condition. The estimate is based on the initial evaluation and is intended to inform the Client on the price of a service. It does not attest to or guarantee the authenticity of a watch. Rolex or Raffi Jewellers Inc. reserves the right to revise the initial estimate or discontinue a service once the quote has been accepted, if it identifies modified or counterfeit component(s) or additional damages. If other charges will apply, the Raffi Jewellers Inc. will contact the Client for further authorization.'],
+    ['Counterfeit and Stolen Watches/Components','If the watch is determined to be a counterfeit, or if it was subject to a theft, Rolex reserves the right to notify the competent authorities and to undertake all necessary legal steps. Rolex cannot offer service to counterfeit or stolen watches, or watches featuring counterfeit or modified components. The replacement of non-compliant parts is mandatory and the counterfeit or modified components will be destroyed.'],
+    ['Jurisdiction and Applicable Law','If, at any time during the term of this agreement or after, any dispute shall arise between the parties hereto concerning this agreement or the rights and obligations between the parties, such dispute is hereby submitted to and shall be resolved by confidential arbitration under Ontario law in Toronto. The decision of the arbitrator shall be final and binding, with no appeal.'],
+    ['Price of Components and Replaced Parts','All component prices are calculated on an exchange basis, including any potential return of precious metal, and therefore any replaced components will not be returned. All replacement components will be of the current generation available.']
+  ],
+  legalR: [
+    ['Terms of Payment','The invoice must be paid either in advance by the Client or when the watch is collected. Payment options include: cash, major credit card, or debit. Raffi Jewellers Inc. has the right to retain and has a lien or charge upon the watch until such time as the invoice is paid.'],
+    ['Validity of the Quote','This quote is valid for 14 days from its issue date. If a response is not received in that period, the watch will be considered unclaimed property.'],
+    ['Delivery Lead Time','The stated lead time is not guaranteed. However, if while servicing the watch there is a need to extend the lead time, the Client will be contacted.'],
+    ['Unclaimed Property','If the Client does not claim the watch within 2 years after a Final Delivery Reminder is sent, the watch will be considered abandoned and the Client hereby authorizes Rolex or Raffi Jewellers Inc. to dispose of it in accordance with the laws relating to repair and storage of personal property. The Client releases any and all claims they might have as a result.'],
+    ['Loss or Damage','The responsibility of Raffi Jewellers Inc. to bear the risk of loss or damage (unrelated to the original condition of the watch) to the authentic Rolex or Tudor watch takes effect when the timepiece is received on our premises and ends when signed delivery to the Client occurs. In the unlikely event of loss or damage of the watch during this period, Raffi Jewellers Inc. will contact the Client. If damage to the watch may be remedied by the replacement of a part, Rolex may, in its absolute and unfettered discretion, replace the part with a current or similar part.'],
+    ['Full Service Only','The full service includes: Service of the movement and timekeeping accuracy testing. Where applicable, it also includes refinishing of the case and bracelet, replacement of the acrylic crystal, case tube, water resistance tests. Except when expressly excluded from the guarantee in writing in the estimate, work and parts are guaranteed for a period of 24 months from the date work was completed and watch was available for collection/dispatch. The guarantee covers the replacement of parts and labour costs. It however does not cover damages or deteriorations resulting from an accident or improper use of the watch, or abnormal wear of its components. Should any intervention be carried out by a third party non-authorized by Rolex SA or any parts or accessories not manufactured by Rolex SA utilized, the service guarantee will be deemed void.']
+  ]
+};
+const rxNF = x => (+x||0).toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2});
+function rxIsEligible(o){ return o && !isSpecial(o) && /rolex/i.test(((o.customerItem||{}).brand||'')); }
+function rxHead(o, dateStr){
+  const c=C(o.contactId)||{};
+  return '<div class="rxhd"><div><b>'+esc(RX.store[0])+'</b><br>'+esc(RX.store[1])+'<br>'+esc(RX.store[2])+'</div>'+
+    '<div class="rxbill"><div class="rxlbl">Bill to/Deliver to</div>'+esc(c.name||'')+'<br>'+esc(c.email||'')+'<br><span class="rxdate">'+esc(dateStr||'')+'</span></div></div>';
+}
+function rxRef(o){
+  const ci=o.customerItem||{};
+  const watch=([ci.brand,ci.model].filter(Boolean).join(' ')+(ci.reference?' Ref. '+ci.reference:'')).trim();
+  const rows=[['OUR REFERENCE',o.number+(o.ls&&o.ls.receipt?'  ·  LS receipt #'+o.ls.receipt:'')],['WATCH MODEL',watch],['SERIAL NO',ci.serial||''],['BRACELET',ci.bracelet||''],['DIAL',ci.dial||'']];
+  return '<table class="rxref">'+rows.map(r=>'<tr><td class="k">'+esc(r[0])+'</td><td>'+(esc(r[1])||'&nbsp;')+'</td></tr>').join('')+'</table>';
+}
+function rxItems(o){
+  const disc=(+o.discountPct||0)/100;
+  return (o.items||[]).map(it=>({d:(it.name||'')+(it.desc?' — '+it.desc:'')+((+it.qty||1)>1?'  ('+it.qty+' ×)':''), p:it.sku||'', a:r2((+it.qty||0)*(+it.price||0)*(1-disc))}));
+}
+function rxWorkTable(o, secTitle){
+  const rows=rxItems(o); while(rows.length<4) rows.push({d:' ',p:'',a:null});
+  return '<table class="rxtbl"><tr><th>'+esc(secTitle)+'</th><th style="width:110px">Parts</th><th class="r" style="width:90px">MSRP CAD $</th></tr>'+
+    rows.map(r=>'<tr><td>'+ (r.d===' '?'&nbsp;':esc(r.d)) +'</td><td>'+esc(r.p)+'</td><td class="r">'+(r.a===null?'':rxNF(r.a))+'</td></tr>').join('')+'</table>';
+}
+function rxTotals(o, subLabel, grandLabel){
+  const t=totals(o); const net=r2((t.sub||0)-(t.disc||0));
+  return '<table class="rxtot"><tr><td class="lab">'+esc(subLabel)+'</td><td class="r" style="width:90px">'+rxNF(net)+'</td></tr>'+
+    '<tr><td class="lab">'+esc(locTaxName(o.loc))+' '+t.rate+'%</td><td class="r">'+rxNF(t.tax)+'</td></tr>'+
+    '<tr class="grand"><td class="lab">'+esc(grandLabel)+'</td><td class="r">'+rxNF(t.total)+'</td></tr></table>';
+}
+function rxLegalPage(o){
+  return '<div class="rxp">'+rxHead(o,'')+rxTitle('LEGAL NOTICES')+rxRef(o)+
+    '<div class="rxlegal"><div>'+RX.legalL.map(x=>'<h4>'+esc(x[0])+'</h4><p>'+esc(x[1])+'</p>').join('')+'</div>'+
+    '<div>'+RX.legalR.map(x=>'<h4>'+esc(x[0])+'</h4><p>'+esc(x[1])+'</p>').join('')+'</div></div>'+
+    '<div class="rxfoot">'+esc(RX.docId)+'</div></div>';
+}
+function rxTitle(t){ return '<div class="rxtitle">'+esc(t)+'</div>'; }
+function rxSig(){ return '<div class="rxsign"><div>Date:</div><div>Signature:</div></div>'; }
+function rolexDoc(o, stage){
+  const ci=o.customerItem||{}; const c=C(o.contactId)||{};
+  const q=(o.quoteId&&typeof Q==='function')?Q(o.quoteId):null;
+  const dates={ receipt: fmtD(o.date), estimate: fmtD((q&&q.date)||o.date),
+    confirmation: fmtD(todayISO()), invoice: o.completedAt?fmtD(new Date(o.completedAt).toISOString().slice(0,10)):fmtD(todayISO()) };
+  let pages='';
+  if(stage==='receipt'){
+    pages+='<div class="rxp">'+rxHead(o,dates.receipt)+rxTitle('RECEIPT')+rxRef(o)+
+      '<p class="rxpar">Dear '+esc(c.name||'Client')+',</p><p class="rxpar">'+esc(RX.receiptLetter)+'</p>'+
+      '<div class="rxsec">Customer Requests</div><p class="rxpar">'+(esc(ci.description||o.serviceTitle||'')||'&nbsp;')+'</p>'+
+      '<div class="rxsec">Acknowledgement and Authorization</div>'+
+      '<p class="rxpar">I, the undersigned, <b>'+esc(c.name||'')+'</b>, '+esc(RX.ack)+'</p>'+rxSig()+
+      '<div class="rxfoot">'+esc(RX.docId)+'</div></div>';
+  }
+  if(stage==='estimate'){
+    pages+='<div class="rxp">'+rxHead(o,dates.estimate)+rxTitle('ESTIMATE')+rxRef(o)+
+      '<div class="rxsec">Customer Requests</div><p class="rxpar">'+(esc(ci.description||o.serviceTitle||'')||'&nbsp;')+'</p>'+
+      '<div class="rxsec">Watch Analysis</div><p class="rxpar">'+(esc(ci.condition||'')||'&nbsp;')+'</p>'+
+      rxWorkTable(o,'Necessary Work')+rxTotals(o,'Necessary Services and Supplies Total','NECESSARY WORK TOTAL CAD')+
+      '<div class="rxsec">Optional Work</div><p class="rxpar">—</p>'+
+      '<div class="rxsec">Additional Notes</div><p class="rxpar">'+(esc(o.notes||'')||'&nbsp;')+'</p>'+
+      '<div class="rxfoot">'+esc(RX.docId)+'</div></div>';
+    const t=totals(o); const net=r2((t.sub||0)-(t.disc||0));
+    pages+='<div class="rxp">'+rxHead(o,dates.estimate)+rxTitle('ESTIMATE')+rxRef(o)+
+      '<p class="rxpar">'+esc(RX.estReturn)+'</p>'+
+      '<div class="rxsec">Client’s Decision <span style="float:right;font-weight:400">MSRP CAD $ (Pre Tax)</span></div>'+
+      '<p class="rxpar"><span class="rxck"></span> I accept the Necessary Work as detailed <span style="float:right">'+rxNF(net)+'</span></p>'+
+      '<p class="rxpar"><span class="rxck"></span> I refuse the estimate</p>'+
+      '<p class="rxpar" style="margin-top:18px">I, the undersigned, certify that we have read and understood the estimate and the legal notices attached and confirm our decision for the above mentioned watch.</p>'+rxSig()+
+      '<div class="rxfoot">'+esc(RX.docId)+'</div></div>';
+  }
+  if(stage==='confirmation'){
+    pages+='<div class="rxp">'+rxHead(o,dates.confirmation)+rxTitle('CONFIRMATION')+rxRef(o)+
+      '<p class="rxpar">Dear '+esc(c.name||'Client')+',</p><p class="rxpar">'+esc(RX.confLetter)+'</p>'+
+      rxWorkTable(o,'Service Accepted')+rxTotals(o,'Accepted Services SUBTOTAL','TOTAL ACCEPTED SERVICES CAD')+
+      '<div class="rxsec">Additional Remarks</div><p class="rxpar">'+(esc(o.notes||'')||'&nbsp;')+'</p>'+
+      '<div class="rxfoot">'+esc(RX.docId)+'</div></div>';
+  }
+  if(stage==='invoice'){
+    pages+='<div class="rxp">'+rxHead(o,dates.invoice)+rxTitle('INVOICE')+rxRef(o)+
+      '<p class="rxpar">Dear '+esc(c.name||'Client')+',</p><p class="rxpar">'+esc(RX.invLetter)+'</p>'+
+      rxWorkTable(o,'Service Accepted')+rxTotals(o,'Subtotal','TOTAL CAD')+
+      '<div class="rxsec">Additional Remarks</div><p class="rxpar">'+(esc(o.notes||'')||'&nbsp;')+'</p>'+
+      '<div class="rxfoot">'+esc(RX.docId)+'</div></div>';
+  }
+  pages+=rxLegalPage(o);
+  return pages;
+}
+function rxEnsureCss(){
+  if(document.getElementById('rolex-print-css')) return;
+  const st=document.createElement('style'); st.id='rolex-print-css';
+  st.textContent=
+    '#rolex-print{display:none;position:fixed;inset:0;overflow:auto;background:#eceae4;z-index:9999;font-family:Helvetica,Arial,sans-serif;color:#111}'+
+    'body.rxopen #rolex-print{display:block}'+
+    '#rolex-print .rxbar{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;padding:10px 16px;display:flex;gap:10px;z-index:2}'+
+    '#rolex-print .rxp{background:#fff;max-width:790px;margin:18px auto;padding:46px 54px;box-shadow:0 2px 14px rgba(0,0,0,.10);font-size:11.5px;line-height:1.5}'+
+    '#rolex-print .rxhd{display:flex;justify-content:space-between;margin-bottom:22px;font-size:11px;line-height:1.55}'+
+    '#rolex-print .rxbill{min-width:230px}'+
+    '#rolex-print .rxlbl{color:#666;font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:3px}'+
+    '#rolex-print .rxdate{display:inline-block;margin-top:8px}'+
+    '#rolex-print .rxtitle{font-size:23px;letter-spacing:.35em;font-weight:600;margin:14px 0 14px}'+
+    '#rolex-print .rxref{border-collapse:collapse;margin:0 0 16px;width:62%}'+
+    '#rolex-print .rxref td{padding:3px 0;font-size:11px;border-bottom:1px solid #e0e0e0}'+
+    '#rolex-print .rxref td.k{width:125px;color:#555;letter-spacing:.06em;font-size:9px}'+
+    '#rolex-print .rxsec{font-weight:700;margin:15px 0 5px;font-size:11.5px}'+
+    '#rolex-print .rxpar{margin:0 0 8px}'+
+    '#rolex-print .rxtbl{width:100%;border-collapse:collapse;margin:8px 0 6px}'+
+    '#rolex-print .rxtbl th{text-align:left;border-bottom:1.5px solid #111;padding:4px 0;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase}'+
+    '#rolex-print .rxtbl td{border-bottom:1px solid #e4e4e4;padding:5px 0;vertical-align:top}'+
+    '#rolex-print .r{text-align:right}'+
+    '#rolex-print .rxtot{border-collapse:collapse;margin:2px 0 8px;margin-left:auto;min-width:330px}'+
+    '#rolex-print .rxtot td{padding:3px 0;font-size:11px}'+
+    '#rolex-print .rxtot .lab{text-align:right;padding-right:16px}'+
+    '#rolex-print .rxtot .grand td,#rolex-print .rxtot.grand{font-weight:700}'+
+    '#rolex-print .rxtot tr.grand td{border-top:1.5px solid #111}'+
+    '#rolex-print .rxfoot{margin-top:24px;padding-top:8px;border-top:1px solid #ccc;color:#777;font-size:8.5px;line-height:1.45}'+
+    '#rolex-print .rxlegal{display:flex;gap:26px}'+
+    '#rolex-print .rxlegal>div{flex:1}'+
+    '#rolex-print .rxlegal h4{font-size:10px;margin:11px 0 3px}'+
+    '#rolex-print .rxlegal p{margin:0 0 4px;font-size:8.8px;line-height:1.45;color:#222}'+
+    '#rolex-print .rxsign{display:flex;gap:44px;margin-top:30px}'+
+    '#rolex-print .rxsign div{flex:1;border-top:1px solid #111;padding-top:5px;font-size:10px}'+
+    '#rolex-print .rxck{display:inline-block;width:11px;height:11px;border:1.3px solid #111;margin-right:8px;vertical-align:-1px}'+
+    '@media print{'+
+    ' body.rxopen>*:not(#rolex-print){display:none!important}'+
+    ' body.rxopen #rolex-print{display:block;position:static;background:#fff;overflow:visible}'+
+    ' #rolex-print .rxbar{display:none!important}'+
+    ' #rolex-print .rxp{box-shadow:none;margin:0;max-width:none;page-break-after:always}'+
+    ' #rolex-print .rxp:last-child{page-break-after:auto}'+
+    '}';
+  document.head.appendChild(st);
+}
+ACT.rolexPrint=d=>{
+  const o=O(d.id||state.id); if(!o) return;
+  rxEnsureCss(); closeModal();
+  let layer=document.getElementById('rolex-print');
+  if(!layer){ layer=document.createElement('div'); layer.id='rolex-print'; document.body.appendChild(layer); }
+  layer.innerHTML='<div class="rxbar no-print"><button class="b2 o" data-act="rolexClosePreview">← Back</button><button class="b2 p" data-act="print"><i class="fa-solid fa-print"></i> Print / PDF</button><span class="mut sm" style="align-self:center">Rolex service document — '+esc(d.stage)+' — '+esc(o.number)+'</span></div>'+rolexDoc(o, d.stage);
+  document.body.classList.add('rxopen');
+  audit('rolex.print','order',o.id,d.stage);
+};
+ACT.rolexClosePreview=()=>{ document.body.classList.remove('rxopen'); const l=document.getElementById('rolex-print'); if(l) l.innerHTML=''; };
+function rolexPrintChooser(o){
+  const sug = o.status==='completed' ? 'invoice' : (o.status==='ready' ? 'confirmation' : (o.status==='in_progress' ? 'estimate' : 'receipt'));
+  const btn=(stage,label)=>'<button class="b2 '+(stage===sug?'p':'o')+'" data-act="rolexPrint" data-id="'+o.id+'" data-stage="'+stage+'" style="width:100%;margin-bottom:8px;justify-content:flex-start"><i class="fa-solid fa-file-lines"></i> '+label+'</button>';
+  openModal('Print — '+o.number,
+    '<p class="mut sm" style="margin:0 0 12px">This is a <b>Rolex service</b> intake — the Rolex standard document set applies (Document ID RAFCAM011924). Pick the stage document:</p>'+
+    btn('receipt','1 · Receipt — intake acknowledgement (client signs)')+
+    btn('estimate','2 · Estimate — analysis, necessary work, client’s decision')+
+    btn('confirmation','3 · Confirmation — decision recorded, work commenced')+
+    btn('invoice','4 · Invoice — collection / final settlement')+
+    '<div class="mut sm" style="margin-top:6px">Each document includes the Legal Notices appendix page.</div>',
+    '<button class="b2 o" data-act="closeModal">Cancel</button><button class="b2 o" data-act="rolexStandardPrint" data-id="'+o.id+'">Standard document instead</button>');
+}
+const _printOrder2=ACT.printOrder;
+ACT.printOrder=d=>{
+  const o=O((d&&d.id)||state.id);
+  if(rxIsEligible(o)){ rolexPrintChooser(o); return; }
+  _printOrder2(d);
+};
+ACT.rolexStandardPrint=()=>{ closeModal(); setTimeout(()=>window.print(),80); };
