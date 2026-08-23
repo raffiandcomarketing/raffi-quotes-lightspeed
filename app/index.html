@@ -358,6 +358,12 @@
   .sidebar .nav-item i{width:22px;flex:none;text-align:center;}
   .sidebar .nav-item[data-tip]::after{content:attr(data-tip);position:static;transform:none;background:transparent;color:inherit;font-size:13.5px;font-family:var(--sans);font-weight:600;letter-spacing:.25px;padding:0;border-radius:0;white-space:nowrap;box-shadow:none;pointer-events:none;}
   .sidebar .nav-item.active::before{left:-12px;}
+  .sidebar .nav-item.nav-parent{margin-top:7px;}
+  .nav .nav-group{display:flex;flex-direction:column;gap:3px;margin:3px 0 5px 21px;padding-left:10px;border-left:1px solid rgba(233,230,221,.16);}
+  .sidebar .nav-item.nav-sub{height:34px;font-size:14px;}
+  .sidebar .nav-item.nav-sub i{width:18px;font-size:12.5px;opacity:.92;}
+  .sidebar .nav-item.nav-sub[data-tip]::after{font-size:12.5px;font-weight:500;letter-spacing:.2px;}
+
   .nav-divider{width:100%;}
   .nav-add{margin-top:8px;align-self:center;}
   .shell{margin-left:212px;}
@@ -366,6 +372,7 @@
     .logo{width:46px;margin:10px 0 16px;}
     .nav{align-items:center;gap:2px;}
     .sidebar .nav-item{width:44px;justify-content:center;padding:0;gap:0;}
+    .nav .nav-group{margin:0;padding:0;border-left:none;align-items:center;}
     .sidebar .nav-item[data-tip]::after{display:none;}
     .sidebar .nav-item[data-tip]:hover::after{display:block;content:attr(data-tip);position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#11151f;color:#fff;font-size:12px;padding:5px 9px;border-radius:5px;white-space:nowrap;z-index:80;box-shadow:0 4px 12px rgba(0,0,0,.25);}
     .sidebar .nav-item.active::before{left:-8px;}
@@ -384,9 +391,12 @@
       <div class="nav-item" data-act="go" data-view="dashboard" data-tip="Dashboard" role="button" tabindex="0"><i class="fa-solid fa-chart-line"></i></div>
       <div class="nav-item" data-act="go" data-view="contacts" data-tip="Contacts" role="button" tabindex="0"><i class="fa-solid fa-users"></i></div>
       <div class="nav-item" data-act="go" data-view="specialorders" data-tip="Special Orders" role="button" tabindex="0"><i class="fa-solid fa-gem"></i></div>
-      <div class="nav-item" data-act="go" data-view="quotes" data-tip="Estimates" role="button" tabindex="0"><i class="fa-solid fa-comment-dollar"></i></div>
-      <div class="nav-item" data-act="go" data-view="orders" data-tip="Orders" role="button" tabindex="0"><i class="fa-solid fa-clipboard-list"></i></div>
-      <div class="nav-item" data-act="go" data-view="invoices" data-tip="Invoices" role="button" tabindex="0"><i class="fa-solid fa-file-invoice"></i></div>
+      <div class="nav-item nav-parent" data-act="go" data-view="service" data-tip="Service" role="button" tabindex="0"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+      <div class="nav-group">
+        <div class="nav-item nav-sub" data-act="go" data-view="quotes" data-tip="Estimates" role="button" tabindex="0"><i class="fa-solid fa-comment-dollar"></i></div>
+        <div class="nav-item nav-sub" data-act="go" data-view="orders" data-tip="Orders" role="button" tabindex="0"><i class="fa-solid fa-clipboard-list"></i></div>
+        <div class="nav-item nav-sub" data-act="go" data-view="invoices" data-tip="Invoices" role="button" tabindex="0"><i class="fa-solid fa-file-invoice"></i></div>
+      </div>
       <div class="nav-item" data-act="go" data-view="payments" data-tip="Payments" role="button" tabindex="0"><i class="fa-solid fa-dollar-sign"></i></div>
       <div class="nav-divider"></div>
       <div class="nav-item" data-act="go" data-view="products" data-tip="Products" role="button" tabindex="0"><i class="fa-solid fa-tag"></i></div>
@@ -565,7 +575,7 @@ function markNav(){
   $$('.nav-item[data-view]').forEach(el=>el.classList.toggle('active',el.dataset.view===p));
 }
 function crumbs(){
-  const base={dashboard:'Dashboard',contacts:'Contacts',quotes:'Estimates',orders:'Orders',invoices:'Invoices',payments:'Payments',products:'Products',settings:'Settings'};
+  const base={dashboard:'Dashboard',contacts:'Contacts',service:'Service',quotes:'Estimates',orders:'Orders',invoices:'Invoices',payments:'Payments',products:'Products',settings:'Settings'};
   const parent=NAVPARENT[state.view];
   let html='<div class="home-tab" data-act="go" data-view="dashboard"><i class="fa-solid fa-house"></i></div>';
   html+='<span class="crumb-sep"><i class="fa-solid fa-chevron-right"></i></span>';
@@ -1458,7 +1468,8 @@ function refreshRows(){
 })();
 </script>
 <script>/* placeholder view so the static Special Orders menu item is safe to click before the module loads */
-try{ if(typeof VIEWS!=='undefined' && !VIEWS.specialorders){ VIEWS.specialorders=function(){ return '<div class="page-head"><h1 class="page-title">Special orders</h1></div><p class="mut sm" style="padding:10px 0">Loading…</p>'; }; } }catch(e){}</script>
+try{ if(typeof VIEWS!=='undefined' && !VIEWS.specialorders){ VIEWS.specialorders=function(){ return '<div class="page-head"><h1 class="page-title">Special orders</h1></div><p class="mut sm" style="padding:10px 0">Loading…</p>'; }; } }catch(e){}
+try{ if(typeof VIEWS!=='undefined' && !VIEWS.service){ VIEWS.service=function(){ return '<div class="page-head"><h1 class="page-title">Service</h1></div><p class="mut">Loading\u2026</p>'; }; } }catch(e){}</script>
 <script>(function(){var s=document.createElement("script");s.src="./qm_module.js";s.onerror=function(){var f=document.createElement("script");f.src="https://hjcgqxszwqmzirtlaxze.supabase.co/functions/v1/qm-module";document.body.appendChild(f);};document.body.appendChild(s);})();</script>
 </body>
 </html>

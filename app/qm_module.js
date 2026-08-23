@@ -1556,3 +1556,211 @@ const _orderView5=VIEWS.order; VIEWS.order=function(){
   }
   return h;
 };
+
+/* ---------- SERVICE parent view: the pipeline board ----------
+   Estimates → Service orders → Special orders → Invoices, each phase split into its own
+   sub-stages. Every column scrolls on its own so a hundred cards still fit on one screen;
+   the board scrolls sideways. Dragging a card performs the real transition where one exists
+   (estimate draft→sent→accepted, order open→workshop→ready); invoice columns are derived
+   from payments and stay read-only so money is only ever taken on the order. */
+function kbEnsureCss(){
+  if(document.getElementById('qm-kb-css')) return;
+  const st=document.createElement('style'); st.id='qm-kb-css';
+  st.textContent=
+    '.kb-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px}'+
+    '.kb-tools .kbf{border:1px solid var(--border);background:#fff;border-radius:999px;padding:9px 15px;font-family:var(--sans);font-size:12px;color:#33384a}'+
+    '.kb-tools .kbf:focus{outline:none;border-color:var(--gold-soft)}'+
+    '.kb-tools .kbtog{cursor:pointer;user-select:none;display:flex;align-items:center;gap:7px}'+
+    '.kb{display:flex;gap:16px;overflow-x:auto;overflow-y:hidden;height:calc(100vh - 268px);min-height:430px;padding-bottom:10px;align-items:stretch}'+
+    '.kb-ph{flex:none;display:flex;flex-direction:column;background:rgba(255,255,255,.55);border:1px solid var(--border);border-radius:16px;min-height:0}'+
+    '.kb-ph-h{background:var(--navy);color:#f2efe6;border-radius:15px 15px 0 0;padding:12px 16px 11px;display:flex;justify-content:space-between;align-items:center;gap:18px;position:relative;overflow:hidden;flex:none}'+
+    '.kb-ph-h::after{content:"";position:absolute;left:16px;right:16px;top:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold-soft),transparent)}'+
+    '.kb-ph-n{font-size:9.6px;letter-spacing:.28em;text-transform:uppercase;font-weight:700}'+
+    '.kb-ph-s{font-family:var(--serif);font-size:13.5px;color:var(--gold-soft);white-space:nowrap}'+
+    '.kb-cols{display:flex;gap:12px;padding:12px 12px 12px;flex:1;min-height:0}'+
+    '.kb-col{width:240px;flex:none;display:flex;flex-direction:column;min-height:0}'+
+    '.kb-col-h{display:flex;justify-content:space-between;align-items:baseline;padding:0 3px 8px;border-bottom:1px solid var(--border);margin-bottom:10px;flex:none}'+
+    '.kb-col-t{font-size:9.2px;letter-spacing:.19em;text-transform:uppercase;color:#6c7183;font-weight:700}'+
+    '.kb-col-n{font-family:var(--serif);font-size:13px;color:#8b8d99}'+
+    '.kb-cards{display:flex;flex-direction:column;gap:9px;overflow-y:auto;overflow-x:hidden;flex:1;min-height:0;padding:1px 4px 8px 1px;scrollbar-width:thin}'+
+    '.kb-cards::-webkit-scrollbar{width:7px}.kb-cards::-webkit-scrollbar-thumb{background:rgba(11,32,63,.18);border-radius:99px}'+
+    '.kb-cards.over{background:rgba(176,141,63,.09);border-radius:10px;outline:1px dashed var(--gold-soft)}'+
+    '.kbc{background:#fff;border:1px solid var(--border);border-radius:11px;padding:11px 12px 10px;box-shadow:0 1px 2px rgba(16,26,44,.04);cursor:pointer;position:relative;flex:none}'+
+    '.kbc:hover{border-color:var(--gold-soft);box-shadow:0 6px 18px -10px rgba(16,26,44,.35)}'+
+    '.kbc.drag{opacity:.45}'+
+    '.kbc .kt{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px}'+
+    '.kbc .knum{font-family:var(--serif);font-size:13.5px;font-weight:600;letter-spacing:.3px;color:var(--navy)}'+
+    '.kbc .kamt{font-family:var(--serif);font-size:13px;font-weight:600;color:var(--ink,#101a2c)}'+
+    '.kbc .kwho{font-size:11.5px;color:#3d4459;font-weight:600;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'+
+    '.kbc .kpc{font-size:10.8px;color:#6b7085;line-height:1.35;margin-bottom:7px}'+
+    '.kbc .kmeta{display:flex;gap:5px;flex-wrap:wrap;align-items:center}'+
+    '.kchip{font-size:8.4px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;padding:3px 7px;border-radius:999px;border:1px solid var(--border);color:#6c7183;background:#fbfaf7;white-space:nowrap}'+
+    '.kchip.gold{border-color:rgba(176,141,63,.45);color:#8a6f26;background:rgba(211,188,125,.16)}'+
+    '.kchip.red{border-color:rgba(163,22,42,.35);color:var(--red);background:rgba(163,22,42,.06)}'+
+    '.kchip.green{border-color:rgba(47,107,65,.32);color:var(--green);background:rgba(47,107,65,.07)}'+
+    '.kbc.mark::before{content:"";position:absolute;left:0;top:13px;bottom:13px;width:2px;border-radius:2px;background:var(--gold)}'+
+    '.kbc.late::before{content:"";position:absolute;left:0;top:13px;bottom:13px;width:2px;border-radius:2px;background:var(--red)}'+
+    '.kb-empty{border:1px dashed var(--border);border-radius:11px;padding:13px;text-align:center;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#b3b5c0}'+
+    '@media(max-width:900px){.kb{height:auto;overflow-x:auto}.kb-cards{max-height:60vh}}';
+  document.head.appendChild(st);
+}
+function kbAge(ts){ if(!ts) return 0; return Math.floor((Date.now()-ts)/86400000); }
+function kbMoney(n){ const v=r2(n); return (db.settings.currency||'CA$')+v.toLocaleString('en-CA',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function kbMatch(txt){ const q=(state.kbQ||'').trim().toLowerCase(); return !q || String(txt||'').toLowerCase().indexOf(q)>-1; }
+function kbLoc(x){ return !state.kbLoc || state.kbLoc==='all' || x.loc===state.kbLoc; }
+function kbCard(kind, x){
+  const c=C(x.contactId)||{}; let piece='', chips=[], mark='', amt=0, num=x.number, drag=false;
+  if(kind==='quote'){
+    amt=totals(x).total; piece=(x.items&&x.items[0]&&x.items[0].name)||'No lines yet';
+    const age=kbAge(x.createdAt); if(x.status==='open'&&age>=5) mark='late';
+    chips.push('<span class="kchip">'+esc((x.loc||'').split(' ')[0])+'</span>');
+    if(x.status==='open') chips.push('<span class="kchip'+(age>=5?' red':'')+'">Sent '+age+'d</span>');
+    if(x.status==='accepted') chips.push('<span class="kchip green">Signed</span>');
+    drag = x.status==='draft'||x.status==='open';
+  } else if(kind==='order'){
+    const ci=x.customerItem||{}; amt=totals(x).total;
+    piece=([ci.brand,ci.model].filter(Boolean).join(' ')+(ci.reference?' Ref. '+ci.reference:'')).trim()||x.serviceTitle||(x.items&&x.items[0]&&x.items[0].name)||'—';
+    const paid=orderPaid(x); const age=kbAge(x.createdAt);
+    if(/rolex/i.test(ci.brand||'')) mark='mark';
+    chips.push('<span class="kchip">'+esc((x.loc||'').split(' ')[0])+'</span>');
+    if(paid>0) chips.push('<span class="kchip gold">'+kbMoney(paid)+' held</span>');
+    if(isSpecial(x)&&ci.raffiId) chips.push('<span class="kchip green">In inventory</span>');
+    if(x.ls&&x.ls.expectAtRegister) chips.push('<span class="kchip red">At register</span>');
+    if(age>=21&&x.status!=='completed'){ mark='late'; chips.push('<span class="kchip red">'+age+'d open</span>'); }
+    drag = x.status!=='completed'&&x.status!=='cancelled';
+  } else {
+    amt=totals(x).total; const bal=balance(x); const stt=iStatus(x);
+    piece=(x.dueDate?'Due '+fmtD(x.dueDate):'')+(x.orderId?' · from order':'');
+    chips.push('<span class="kchip">'+esc((x.loc||'').split(' ')[0])+'</span>');
+    if(stt==='overdue'){ mark='late'; chips.push('<span class="kchip red">Overdue</span>'); }
+    if(stt==='partial') chips.push('<span class="kchip gold">'+kbMoney(bal)+' left</span>');
+    if(stt==='paid') chips.push('<span class="kchip green">Paid</span>');
+  }
+  return '<div class="kbc'+(mark?' '+mark:'')+'"'+(drag?' draggable="true"':'')+' data-kb-card="'+kind+'" data-id="'+x.id+'" data-st="'+esc(kind==='inv'?iStatus(x):x.status)+'">'+
+    '<div class="kt"><span class="knum">'+esc(num)+'</span><span class="kamt">'+kbMoney(amt)+'</span></div>'+
+    '<div class="kwho">'+esc(c.name||'—')+'</div>'+
+    '<div class="kpc">'+esc(piece)+'</div>'+
+    '<div class="kmeta">'+chips.join('')+'</div></div>';
+}
+function kbColumn(title, kind, stage, list){
+  const cards=list.map(x=>kbCard(kind,x)).join('')||'<div class="kb-empty">Nothing here</div>';
+  return '<div class="kb-col"><div class="kb-col-h"><span class="kb-col-t">'+esc(title)+'</span><span class="kb-col-n">'+list.length+'</span></div>'+
+    '<div class="kb-cards" data-kb-drop="'+kind+'" data-stage="'+stage+'">'+cards+'</div></div>';
+}
+function kbPhase(name, sum, cols){
+  return '<section class="kb-ph"><div class="kb-ph-h"><span class="kb-ph-n">'+esc(name)+'</span><span class="kb-ph-s">'+sum+'</span></div><div class="kb-cols">'+cols+'</div></section>';
+}
+VIEWS.service=function(){
+  kbEnsureCss();
+  const arch=!!state.kbArch;
+  const qs=(typeof realQuotes==='function'?realQuotes():db.quotes.filter(q=>!q.isTemplate))
+    .filter(q=>kbLoc(q)&&kbMatch(q.number+' '+cname(q.contactId))).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const ords=db.orders.filter(o=>kbLoc(o)&&kbMatch(o.number+' '+cname(o.contactId)+' '+(((o.customerItem||{}).brand||'')+' '+((o.customerItem||{}).model||''))))
+    .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const svc=ords.filter(o=>!isSpecial(o)), spc=ords.filter(o=>isSpecial(o));
+  const invs=db.invoices.filter(i=>kbLoc(i)&&kbMatch(i.number+' '+cname(i.contactId))).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const sum=a=>kbMoney(a.reduce((s,x)=>s+totals(x).total,0));
+  const byQ=s=>qs.filter(q=>q.status===s);
+  const byO=(l,s)=>l.filter(o=>o.status===s);
+  const byI=s=>invs.filter(i=>iStatus(i)===s);
+  const liveQ=qs.filter(q=>q.status!=='declined'), liveS=svc.filter(o=>o.status!=='completed'&&o.status!=='cancelled'), liveP=spc.filter(o=>o.status!=='completed'&&o.status!=='cancelled');
+  const heldAll=r2(db.orders.filter(o=>o.status!=='completed'&&o.status!=='cancelled').reduce((s,o)=>s+orderPaid(o),0));
+  const openOrders=db.orders.filter(o=>o.status!=='completed'&&o.status!=='cancelled').length;
+  const ready=db.orders.filter(o=>o.status==='ready');
+  const board=
+    kbPhase('Estimates', liveQ.length+' · '+sum(liveQ),
+      kbColumn('Draft','quote','draft',byQ('draft'))+
+      kbColumn('Sent · awaiting','quote','open',byQ('open'))+
+      kbColumn('Accepted → convert','quote','accepted',byQ('accepted'))+
+      (arch?kbColumn('Declined','quote','declined',byQ('declined')):''))+
+    kbPhase('Service orders', liveS.length+' · '+sum(liveS),
+      kbColumn('Intake · open','order','open',byO(svc,'open'))+
+      kbColumn('In the workshop','order','in_progress',byO(svc,'in_progress'))+
+      kbColumn('Ready for pickup','order','ready',byO(svc,'ready'))+
+      (arch?kbColumn('Closed','order','completed',svc.filter(o=>o.status==='completed'||o.status==='cancelled')):''))+
+    kbPhase('Special orders', liveP.length+' · '+sum(liveP),
+      kbColumn('Ordered','order','open',byO(spc,'open'))+
+      kbColumn('With supplier','order','in_progress',byO(spc,'in_progress'))+
+      kbColumn('Arrived · awaiting pickup','order','ready',byO(spc,'ready'))+
+      (arch?kbColumn('Picked up','order','completed',spc.filter(o=>o.status==='completed'||o.status==='cancelled')):''))+
+    kbPhase('Invoices', (byI('open').length+byI('partial').length+byI('overdue').length)+' open',
+      kbColumn('Open','inv','open',byI('open'))+
+      kbColumn('Part paid','inv','partial',byI('partial'))+
+      kbColumn('Overdue','inv','overdue',byI('overdue'))+
+      (arch?kbColumn('Settled','inv','paid',byI('paid')):''));
+  const locs=['all'].concat(db.settings.locations||[]);
+  return '<div class="page-head"><div><div class="kicker">'+esc(new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}))+'</div>'+
+    '<h1 class="page-title">Service <em>overview</em></h1></div></div>'+
+    '<section class="lux-ledger" style="margin-bottom:14px">'+
+      '<div class="lux-stat" data-act="goChip" data-view="quotes" data-chip="open"><div class="lux-lab">Awaiting client <span>'+byQ('open').length+'</span></div><div class="lux-val">'+kbMoney(byQ('open').reduce((s,q)=>s+totals(q).total,0))+'</div></div>'+
+      '<div class="lux-stat" data-act="go" data-view="orders"><div class="lux-lab">In the workshop <span>'+byO(svc,'in_progress').length+'</span></div><div class="lux-val">'+kbMoney(byO(svc,'in_progress').reduce((s,o)=>s+totals(o).total,0))+'</div></div>'+
+      '<div class="lux-stat" data-act="go" data-view="orders"><div class="lux-lab">Ready for pickup <span>'+ready.length+'</span></div><div class="lux-val">'+kbMoney(ready.reduce((s,o)=>s+totals(o).total,0))+'</div></div>'+
+      '<div class="lux-stat" data-act="go" data-view="payments"><div class="lux-lab">Deposits held · unearned <span>'+openOrders+' open</span></div><div class="lux-val" style="color:var(--gold)">'+kbMoney(heldAll)+'</div></div>'+
+    '</section>'+
+    '<div class="kb-tools">'+
+      '<input class="kbf" data-kbq placeholder="Search the board…" value="'+esc(state.kbQ||'')+'" style="min-width:230px">'+
+      '<select class="kbf" data-kbloc>'+locs.map(l=>'<option value="'+esc(l)+'"'+((state.kbLoc||'all')===l?' selected':'')+'>'+(l==='all'?'All locations':esc(l))+'</option>').join('')+'</select>'+
+      '<label class="kbf kbtog"><input type="checkbox" data-kbarch'+(arch?' checked':'')+' style="width:auto"> Show closed &amp; settled</label>'+
+      '<span class="mut sm" style="margin-left:4px">Drag a card between stages to move the work.</span>'+
+    '</div>'+
+    '<div class="kb">'+board+'</div>';
+};
+/* filters */
+document.addEventListener('input',e=>{
+  const q=e.target.closest('[data-kbq]'); if(q&&state.view==='service'){ state.kbQ=q.value; const b=document.querySelector('.kb'); const pos=q.selectionStart; render(); const f=document.querySelector('[data-kbq]'); if(f){ f.focus(); try{ f.setSelectionRange(pos,pos); }catch(err){} } }
+});
+document.addEventListener('change',e=>{
+  const l=e.target.closest('[data-kbloc]'); if(l&&state.view==='service'){ state.kbLoc=l.value; render(); return; }
+  const a=e.target.closest('[data-kbarch]'); if(a&&state.view==='service'){ state.kbArch=a.checked; render(); }
+});
+/* open a card */
+document.addEventListener('click',e=>{
+  const c=e.target.closest('[data-kb-card]'); if(!c||!document.querySelector('.kb')) return;
+  const kind=c.getAttribute('data-kb-card'), id=c.getAttribute('data-id');
+  if(kind==='quote') go('quote',id); else if(kind==='order') go('order',id); else go('invoice',id);
+});
+/* drag between sub-stages */
+let KBDRAG=null;
+document.addEventListener('dragstart',e=>{
+  const c=e.target.closest&&e.target.closest('[data-kb-card]'); if(!c) return;
+  KBDRAG={kind:c.getAttribute('data-kb-card'), id:c.getAttribute('data-id'), from:c.getAttribute('data-st')};
+  c.classList.add('drag'); try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',KBDRAG.id); }catch(err){}
+});
+document.addEventListener('dragend',e=>{ const c=e.target.closest&&e.target.closest('[data-kb-card]'); if(c) c.classList.remove('drag'); KBDRAG=null; document.querySelectorAll('.kb-cards.over').forEach(x=>x.classList.remove('over')); });
+document.addEventListener('dragover',e=>{
+  const z=e.target.closest&&e.target.closest('[data-kb-drop]'); if(!z||!KBDRAG) return;
+  if(z.getAttribute('data-kb-drop')!==KBDRAG.kind) return;
+  e.preventDefault(); z.classList.add('over');
+});
+document.addEventListener('dragleave',e=>{ const z=e.target.closest&&e.target.closest('[data-kb-drop]'); if(z) z.classList.remove('over'); });
+document.addEventListener('drop',e=>{
+  const z=e.target.closest&&e.target.closest('[data-kb-drop]'); if(!z||!KBDRAG) return;
+  e.preventDefault(); z.classList.remove('over');
+  const kind=z.getAttribute('data-kb-drop'), stage=z.getAttribute('data-stage'), d=KBDRAG; KBDRAG=null;
+  if(kind!==d.kind || stage===d.from) return;
+  kbMove(kind, d.id, d.from, stage);
+});
+function kbMove(kind, id, from, to){
+  if(kind==='inv'){ toast('Invoice stages follow the payments — take the money on the order so deposits stay unearned.'); return; }
+  if(kind==='quote'){
+    const q=Q(id); if(!q) return;
+    if(to==='open'&&from==='draft'){ ACT.sendQuote({id:id}); return; }
+    if(to==='accepted'&&(from==='open'||from==='draft')){
+      ask('Mark '+q.number+' as accepted by the client?',()=>{ q.status='accepted'; audit('quote.accepted','quote',q.id,{via:'board'});
+        logAct('signature',curUser().name,[{l:q.number,v:'quote-doc',id:q.id},{t:' accepted — ready to convert'}],null); commit(); render(); toast(q.number+' accepted'); });
+      return;
+    }
+    if(to==='declined'){ ACT.declineQuote({id:id}); return; }
+    if(to==='draft'){ toast('An estimate cannot go back to draft once it has left the store.'); return; }
+    return;
+  }
+  const o=O(id); if(!o) return;
+  if(!requirePerm('edit_service','move this order')) return;
+  if(to==='completed'){ toast('Use Complete & close on the order — that is what recognises the revenue.'); return; }
+  if(o.status==='completed'||o.status==='cancelled'){ toast(o.number+' is '+o.status+' — reopening is not supported.'); return; }
+  if(isSpecial(o)&&to==='ready'&&!((o.customerItem||{}).raffiId)){ go('order',o.id); setTimeout(()=>ACT.receiveSpecial({id:o.id}),60); return; }
+  if(!((ALLOWED_NEXT[o.status]||[]).includes(to))){ toast('Transition '+o.status+' → '+to+' is not allowed.'); return; }
+  const prev=o.status; o.status=to; audit('order.status','order',o.id,{from:prev,to:to,via:'board'});
+  logAct('arrow-right-arrow-left',curUser().name,[{t:curUser().name+' moved '},{l:o.number,v:'order',id:o.id},{t:' to '+(((isSpecial(o)?SOB:OB)[to]||[,to])[1])}],null);
+  commit(); render(); toast(o.number+' → '+(((isSpecial(o)?SOB:OB)[to]||[,to])[1]));
+}
