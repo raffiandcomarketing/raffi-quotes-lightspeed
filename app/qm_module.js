@@ -41,12 +41,15 @@ function audit(action, entity, entityId, detail){
 }
 
 /* ---------- migration of older documents ---------- */
-/* estimates are numbered EST- ; rewrite every historical QUO- reference so the numbering reads consistently.
+/* renumbering: estimates are EST- (was QUO-) and service jobs are JOB- (was ORD-).
+   Rewrites every historical reference so the numbering reads consistently.
    Walks strings only, skips data URIs and long blobs (photos, signatures). Idempotent. */
 function estRenumber(v){
   if(typeof v==='string'){
-    if(v.length>400 || v.lastIndexOf('data:',0)===0 || v.indexOf('QUO-')<0) return v;
-    return v.split('QUO-').join('EST-');
+    if(v.length>400 || v.lastIndexOf('data:',0)===0) return v;
+    if(v.indexOf('QUO-')>=0) v=v.split('QUO-').join('EST-');
+    if(v.indexOf('ORD-')>=0) v=v.split('ORD-').join('JOB-');
+    return v;
   }
   if(Array.isArray(v)){ for(let i=0;i<v.length;i++) v[i]=estRenumber(v[i]); return v; }
   if(v && typeof v==='object'){ for(const k in v){ if(Object.prototype.hasOwnProperty.call(v,k)) v[k]=estRenumber(v[k]); } return v; }
@@ -373,7 +376,7 @@ VIEWS.order=function(){
   const photos=(ci.photos||[]).map((p,i)=>'<span style="display:inline-block;position:relative;margin:4px"><img src="'+p.data+'" alt="photo" style="height:72px;border-radius:6px;border:1px solid var(--border)">'+(editable?'<button class="li-rm" data-act="rmPhoto" data-id="'+o.id+'" data-i="'+i+'" style="position:absolute;top:-6px;right:-6px">×</button>':'')+'</span>').join('');
   return'<div class="page-head"><h1 class="page-title">'+esc(o.number)+' '+badge(OB,o.status)+' '+lsBadge+'</h1>'+
   '<div class="actrow">'+statusSel+acts.join('')+'</div></div>'+
-  '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Service order details</h3><div class="fgrid">'+
+  '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Job details</h3><div class="fgrid">'+
     '<div class="fld"><label>Customer</label><div><a data-act="open" data-type="contact" data-id="'+esc(o.contactId||'')+'">'+esc(cname(o.contactId))+'</a>'+(C(o.contactId)&&C(o.contactId).lsCustomerId?' <span class="badge b-green">LS customer</span>':'')+'</div></div>'+
     '<div class="fld"><label>Date</label><div>'+fmtD(o.date)+'</div></div>'+
     '<div class="fld"><label>From estimate</label><div>'+(q?'<a data-act="open" data-type="quote-doc" data-id="'+q.id+'">'+esc(q.number)+'</a>':'—')+'</div></div>'+
@@ -531,7 +534,7 @@ ACT.doCancel=async d=>{
       } else if(refund>0){ orderPays(o).forEach(p=>{ if(p.sync==='pending') p.sync='local'; }); }
       o.status='cancelled'; o.cancelledAt=Date.now(); o.cancelReason=reason; o.cancelFee=fee; audit('order.cancelled','order',o.id,{refund,fee,reason}); logAct('ban',curUser().name,[{t:curUser().name+' cancelled '},{l:o.number,v:'order',id:o.id},{t:refund>0?' (refunded '+money(refund)+(fee>0?', fee '+money(fee):'')+')':''}],reason||null);
       closeModal(); commit(); render(); toast(o.number+' cancelled'+(fee>0?' — fee '+money(fee)+' recognised':''));
-    }catch(e){ closeModal(); commit(); render(); toast('Cancellation failed at Lightspeed: '+String(e.message||e).slice(0,140)+' — order left unchanged'); }
+    }catch(e){ closeModal(); commit(); render(); toast('Cancellation failed at Lightspeed: '+String(e.message||e).slice(0,140)+' — job left unchanged'); }
   });
 };
 /* status guard */
@@ -576,10 +579,10 @@ function restrictionFor(locName, brand, qty, p){
   const rule=(db.settings.brandRules||[]).find(r=>r.brand.toLowerCase()===(brand||'').toLowerCase()); if(rule&&rule.locations&&rule.locations.length&&!rule.locations.includes(locName)) return 'Brand "'+brand+'" may only be sold at: '+rule.locations.join(', ');
   return null;
 }
-ACT.pickLsItem=async d=>{ const o=O(d.id); if(!o) return; const already=o.items.find(it=>it.lsProductId===d.pid&&it.storeOwned); if(already){ toast('This unit is already on this order'); return; } // double allocation guard (same order); cross-order guard below
+ACT.pickLsItem=async d=>{ const o=O(d.id); if(!o) return; const already=o.items.find(it=>it.lsProductId===d.pid&&it.storeOwned); if(already){ toast('This unit is already on this job'); return; } // double allocation guard (same order); cross-order guard below
   const other=db.orders.find(x=>x.id!==o.id&&x.status!=='cancelled'&&x.status!=='completed'&&x.items.some(it=>it.lsProductId===d.pid&&it.storeOwned&&it.serialized));
   o.items.push({name:d.name, desc:'', qty:1, price:r2(+d.price||0), taxable:true, sku:d.sku||undefined, lsProductId:d.pid, storeOwned:true, brand:d.brand||'', serialized:/watch|rolex|tudor|serial/i.test(d.name+' '+d.sku)});
-  if(other) { toast('Note: this serialized unit is also on open order '+other.number+' — allocation blocked'); o.items.pop(); return; }
+  if(other) { toast('Note: this serialized unit is also on open job '+other.number+' — allocation blocked'); o.items.pop(); return; }
   audit('order.store_item_added','order',o.id,{pid:d.pid,sku:d.sku}); closeModal(); commit(); render(); if(o.ls.saleId&&LS.connected()){ try{ await postOrderSale(o,'pending',{opId:'lines-'+o.id+'-'+Date.now(),op:'lines'}); render(); toast('Item added — inventory is committed by the Lightspeed layaway'); }catch(e){ toast('Added locally; Lightspeed update failed: '+e.message); } } };
 ACT.printOrder=()=>window.print();
 /* delete guards */
@@ -588,24 +591,24 @@ const _delInvoice=ACT.delInvoice; ACT.delInvoice=d=>{ const inv=I(d.id); if(!inv
 const _delContact=ACT.delContact; ACT.delContact=d=>{ const c=C(d.id); if(!c) return; if(!requirePerm('delete_docs','delete')) return; if(db.orders.some(o=>o.contactId===c.id)||db.invoices.some(i=>i.contactId===c.id)||c.lsCustomerId){ toast('Contact has documents or a Lightspeed customer link — deletion blocked to preserve history.'); return; } _delContact(d); };
 /* invoice payment routing: invoices tied to a service use the service ledger; standalone invoices must be converted to an order first */
 ACT.recPay=d=>{ const inv=I(d.id); if(!inv) return; if(inv.orderId){ const o=O(inv.orderId); if(o){ if(o.status==='completed'){ toast('Service is completed and paid.'); return; } go('order',o.id); ACT.takeDeposit({id:o.id}); return; } }
-  toast('Payments are taken on the service order so deposits post as layaway (unearned revenue). Creating a service order for this invoice…');
-  const o={id:uid(),number:'ORD-'+pad4(db.counters.order++),contactId:inv.contactId,quoteId:inv.quoteId||null,date:todayISO(),loc:inv.loc,status:'open',items:clone(inv.items),discountPct:inv.discountPct||0,notes:inv.notes||'',messages:[],createdBy:curUser().id,createdAt:Date.now(),assignedTo:null,ownership:'customer',customerItem:{brand:'',model:'',reference:'',serial:'',description:'',condition:'',accessories:'',warranty:'',notes:'',photos:[]},ls:{saleId:null,receipt:null,state:null,attrs:[],lastSyncAt:null,error:null},completedAt:null,completedBy:null,serviceTitle:inv.number};
+  toast('Payments are taken on the job so deposits post as layaway (unearned revenue). Creating a job for this invoice…');
+  const o={id:uid(),number:'JOB-'+pad4(db.counters.order++),contactId:inv.contactId,quoteId:inv.quoteId||null,date:todayISO(),loc:inv.loc,status:'open',items:clone(inv.items),discountPct:inv.discountPct||0,notes:inv.notes||'',messages:[],createdBy:curUser().id,createdAt:Date.now(),assignedTo:null,ownership:'customer',customerItem:{brand:'',model:'',reference:'',serial:'',description:'',condition:'',accessories:'',warranty:'',notes:'',photos:[]},ls:{saleId:null,receipt:null,state:null,attrs:[],lastSyncAt:null,error:null},completedAt:null,completedBy:null,serviceTitle:inv.number};
   db.orders.push(o); inv.orderId=o.id; audit('order.created_from_invoice','order',o.id,inv.number); commit(); go('order',o.id); setTimeout(()=>ACT.takeDeposit({id:o.id}),50); };
-ACT.savePay=()=>{ toast('Use Take deposit / payment on the service order.'); };
+ACT.savePay=()=>{ toast('Use Take deposit / payment on the job.'); };
 /* quote -> order attribution: override makeOrder so new fields exist before first render */
 makeOrder = function(q){
-  const n='ORD-'+pad4(db.counters.order++);
+  const n='JOB-'+pad4(db.counters.order++);
   const o={id:uid(),number:n,contactId:q.contactId,quoteId:q.id,date:todayISO(),loc:q.loc,status:'open',
     items:clone(q.items),discountPct:q.discountPct||0,notes:'',messages:[],
     createdBy:curUser().id,createdAt:Date.now(),assignedTo:null,ownership:'customer',
     customerItem:{brand:'',model:'',reference:'',serial:'',description:'',condition:'',accessories:'',warranty:'',notes:'',photos:[]},
     ls:{saleId:null,receipt:null,state:null,attrs:[],lastSyncAt:null,error:null,created:false},completedAt:null,completedBy:null,serviceTitle:(q.items[0]&&q.items[0].name)||''};
   db.orders.push(o);
-  logAct('clipboard-list',curUser().name,[{t:curUser().name+' created service order '},{l:n,v:'order',id:o.id},{t:' from '},{l:q.number,v:'quote-doc',id:q.id}],null);
+  logAct('clipboard-list',curUser().name,[{t:curUser().name+' created job '},{l:n,v:'order',id:o.id},{t:' from '},{l:q.number,v:'quote-doc',id:q.id}],null);
   audit('order.created','order',o.id,{from:q.number});
   commit();return o;
 };
-const _toInvoice=ACT.toInvoice; ACT.toInvoice=d=>{ const q=Q(d.id); if(!q) return; if(q.orderId&&O(q.orderId)){ toast('This estimate already has a service order — payments are taken there.'); go('order',q.orderId); return; } _toInvoice(d); const inv=I(q.invoiceId); if(inv&&!inv.createdBy){ inv.createdBy=curUser().id; commit(); } };
+const _toInvoice=ACT.toInvoice; ACT.toInvoice=d=>{ const q=Q(d.id); if(!q) return; if(q.orderId&&O(q.orderId)){ toast('This estimate already has a job — payments are taken there.'); go('order',q.orderId); return; } _toInvoice(d); const inv=I(q.invoiceId); if(inv&&!inv.createdBy){ inv.createdBy=curUser().id; commit(); } };
 
 /* ---------- settings: Lightspeed connection, mappings, users, restrictions ---------- */
 const _settingsView=VIEWS.settings;
@@ -774,10 +777,10 @@ const _dash=VIEWS.dashboard; VIEWS.dashboard=function(){
       '<div class="vault-hero" data-act="go" data-view="orders">'+
         '<div class="v-lab">Deposits held<b>'+live.length+' open</b></div>'+
         '<div class="v-hero-val">'+P(held)+'</div>'+
-        '<div class="v-cap">Client money sitting on open work — not revenue until the piece is collected.'+(oldest?' Oldest open order '+oldest+' days.':'')+'</div>'+
+        '<div class="v-cap">Client money sitting on open work — not revenue until the piece is collected.'+(oldest?' Oldest open job '+oldest+' days.':'')+'</div>'+
       '</div>'+
       '<div class="v-grid">'+
-        cell('orders','Still to collect',outstanding,live.length+' order'+(live.length===1?'':'s')+' with a balance')+
+        cell('orders','Still to collect',outstanding,live.length+' job'+(live.length===1?'':'s')+' with a balance')+
         cell('payments','Recognised revenue',recog,'earned on completed work')+
         cell('orders','In the workshop',shop.reduce((s,o)=>s+totals(o).total,0),shop.length?(shop.length+' being worked on'):'nothing on the bench',shop.length)+
         cell('orders','Ready for pickup',ready.reduce((s,o)=>s+totals(o).total,0),ready.length?(ready.length+' waiting on the client'):'nothing waiting',ready.length)+
@@ -801,7 +804,7 @@ const _payView=VIEWS.payments; VIEWS.payments=function(){
   const rows=db.orders.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).map(o=>{ const t=totals(o).total; const ps=orderPays(o); const dep=r2(ps.filter(p=>p.kind==='deposit').reduce((s,p)=>s+p.amount,0)); const fin=r2(ps.filter(p=>p.kind==='final').reduce((s,p)=>s+p.amount,0)); const ref=r2(ps.filter(p=>p.kind==='refund').reduce((s,p)=>s+p.amount,0)); const cash=r2(dep+fin+ref); const recog=o.status==='completed'?t:(o.status==='cancelled'?(+o.cancelFee||0):0); const liab=(o.status==='completed'||o.status==='cancelled')?0:cash; const bal=o.status==='cancelled'?0:r2(t-cash);
     return {o,t,dep,fin,ref,cash,recog,liab,bal}; });
   const tot=rows.reduce((a,r)=>{a.t+=r.t;a.dep+=r.dep;a.fin+=r.fin;a.ref+=r.ref;a.cash+=r.cash;a.recog+=r.recog;a.liab+=r.liab;a.bal+=r.bal;return a;},{t:0,dep:0,fin:0,ref:0,cash:0,recog:0,liab:0,bal:0});
-  const tbl='<div class="card" style="margin-top:22px"><div class="panel"><h3>Service deposit reconciliation</h3><p class="mut sm" style="margin-bottom:10px">Per service order: value, deposits, final payment, refunds, cash received, recognised sales (only completed / cancellation fees), unearned-revenue liability (deposits held on open services) and remaining balance. Must reconcile: cash = recognised + liability + refunds-netted.</p>'+
+  const tbl='<div class="card" style="margin-top:22px"><div class="panel"><h3>Service deposit reconciliation</h3><p class="mut sm" style="margin-bottom:10px">Per job: value, deposits, final payment, refunds, cash received, recognised sales (only completed / cancellation fees), unearned-revenue liability (deposits held on open services) and remaining balance. Must reconcile: cash = recognised + liability + refunds-netted.</p>'+
   '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Order</th><th>Status</th><th>Lightspeed</th><th class="r">Service value</th><th class="r">Deposits</th><th class="r">Final</th><th class="r">Refunds</th><th class="r">Cash received</th><th class="r">Recognised</th><th class="r">Liability</th><th class="r">Balance</th></tr></thead><tbody>'+
   rows.map(r=>'<tr class="rowlink" data-act="open" data-type="order" data-id="'+r.o.id+'"><td class="num">'+esc(r.o.number)+'</td><td>'+badge(OB,r.o.status)+'</td><td>'+esc(LS_STATUS_LABEL(r.o.ls))+(r.o.ls.receipt?' #'+esc(r.o.ls.receipt):'')+'</td><td class="r">'+money(r.t)+'</td><td class="r">'+money(r.dep)+'</td><td class="r">'+money(r.fin)+'</td><td class="r">'+money(r.ref)+'</td><td class="r">'+money(r.cash)+'</td><td class="r">'+money(r.recog)+'</td><td class="r">'+money(r.liab)+'</td><td class="r">'+money(r.bal)+'</td></tr>').join('')+
   '<tr style="font-weight:700"><td colspan="3">Totals</td><td class="r">'+money(tot.t)+'</td><td class="r">'+money(tot.dep)+'</td><td class="r">'+money(tot.fin)+'</td><td class="r">'+money(tot.ref)+'</td><td class="r">'+money(tot.cash)+'</td><td class="r">'+money(tot.recog)+'</td><td class="r">'+money(tot.liab)+'</td><td class="r">'+money(tot.bal)+'</td></tr></tbody></table></div>'+
@@ -815,8 +818,8 @@ const _csv=ACT.csv; ACT.csv=d=>{ if(d.kind==='reconciliation'){ const rows=[['Or
 /* orders list: show LS + balance columns */
 VIEWS.orders=function(){
   const list=db.orders.filter(o=>matches(o.number+' '+cname(o.contactId))).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  const rows=list.map(o=>'<tr class="rowlink" data-act="open" data-type="order" data-id="'+o.id+'"><td class="num">'+esc(o.number)+'</td><td>'+esc(cname(o.contactId))+'</td><td>'+esc(o.loc||'')+'</td><td>'+fmtD(o.date)+'</td><td>'+badge(OB,o.status)+'</td><td>'+esc(LS_STATUS_LABEL(o.ls))+'</td><td class="r">'+money(totals(o).total)+'</td><td class="r">'+money(orderPaid(o))+'</td><td class="r">'+money(orderBalance(o))+'</td></tr>').join('')||'<tr><td colspan="9"><div class="empty"><i class="fa-solid fa-clipboard-list"></i>No service orders yet. Accept an estimate, then convert it to an order.</div></td></tr>';
-  return'<div class="page-head"><h1 class="page-title">Service orders</h1></div>'+
+  const rows=list.map(o=>'<tr class="rowlink" data-act="open" data-type="order" data-id="'+o.id+'"><td class="num">'+esc(o.number)+'</td><td>'+esc(cname(o.contactId))+'</td><td>'+esc(o.loc||'')+'</td><td>'+fmtD(o.date)+'</td><td>'+badge(OB,o.status)+'</td><td>'+esc(LS_STATUS_LABEL(o.ls))+'</td><td class="r">'+money(totals(o).total)+'</td><td class="r">'+money(orderPaid(o))+'</td><td class="r">'+money(orderBalance(o))+'</td></tr>').join('')||'<tr><td colspan="9"><div class="empty"><i class="fa-solid fa-clipboard-list"></i>No jobs yet. Accept an estimate, then convert it to a job.</div></td></tr>';
+  return'<div class="page-head"><h1 class="page-title">Jobs</h1></div>'+
   '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search orders…" value="'+esc(state.q)+'"></span></div>'+
   '<div class="actrow"><button class="b2 o" data-act="csv" data-kind="orders"><i class="fa-solid fa-download"></i> CSV</button></div></div>'+
   '<div class="card"><table class="tbl"><thead><tr><th>Number</th><th>Customer</th><th>Location</th><th>Date</th><th>Status</th><th>Lightspeed</th><th class="r">Value</th><th class="r">Paid</th><th class="r">Balance</th></tr></thead><tbody id="rows">'+rows+'</tbody></table></div>';
@@ -886,8 +889,8 @@ ACT.createSpecialOrder=()=>{
 /* orders list shows service work only; special orders live in their own section */
 VIEWS.orders=function(){
   const list=db.orders.filter(o=>!isSpecial(o)&&matches(o.number+' '+cname(o.contactId))).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  const rows=list.map(o=>'<tr class="rowlink" data-act="open" data-type="order" data-id="'+o.id+'"><td class="num">'+esc(o.number)+'</td><td>'+esc(cname(o.contactId))+'</td><td>'+esc(o.loc||'')+'</td><td>'+fmtD(o.date)+'</td><td>'+badge(OB,o.status)+'</td><td>'+esc(LS_STATUS_LABEL(o.ls))+'</td><td class="r">'+money(totals(o).total)+'</td><td class="r">'+money(orderPaid(o))+'</td><td class="r">'+money(orderBalance(o))+'</td></tr>').join('')||'<tr><td colspan="9"><div class="empty"><i class="fa-solid fa-clipboard-list"></i>No service orders yet. Accept an estimate, then convert it to an order.</div></td></tr>';
-  return'<div class="page-head"><h1 class="page-title">Service orders</h1></div>'+
+  const rows=list.map(o=>'<tr class="rowlink" data-act="open" data-type="order" data-id="'+o.id+'"><td class="num">'+esc(o.number)+'</td><td>'+esc(cname(o.contactId))+'</td><td>'+esc(o.loc||'')+'</td><td>'+fmtD(o.date)+'</td><td>'+badge(OB,o.status)+'</td><td>'+esc(LS_STATUS_LABEL(o.ls))+'</td><td class="r">'+money(totals(o).total)+'</td><td class="r">'+money(orderPaid(o))+'</td><td class="r">'+money(orderBalance(o))+'</td></tr>').join('')||'<tr><td colspan="9"><div class="empty"><i class="fa-solid fa-clipboard-list"></i>No jobs yet. Accept an estimate, then convert it to a job.</div></td></tr>';
+  return'<div class="page-head"><h1 class="page-title">Jobs</h1></div>'+
   '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search orders…" value="'+esc(state.q)+'"></span></div>'+
   '<div class="actrow"><button class="b2 o" data-act="csv" data-kind="orders"><i class="fa-solid fa-download"></i> CSV</button></div></div>'+
   '<div class="card"><table class="tbl"><thead><tr><th>Number</th><th>Customer</th><th>Location</th><th>Date</th><th>Status</th><th>Lightspeed</th><th class="r">Value</th><th class="r">Paid</th><th class="r">Balance</th></tr></thead><tbody id="rows">'+rows+'</tbody></table></div>';
@@ -1001,7 +1004,7 @@ function importLsPayments(o, d){
       const ci=o.customerItem||{};
       o.status='completed'; o.completedAt=Date.now(); o.completedBy=null; ensureInvoiceForOrder(o);
       audit('order.completed','order',o.id,{via:'register final payment (Lightspeed closed the layaway)'});
-      if(isSpecial(o) && !(ci.serial&&String(ci.serial).trim())) toast(o.number+': the register closed this sale before a serial number was recorded — add the serial on the order for your records.');
+      if(isSpecial(o) && !(ci.serial&&String(ci.serial).trim())) toast(o.number+': the register closed this sale before a serial number was recorded — add the serial on the job for your records.');
     }
     commit();
   }
@@ -1117,7 +1120,7 @@ const _orderView4=VIEWS.order; VIEWS.order=function(){
         '<p class="mut sm" style="margin:6px 0 10px">The Lightspeed layaway line is <b>Special Order Product</b> (note: '+esc(([ci.brand,ci.model].filter(Boolean).join(' ')+(ci.reference?' Ref. '+ci.reference:'')).trim()||'—')+'). When inventory receives the piece, enter the Raffi ID generated in Salesforce — the line switches to the actual product. Deposits stay unearned until pickup.</p>'+
         '<div class="actrow"><button class="b2 p" data-act="receiveSpecial" data-id="'+o.id+'"><i class="fa-solid fa-box-open"></i> Product arrived — enter Raffi ID</button></div>'+
         '</div></div>';
-      h=h.replace('<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Service order details', banner+'<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Service order details');
+      h=h.replace('<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Job details', banner+'<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Job details');
     }
   }
   return h;
@@ -1174,7 +1177,7 @@ async function reopenPrematureClose(o){
     }
   }catch(e){
     o.ls.error='The register completed this sale prematurely and it could not be reopened: '+String(e.message||e).slice(0,140);
-    commit(); render(); toast(o.number+': could not reopen the completed register sale — see the order for details.');
+    commit(); render(); toast(o.number+': could not reopen the completed register sale — see the job for details.');
   }finally{ o.__reopening=false; }
 }
 async function rebuildAsLayby(o){
@@ -1530,7 +1533,7 @@ ACT.servicePrint=d=>{
   rxEnsureCss(); closeModal();
   let layer=document.getElementById('rolex-print');
   if(!layer){ layer=document.createElement('div'); layer.id='rolex-print'; document.body.appendChild(layer); }
-  layer.innerHTML='<div class="rxbar no-print"><button class="b2 o" data-act="rolexClosePreview">← Back</button><button class="b2 p" data-act="print"><i class="fa-solid fa-print"></i> Print / PDF</button><span class="mut sm" style="align-self:center">'+(isSpecial(o)?'Special order':'Service order')+' document — '+esc(o.number)+'</span></div>'+serviceDoc(o);
+  layer.innerHTML='<div class="rxbar no-print"><button class="b2 o" data-act="rolexClosePreview">← Back</button><button class="b2 p" data-act="print"><i class="fa-solid fa-print"></i> Print / PDF</button><span class="mut sm" style="align-self:center">'+(isSpecial(o)?'Special order':'Job')+' document — '+esc(o.number)+'</span></div>'+serviceDoc(o);
   document.body.classList.add('rxopen');
   audit('order.print','order',o.id,isSpecial(o)?'special':'service');
 };
@@ -1667,7 +1670,7 @@ const _orderView5=VIEWS.order; VIEWS.order=function(){
 };
 
 /* ---------- SERVICE parent view: the pipeline board ----------
-   Estimates → Service orders → Special orders → Invoices, each phase split into its own
+   Estimates → Jobs → Invoices, each phase split into its own
    sub-stages. Every column scrolls on its own so a hundred cards still fit on one screen;
    the board scrolls sideways. Dragging a card performs the real transition where one exists
    (estimate draft→sent→accepted, order open→workshop→ready); invoice columns are derived
@@ -1783,16 +1786,11 @@ VIEWS.service=function(){
       kbColumn('Sent · awaiting','quote','open',byQ('open'))+
       kbColumn('Accepted → convert','quote','accepted',byQ('accepted'))+
       (arch?kbColumn('Declined','quote','declined',byQ('declined')):''))+
-    kbPhase('Service orders', liveS.length+' · '+sum(liveS),
+    kbPhase('Jobs', liveS.length+' · '+sum(liveS),
       kbColumn('Intake · open','order','open',byO(svc,'open'))+
       kbColumn('In the workshop','order','in_progress',byO(svc,'in_progress'))+
       kbColumn('Ready for pickup','order','ready',byO(svc,'ready'))+
       (arch?kbColumn('Closed','order','completed',svc.filter(o=>o.status==='completed'||o.status==='cancelled')):''))+
-    kbPhase('Special orders', liveP.length+' · '+sum(liveP),
-      kbColumn('Ordered','order','open',byO(spc,'open'))+
-      kbColumn('With supplier','order','in_progress',byO(spc,'in_progress'))+
-      kbColumn('Arrived · awaiting pickup','order','ready',byO(spc,'ready'))+
-      (arch?kbColumn('Picked up','order','completed',spc.filter(o=>o.status==='completed'||o.status==='cancelled')):''))+
     kbPhase('Invoices', (byI('open').length+byI('partial').length+byI('overdue').length)+' open',
       kbColumn('Open','inv','open',byI('open'))+
       kbColumn('Part paid','inv','partial',byI('partial'))+
@@ -1884,8 +1882,8 @@ function kbMove(kind, id, from, to){
     return;
   }
   const o=O(id); if(!o) return;
-  if(!requirePerm('edit_service','move this order')) return;
-  if(to==='completed'){ toast('Use Complete & close on the order — that is what recognises the revenue.'); return; }
+  if(!requirePerm('edit_service','move this job')) return;
+  if(to==='completed'){ toast('Use Complete & close on the job — that is what recognises the revenue.'); return; }
   if(o.status==='completed'||o.status==='cancelled'){ toast(o.number+' is '+o.status+' — reopening is not supported.'); return; }
   if(isSpecial(o)&&to==='ready'&&!((o.customerItem||{}).raffiId)){ go('order',o.id); setTimeout(()=>ACT.receiveSpecial({id:o.id}),60); return; }
   if(!((ALLOWED_NEXT[o.status]||[]).includes(to))){ toast('Transition '+o.status+' → '+to+' is not allowed.'); return; }

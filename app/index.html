@@ -494,7 +494,7 @@
       <div class="nav-item nav-parent" data-act="go" data-view="service" data-tip="Service" role="button" tabindex="0"><i class="fa-solid fa-screwdriver-wrench"></i></div>
       <div class="nav-group">
         <div class="nav-item nav-sub" data-act="go" data-view="quotes" data-tip="Estimates" role="button" tabindex="0"><i class="fa-solid fa-comment-dollar"></i></div>
-        <div class="nav-item nav-sub" data-act="go" data-view="orders" data-tip="Orders" role="button" tabindex="0"><i class="fa-solid fa-clipboard-list"></i></div>
+        <div class="nav-item nav-sub" data-act="go" data-view="orders" data-tip="Jobs" role="button" tabindex="0"><i class="fa-solid fa-clipboard-list"></i></div>
         <div class="nav-item nav-sub" data-act="go" data-view="invoices" data-tip="Invoices" role="button" tabindex="0"><i class="fa-solid fa-file-invoice"></i></div>
       </div>
       <div class="nav-item" data-act="go" data-view="payments" data-tip="Payments" role="button" tabindex="0"><i class="fa-solid fa-dollar-sign"></i></div>
@@ -623,7 +623,7 @@ function seed(){
        isTemplate:true,templateName:'Rolex Template -TEST'}
     ],
     orders:[
-      {id:'o1',number:'ORD-0003',contactId:'c4',quoteId:'q4',date:'2026-05-26',loc:'Mississauga',status:'open',
+      {id:'o1',number:'JOB-0003',contactId:'c4',quoteId:'q4',date:'2026-05-26',loc:'Mississauga',status:'open',
        items:[{name:'Watch Service & Polish',desc:'Light polish, pressure test',qty:1,price:40,taxable:false},{name:'Spring Bar Set',desc:'',qty:1,price:5.9,taxable:false}],
        discountPct:0,notes:'',
        messages:[{from:'Test ustomer TEST',me:false,text:'how are you',at:T('2026-05-26T15:47')}]}
@@ -652,7 +652,7 @@ function seed(){
        parts:[{t:'Your quote '},{l:'EST-0004',v:'quote-doc',id:'q4'},{t:' was signed by '},{l:'Test ustomer TEST',v:'contact',id:'c4'}],
        preview:[{t:'Open your document from '},{l:'EST-0004',v:'quote-doc',id:'q4'}]},
       {id:'a9',at:T('2026-05-26T15:47'),icon:'comment',actor:'Test ustomer TEST',
-       parts:[{l:'Test ustomer TEST',v:'contact',id:'c4'},{t:' sent a chat message to Al Sukara in '},{l:'ORD-0003',v:'order',id:'o1'}],
+       parts:[{l:'Test ustomer TEST',v:'contact',id:'c4'},{t:' sent a chat message to Al Sukara in '},{l:'JOB-0003',v:'order',id:'o1'}],
        preview:'how are you'}
     ]
   };
@@ -701,7 +701,7 @@ function markNav(){
   const par=$('.nav-parent[data-view="service"]'); if(par) par.classList.toggle('insect',!!SERVICEKIDS[p]);
 }
 function crumbs(){
-  const base={dashboard:'Dashboard',contacts:'Contacts',service:'Service',quotes:'Estimates',orders:'Orders',invoices:'Invoices',payments:'Payments',products:'Products',settings:'Settings'};
+  const base={dashboard:'Dashboard',contacts:'Contacts',service:'Service',quotes:'Estimates',orders:'Jobs',invoices:'Invoices',payments:'Payments',products:'Products',settings:'Settings'};
   const parent=NAVPARENT[state.view];
   let html='<div class="home-tab" data-act="go" data-view="dashboard"><i class="fa-solid fa-house"></i></div>';
   html+='<span class="crumb-sep"><i class="fa-solid fa-chevron-right"></i></span>';
@@ -863,7 +863,7 @@ VIEWS.contact=function(){
   '</div></div></div>'+
   '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Estimates ('+qs.length+')</h3></div>'+
     (qs.length?'<table class="tbl"><thead><tr><th>Number</th><th>Date</th><th>Status</th><th class="r">Total</th></tr></thead><tbody>'+qs.map(q=>docRow(q.number,'quote',q.id,q.date,badge(QB,q.status),totals(q).total)).join('')+'</tbody></table>':'<div class="empty sm">No quotes yet.</div>')+'</div>'+
-  '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Orders ('+os.length+')</h3></div>'+
+  '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Jobs ('+os.length+')</h3></div>'+
     (os.length?'<table class="tbl"><thead><tr><th>Number</th><th>Date</th><th>Status</th><th class="r">Total</th></tr></thead><tbody>'+os.map(o=>docRow(o.number,'order',o.id,o.date,badge(OB,o.status),totals(o).total)).join('')+'</tbody></table>':'<div class="empty sm">No orders yet.</div>')+'</div>'+
   '<div class="card"><div class="panel"><h3>Invoices ('+is.length+')</h3></div>'+
     (is.length?'<table class="tbl"><thead><tr><th>Number</th><th>Date</th><th>Status</th><th class="r">Total</th></tr></thead><tbody>'+is.map(i=>docRow(i.number,'invoice',i.id,i.date,badge(IB,iStatus(i)),totals(i).total)).join('')+'</tbody></table>':'<div class="empty sm">No invoices yet.</div>')+'</div>';
@@ -980,7 +980,7 @@ VIEWS.quote=function(){
     if(q.status==='draft')acts.push('<button class="b2 g" data-act="sendQuote" data-id="'+q.id+'"><i class="fa-solid fa-paper-plane"></i> Mark as sent</button>');
     if(q.status==='accepted'){
       acts.push('<button class="b2 g" data-act="toInvoice" data-id="'+q.id+'"><i class="fa-solid fa-file-invoice"></i> '+(q.invoiceId?'Open invoice':'Convert to invoice')+'</button>');
-      acts.push('<button class="b2 o" data-act="toOrder" data-id="'+q.id+'"><i class="fa-solid fa-clipboard-list"></i> '+(q.orderId?'Open order':'Convert to order')+'</button>');
+      acts.push('<button class="b2 o" data-act="toOrder" data-id="'+q.id+'"><i class="fa-solid fa-clipboard-list"></i> '+(q.orderId?'Open job':'Convert to job')+'</button>');
     }
     acts.push('<button class="b2 o" data-act="saveTemplate" data-id="'+q.id+'"><i class="fa-solid fa-clone"></i> Save as template</button>');
   }else{
@@ -1056,7 +1056,7 @@ VIEWS['quote-doc']=function(){
   if(q.status==='draft')acts.push('<button class="b2 g" data-act="sendQuote" data-id="'+q.id+'"><i class="fa-solid fa-paper-plane"></i> Mark as sent</button>');
   if(q.status==='accepted'){
     acts.push('<button class="b2 g" data-act="toInvoice" data-id="'+q.id+'">'+(q.invoiceId?'Open invoice':'Convert to invoice')+'</button>');
-    acts.push('<button class="b2 o" data-act="toOrder" data-id="'+q.id+'">'+(q.orderId?'Open order':'Convert to order')+'</button>');
+    acts.push('<button class="b2 o" data-act="toOrder" data-id="'+q.id+'">'+(q.orderId?'Open job':'Convert to job')+'</button>');
   }
   return'<div class="doc-actions no-print">'+acts.join('')+'</div>'+docHTML(q,'quote').replace('%%SIG%%',sig);
 };
@@ -1086,7 +1086,7 @@ function ordersRows(){
   return rows||'<tr><td colspan="6"><div class="empty"><i class="fa-solid fa-clipboard-list"></i>No orders yet. Accept a quote, then convert it to an order.</div></td></tr>';
 }
 VIEWS.orders=function(){
-  return'<div class="page-head"><h1 class="page-title">Orders</h1></div>'+
+  return'<div class="page-head"><h1 class="page-title">Jobs</h1></div>'+
   '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search orders\u2026" value="'+esc(state.q)+'"></span></div>'+
   '<div class="actrow"><button class="b2 o" data-act="csv" data-kind="orders"><i class="fa-solid fa-download"></i> CSV</button></div></div>'+
   '<div class="card"><table class="tbl"><thead><tr><th>Number</th><th>Contact</th><th>Date</th><th>Status</th><th class="r">Total</th><th class="r">Messages</th></tr></thead><tbody id="rows">'+ordersRows()+'</tbody></table></div>';
@@ -1099,7 +1099,7 @@ VIEWS.order=function(){
   return'<div class="page-head"><h1 class="page-title">'+esc(o.number)+' '+badge(OB,o.status)+'</h1>'+
   '<div class="actrow"><select class="select" data-chg="orderStatus"><option value="open"'+(o.status==='open'?' selected':'')+'>Open</option><option value="completed"'+(o.status==='completed'?' selected':'')+'>Completed</option><option value="cancelled"'+(o.status==='cancelled'?' selected':'')+'>Cancelled</option></select>'+
   '<button class="b2 d" data-act="delOrder" data-id="'+o.id+'"><i class="fa-solid fa-trash"></i> Delete</button></div></div>'+
-  '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Order details</h3><div class="fgrid">'+
+  '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Job details</h3><div class="fgrid">'+
     '<div class="fld"><label>Contact</label><div><a data-act="open" data-type="contact" data-id="'+esc(o.contactId||'')+'">'+esc(cname(o.contactId))+'</a></div></div>'+
     '<div class="fld"><label>Date</label><div>'+fmtD(o.date)+'</div></div>'+
     '<div class="fld"><label>From quote</label><div>'+(q?'<a data-act="open" data-type="quote-doc" data-id="'+q.id+'">'+esc(q.number)+'</a>':'\u2014')+'</div></div>'+
@@ -1277,7 +1277,7 @@ function makeInvoice(contactId,src){
   commit();return inv;
 }
 function makeOrder(q){
-  const n='ORD-'+pad4(db.counters.order++);
+  const n='JOB-'+pad4(db.counters.order++);
   const o={id:uid(),number:n,contactId:q.contactId,quoteId:q.id,date:todayISO(),loc:q.loc,status:'open',
     items:clone(q.items),discountPct:q.discountPct||0,notes:'',messages:[]};
   db.orders.push(o);
@@ -1445,7 +1445,7 @@ const ACT={
     ask('Delete '+o.number+'?',()=>{
       db.orders=db.orders.filter(x=>x.id!==d.id);
       const q=db.quotes.find(x=>x.orderId===d.id);if(q)q.orderId=null;
-      commit();go('orders');toast('Order deleted');
+      commit();go('orders');toast('Job deleted');
     },'Delete');
   },
   /* invoices & payments */
@@ -1536,7 +1536,7 @@ const CHG={
     const o=O(state.id);if(!o)return;
     o.status=el.value;
     if(el.value==='completed')logAct('check',db.settings.user,[{t:db.settings.user+' marked '},{l:o.number,v:'order',id:o.id},{t:' as completed'}],null);
-    commit();render();toast('Order updated');
+    commit();render();toast('Job updated');
   },
   importFile:el=>{
     const f=el.files&&el.files[0];if(!f)return;
