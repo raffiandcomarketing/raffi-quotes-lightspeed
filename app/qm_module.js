@@ -1571,7 +1571,8 @@ function kbEnsureCss(){
     '.kb-tools .kbf{border:1px solid var(--border);background:#fff;border-radius:999px;padding:9px 15px;font-family:var(--sans);font-size:12px;color:#33384a}'+
     '.kb-tools .kbf:focus{outline:none;border-color:var(--gold-soft)}'+
     '.kb-tools .kbtog{cursor:pointer;user-select:none;display:flex;align-items:center;gap:7px}'+
-    '.kb{display:flex;gap:16px;overflow-x:auto;overflow-y:hidden;height:calc(100vh - 268px);min-height:430px;padding-bottom:10px;align-items:stretch}'+
+    '.kb{display:flex;gap:16px;overflow-x:auto;overflow-y:hidden;height:calc(100vh - 330px);min-height:300px;padding-bottom:10px;align-items:stretch}'+
+    'body:has(.kb) footer{display:none}body:has(.kb) .content{padding-bottom:12px}body:has(.kb) .page-head{margin-bottom:10px}'+
     '.kb-ph{flex:none;display:flex;flex-direction:column;background:rgba(255,255,255,.55);border:1px solid var(--border);border-radius:16px;min-height:0}'+
     '.kb-ph-h{background:var(--navy);color:#f2efe6;border-radius:15px 15px 0 0;padding:12px 16px 11px;display:flex;justify-content:space-between;align-items:center;gap:18px;position:relative;overflow:hidden;flex:none}'+
     '.kb-ph-h::after{content:"";position:absolute;left:16px;right:16px;top:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold-soft),transparent)}'+
@@ -1688,6 +1689,7 @@ VIEWS.service=function(){
       kbColumn('Part paid','inv','partial',byI('partial'))+
       kbColumn('Overdue','inv','overdue',byI('overdue'))+
       (arch?kbColumn('Settled','inv','paid',byI('paid')):''));
+  setTimeout(kbFit,0); setTimeout(kbFit,240);
   const locs=['all'].concat(db.settings.locations||[]);
   return '<div class="page-head"><div><div class="kicker">'+esc(new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}))+'</div>'+
     '<h1 class="page-title">Service <em>overview</em></h1></div></div>'+
@@ -1740,6 +1742,21 @@ document.addEventListener('drop',e=>{
   if(kind!==d.kind || stage===d.from) return;
   kbMove(kind, d.id, d.from, stage);
 });
+/* the board owns the space left in the viewport: every stage column stays on screen, the cards inside scroll */
+function kbFit(){
+  const kb=document.querySelector(".kb"); if(!kb) return;
+  if(window.innerWidth<=900){ kb.style.height=""; kb.style.minHeight=""; return; }
+  kb.style.minHeight="0px"; kb.style.height="";
+  const top=kb.getBoundingClientRect().top+(window.scrollY||document.documentElement.scrollTop||0);
+  let h=Math.max(300, Math.round(window.innerHeight-top-14));
+  kb.style.height=h+"px";
+  for(let i=0;i<3;i++){
+    const over=document.documentElement.scrollHeight-window.innerHeight;
+    if(over<=0) break;
+    h=Math.max(300, h-over); kb.style.height=h+"px";
+  }
+}
+window.addEventListener("resize",()=>{ if(document.querySelector(".kb")) kbFit(); });
 function kbMove(kind, id, from, to){
   if(kind==='inv'){ toast('Invoice stages follow the payments — take the money on the order so deposits stay unearned.'); return; }
   if(kind==='quote'){
