@@ -359,6 +359,8 @@
   .sidebar .nav-item[data-tip]::after{content:attr(data-tip);position:static;transform:none;background:transparent;color:inherit;font-size:13.5px;font-family:var(--sans);font-weight:600;letter-spacing:.25px;padding:0;border-radius:0;white-space:nowrap;box-shadow:none;pointer-events:none;}
   .sidebar .nav-item.active::before{left:-12px;}
   .sidebar .nav-item.nav-parent{margin-top:7px;}
+  .sidebar .nav-item.nav-parent.insect{color:var(--gold-soft);}
+  .sidebar .nav-item.nav-parent.insect::before{content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:rgba(211,188,125,.45);}
   .nav .nav-group{display:flex;flex-direction:column;gap:3px;margin:3px 0 5px 21px;padding-left:10px;border-left:1px solid rgba(233,230,221,.16);}
   .sidebar .nav-item.nav-sub{height:34px;font-size:14px;}
   .sidebar .nav-item.nav-sub i{width:18px;font-size:12.5px;opacity:.92;}
@@ -545,7 +547,9 @@ function logAct(icon,actor,parts,preview){
 let db=null;
 const state={view:'dashboard',id:null,q:'',qChip:'all',iChip:'all',loc:'all',feedUser:'all'};
 const mounts=[];
-const NAVPARENT={dashboard:'dashboard',contacts:'contacts',contact:'contacts',quotes:'quotes',quote:'quotes','quote-doc':'quotes',orders:'orders',order:'orders',invoices:'invoices',invoice:'invoices','invoice-doc':'invoices',payments:'payments',products:'products',settings:'settings'};
+const NAVPARENT={dashboard:'dashboard',contacts:'contacts',contact:'contacts',service:'service',specialorders:'specialorders',quotes:'quotes',quote:'quotes','quote-doc':'quotes',orders:'orders',order:'orders',invoices:'invoices',invoice:'invoices','invoice-doc':'invoices',payments:'payments',products:'products',settings:'settings'};
+// the three sub-tabs live under Service — the parent stays lit while you are inside one
+const SERVICEKIDS={service:1,quotes:1,orders:1,invoices:1};
 let rendering=false;
 function go(view,id){
   state.view=view;state.id=id??null;state.q='';
@@ -573,6 +577,7 @@ function shortName(n){const p=String(n||'').trim().split(/\s+/);return p.length>
 function markNav(){
   const p=NAVPARENT[state.view]||'dashboard';
   $$('.nav-item[data-view]').forEach(el=>el.classList.toggle('active',el.dataset.view===p));
+  const par=$('.nav-parent[data-view="service"]'); if(par) par.classList.toggle('insect',!!SERVICEKIDS[p]);
 }
 function crumbs(){
   const base={dashboard:'Dashboard',contacts:'Contacts',service:'Service',quotes:'Estimates',orders:'Orders',invoices:'Invoices',payments:'Payments',products:'Products',settings:'Settings'};
@@ -580,6 +585,10 @@ function crumbs(){
   let html='<div class="home-tab" data-act="go" data-view="dashboard"><i class="fa-solid fa-house"></i></div>';
   html+='<span class="crumb-sep"><i class="fa-solid fa-chevron-right"></i></span>';
   const ent=entityLabel();
+  if(parent&&parent!=='service'&&SERVICEKIDS[parent]){
+    html+='<span class="crumb-link" data-act="go" data-view="service">Service</span>';
+    html+='<span class="crumb-sep"><i class="fa-solid fa-chevron-right"></i></span>';
+  }
   if(ent&&parent!=='dashboard'){
     html+='<span class="crumb-link" data-act="go" data-view="'+parent+'">'+base[parent]+'</span>';
     html+='<span class="crumb-sep"><i class="fa-solid fa-chevron-right"></i></span>';
