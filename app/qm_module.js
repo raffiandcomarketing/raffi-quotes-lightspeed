@@ -92,7 +92,10 @@ function migrateDB(d){
 
 /* ---------- persistence: server (shared) + localStorage + artifact storage ---------- */
 const LOCAL_KEY = 'quotemachine-db-v1';
-let serverVersion = 0, serverOK = false, saveInFlight = false, saveQueued = false;
+let serverVersion = 0, serverOK = false, saveInFlight = false, saveQueued = false, pendingPush = false;
+/* set once the live Lightspeed handshake has answered — its result must survive the
+   server document landing a moment later with an older copy of settings.ls */
+let lsStatusFresh = false;
 async function sbFetch(path, opt={}){
   const headers = Object.assign({'Content-Type':'application/json','Authorization':'Bearer '+LS_CFG.anon,'apikey':LS_CFG.anon}, opt.headers||{});
   const r = await fetch(LS_CFG.base+path, Object.assign({}, opt, {headers}));
@@ -120,18 +123,25 @@ loadDB = async function(){
 
   if(local){
     fromServer.then(doc=>{
-      if(!doc || dirtySinceBoot) return;
       try{
-        if(JSON.stringify(doc)===JSON.stringify(db)) return;
-        db = migrateDB(doc); render();
+        if(doc && !dirtySinceBoot && JSON.stringify(doc)!==JSON.stringify(db)){
+          const liveLs = (lsStatusFresh && db && db.settings) ? db.settings.ls : null;
+          db = migrateDB(doc);
+          if(liveLs) db.settings.ls = Object.assign({}, db.settings.ls, liveLs);
+        }
       }catch(e){ console.warn('server reconcile failed', e); }
+      /* repaint whether or not the document changed — the first paint was drawn while the
+         connection was still unknown, so the offline banner and sync chip are stale by now */
+      try{ render(); }catch(e){}
+      /* anything saved before the server answered was parked, not dropped */
+      if(pendingPush){ pendingPush=false; pushServer(); }
     });
     return local;
   }
   return await fromServer;
 };
 async function pushServer(){
-  if(!serverOK) return;
+  if(!serverOK){ pendingPush=true; return; }   /* park it; loadDB flushes once the server answers */
   if(saveInFlight){ saveQueued=true; return; }
   saveInFlight=true;
   try{
@@ -876,7 +886,9 @@ async function lsBoot(){
   let changed=false; try{ changed = JSON.stringify(db)!==before; }catch(e){ changed=true; }
   if(changed) commit();   /* only write when the migration actually rewrote something */
   try{
-    await LS.status();
+    try{ await LS.status(); }
+    catch(e){ await new Promise(r=>setTimeout(r,900)); await LS.status(); }  /* the edge function can be cold */
+    lsStatusFresh = true;
     if(LS.connected() && (!db.settings.ls.lastSync || !db.settings.ls.genericServiceProductId)){
       try{ await LS.syncRef(); }catch(e){ console.warn('ref sync failed', e); }
     }
