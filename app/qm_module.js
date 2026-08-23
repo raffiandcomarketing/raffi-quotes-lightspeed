@@ -99,18 +99,36 @@ async function sbFetch(path, opt={}){
   const t = await r.text(); let j=null; try{ j=JSON.parse(t); }catch(e){ j={raw:t}; }
   return {status:r.status, ok:r.ok, j};
 }
+/* the shared server copy is the source of truth, but the edge function takes a second or two
+   to answer. Paint from the browser's own copy at once, then adopt the server copy when it
+   lands — unless the user has already changed something, in which case their work stands and
+   the normal 409 conflict path resolves it. */
+let dirtySinceBoot=false;
 loadDB = async function(){
-  // 1) server
-  try{
-    const r = await sbFetch('/qm-state');
-    if(r.ok && r.j && r.j.exists && r.j.doc && r.j.doc.v===1){ serverVersion=r.j.version||0; serverOK=true; return r.j.doc; }
-    if(r.ok){ serverOK=true; serverVersion=r.j.version||0; }
-  }catch(e){ console.warn('server state unavailable', e); }
-  // 2) artifact storage
-  if(hasStore){ try{ const r=await window.storage.get(KEY); if(r&&r.value){ const d=JSON.parse(r.value); if(d&&d.v===1) return d; } }catch(e){} }
-  // 3) localStorage
-  try{ const raw=localStorage.getItem(LOCAL_KEY); if(raw){ const d=JSON.parse(raw); if(d&&d.v===1) return d; } }catch(e){}
-  return null;
+  let local=null;
+  try{ const raw=localStorage.getItem(LOCAL_KEY); if(raw){ const d=JSON.parse(raw); if(d&&d.v===1) local=d; } }catch(e){}
+  if(!local && hasStore){ try{ const r=await window.storage.get(KEY); if(r&&r.value){ const d=JSON.parse(r.value); if(d&&d.v===1) local=d; } }catch(e){} }
+
+  const fromServer = (async()=>{
+    try{
+      const r = await sbFetch('/qm-state');
+      if(r.ok){ serverOK=true; serverVersion=r.j.version||0;
+        if(r.j.exists && r.j.doc && r.j.doc.v===1) return r.j.doc; }
+    }catch(e){ console.warn('server state unavailable', e); }
+    return null;
+  })();
+
+  if(local){
+    fromServer.then(doc=>{
+      if(!doc || dirtySinceBoot) return;
+      try{
+        if(JSON.stringify(doc)===JSON.stringify(db)) return;
+        db = migrateDB(doc); render();
+      }catch(e){ console.warn('server reconcile failed', e); }
+    });
+    return local;
+  }
+  return await fromServer;
 };
 async function pushServer(){
   if(!serverOK) return;
@@ -130,6 +148,7 @@ async function pushServer(){
   finally{ saveInFlight=false; if(saveQueued){ saveQueued=false; pushServer(); } }
 }
 commit = function(){
+  dirtySinceBoot=true;
   clearTimeout(saveT);
   saveT = setTimeout(async()=>{
     try{ localStorage.setItem(LOCAL_KEY, JSON.stringify(db)); }catch(e){ console.warn('localStorage save failed', e); }
@@ -700,34 +719,48 @@ function vaultEnsureCss(){
   if(document.getElementById('vault-css')) return;
   const st=document.createElement('style'); st.id='vault-css';
   st.textContent=
-    '.vault{position:relative;overflow:hidden;background:linear-gradient(150deg,#0d2549 0%,#0b203f 46%,#081a34 100%);color:#f5f1e6;border-radius:6px;margin:6px 0 14px;box-shadow:0 18px 40px -26px rgba(8,20,44,.9)}'+
-    '.vault::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(211,188,125,.85) 22%,rgba(211,188,125,.85) 78%,transparent)}'+
-    '.vault::after{content:"";position:absolute;inset:0;background:radial-gradient(105% 150% at 88% -10%,rgba(200,166,77,.15),transparent 58%);pointer-events:none}'+
+    '.vault{position:relative;overflow:hidden;color:#f5f1e6;border-radius:7px;margin:6px 0 14px;'+
+      'background-color:#0b203f;'+
+      /* engine-turned ground: two fine diagonal rulings over the navy, the way a dial is finished */
+      'background-image:repeating-linear-gradient(58deg,rgba(255,255,255,.020) 0 1px,transparent 1px 7px),'+
+        'repeating-linear-gradient(-58deg,rgba(0,0,0,.10) 0 1px,transparent 1px 9px),'+
+        'linear-gradient(150deg,#10294f 0%,#0b203f 46%,#071730 100%);'+
+      'box-shadow:0 22px 48px -28px rgba(8,20,44,.95),inset 0 1px 0 rgba(255,248,228,.07);'+
+      'border:1px solid rgba(211,188,125,.16)}'+
+    '.vault::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,rgba(211,188,125,.9) 18%,#e2c479 50%,rgba(211,188,125,.9) 82%,transparent)}'+
+    '.vault::after{content:"";position:absolute;inset:0;pointer-events:none;'+
+      'background:radial-gradient(115% 160% at 86% -14%,rgba(206,172,84,.17),transparent 56%),radial-gradient(90% 120% at 0% 110%,rgba(0,0,0,.28),transparent 60%)}'+
+    /* fine gold ticks at the lower corners, like the marks on a certificate plate */
+    '.vault .tick{position:absolute;width:13px;height:13px;pointer-events:none;z-index:2;opacity:.5}'+
+    '.vault .tick.bl{left:9px;bottom:9px;border-left:1px solid var(--gold-soft);border-bottom:1px solid var(--gold-soft)}'+
+    '.vault .tick.br{right:9px;bottom:9px;border-right:1px solid var(--gold-soft);border-bottom:1px solid var(--gold-soft)}'+
     '.vault-top{display:grid;grid-template-columns:minmax(280px,1.05fr) 2fr;gap:0;position:relative;z-index:1}'+
-    '.vault-hero{padding:26px 30px 24px;border-right:1px solid rgba(245,241,230,.11);cursor:pointer;position:relative;transition:background .22s ease}'+
+    '.vault-hero{padding:30px 34px 28px;border-right:1px solid rgba(245,241,230,.11);cursor:pointer;position:relative;transition:background .22s ease}'+
     '.vault-hero:hover{background:rgba(211,188,125,.06)}'+
     '.v-lab{font-family:var(--sans);font-size:9px;letter-spacing:.24em;text-transform:uppercase;font-weight:700;color:rgba(245,241,230,.46);display:flex;align-items:center;gap:9px}'+
     '.v-lab b{font-weight:700;letter-spacing:.1em;color:#d9b96a;background:rgba(211,188,125,.14);border-radius:99px;padding:2px 8px;font-size:9px}'+
-    '.v-hero-val{font-family:var(--serif);font-size:42px;line-height:1;font-weight:600;color:#e2c479;margin-top:15px;font-variant-numeric:tabular-nums;letter-spacing:-.015em;text-shadow:0 2px 22px rgba(211,188,125,.28)}'+
+    '.v-hero-val{font-family:var(--serif);font-size:46px;line-height:1;font-weight:600;color:#e6cc8c;margin-top:17px;font-variant-numeric:tabular-nums;letter-spacing:-.018em;text-shadow:0 3px 30px rgba(211,188,125,.34)}'+
     '.v-hero-val .lux-cur{color:rgba(226,196,121,.72);vertical-align:.68em;font-size:14px}'+
     '.v-hero-val .lux-dec{color:rgba(226,196,121,.55)}'+
     '.v-cap{font-family:var(--sans);font-size:10px;letter-spacing:.05em;color:rgba(245,241,230,.42);margin-top:12px;line-height:1.5}'+
     '.v-grid{display:grid;grid-template-columns:repeat(4,1fr);align-items:stretch}'+
-    '.v-cell{padding:26px 22px 24px;cursor:pointer;position:relative;transition:background .22s ease}'+
+    '.v-cell{padding:30px 24px 28px;cursor:pointer;position:relative;transition:background .22s ease}'+
     '.v-cell+.v-cell::before{content:"";position:absolute;left:0;top:24%;bottom:24%;width:1px;background:rgba(245,241,230,.11)}'+
     '.v-cell:hover{background:rgba(245,241,230,.045)}'+
     '.v-val{font-family:var(--serif);font-size:23px;line-height:1;font-weight:600;color:#f5f1e6;margin-top:14px;font-variant-numeric:tabular-nums}'+
     '.v-val .lux-cur{color:rgba(245,241,230,.5);vertical-align:.7em;font-size:10px}'+
     '.v-val .lux-dec{color:rgba(245,241,230,.5)}'+
     '.v-sub{font-family:var(--sans);font-size:10px;color:rgba(245,241,230,.36);margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'+
-    '.vault-foot{position:relative;z-index:1;border-top:1px solid rgba(245,241,230,.11);padding:13px 30px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;'+
+    '.vault-foot{position:relative;z-index:1;border-top:1px solid rgba(245,241,230,.10);padding:15px 34px;background:rgba(0,0,0,.16);display:flex;align-items:center;gap:12px;flex-wrap:wrap;'+
       'font-family:var(--sans);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:rgba(245,241,230,.4)}'+
     '.vault-foot .eq{color:rgba(245,241,230,.72);font-weight:700}'+
     '.vault-foot .ok{color:#8fc79a;font-weight:700;letter-spacing:.16em}'+
     '.vault-foot .bad{color:#e8879a;font-weight:700;letter-spacing:.16em}'+
     '.vault-foot .sep{opacity:.3}'+
-    '.v2{display:grid;grid-template-columns:repeat(4,1fr);position:relative;z-index:1;border-top:1px solid rgba(245,241,230,.11);background:rgba(255,255,255,.028)}'+
-    '.v2-cell{padding:19px 22px 18px;cursor:pointer;position:relative;transition:background .22s ease}'+
+    '.v2{display:grid;grid-template-columns:repeat(4,1fr);position:relative;z-index:1;background:rgba(255,255,255,.030);'+
+      'border-top:1px solid rgba(211,188,125,.22)}'+
+    '.v2::before{content:"";position:absolute;top:-4px;left:50%;width:7px;height:7px;margin-left:-3.5px;transform:rotate(45deg);background:#0e2547;border:1px solid rgba(211,188,125,.5);z-index:3}'+
+    '.v2-cell{padding:22px 24px 21px;cursor:pointer;position:relative;transition:background .22s ease}'+
     '.v2-cell+.v2-cell::before{content:"";position:absolute;left:0;top:20%;bottom:20%;width:1px;background:rgba(245,241,230,.1)}'+
     '.v2-cell:hover{background:rgba(211,188,125,.075)}'+
     '.v2-val{font-family:var(--serif);font-size:25px;line-height:1;font-weight:600;color:#f5f1e6;margin-top:12px;font-variant-numeric:tabular-nums}'+
@@ -737,6 +770,11 @@ function vaultEnsureCss(){
     '.v2-foot{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:10px}'+
     '.v-go{font-family:var(--sans);font-size:8.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-soft);opacity:0;transform:translateX(-4px);transition:opacity .2s ease,transform .2s ease;white-space:nowrap;flex:none}'+
     '.v2-cell:hover .v-go,.v-cell:hover .v-go{opacity:1;transform:none}'+
+    '.vault .v-cell,.vault .v2-cell,.vault .vault-hero{animation:vIn .42s cubic-bezier(.2,.75,.3,1) both}'+
+    '.vault .v-cell:nth-child(2){animation-delay:.05s}.vault .v-cell:nth-child(3){animation-delay:.1s}.vault .v-cell:nth-child(4){animation-delay:.15s}'+
+    '.vault .v2-cell:nth-child(2){animation-delay:.05s}.vault .v2-cell:nth-child(3){animation-delay:.1s}.vault .v2-cell:nth-child(4){animation-delay:.15s}'+
+    '@keyframes vIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}'+
+    '@media(prefers-reduced-motion:reduce){.vault .v-cell,.vault .v2-cell,.vault .vault-hero{animation:none}}'+
     '@media(max-width:1180px){.vault-top{grid-template-columns:1fr}.vault-hero{border-right:none;border-bottom:1px solid rgba(245,241,230,.11)}.v-grid{grid-template-columns:1fr 1fr}.v2{grid-template-columns:1fr 1fr}}'+
     '@media(max-width:640px){.v-grid,.v2{grid-template-columns:1fr}.v-cell+.v-cell::before,.v2-cell+.v2-cell::before{display:none}.v-cell+.v-cell,.v2-cell+.v2-cell{border-top:1px solid rgba(245,241,230,.11)}}';
   document.head.appendChild(st);
@@ -772,7 +810,7 @@ const _dash=VIEWS.dashboard; VIEWS.dashboard=function(){
       cell2({lab:'Overdue',n:bk.overI.length,val:bk.sum(bk.overI,i=>balance(i)),view:'invoices',chip:'overdue',warn:!!bk.overI.length,
              sub:bk.overI.length?(bk.overI.length+' past the due date'):'every invoice is current'})+
     '</div>') : '';
-  const band='<section class="vault">'+
+  const band='<section class="vault"><span class="tick bl"></span><span class="tick br"></span>'+
     '<div class="vault-top">'+
       '<div class="vault-hero" data-act="go" data-view="orders">'+
         '<div class="v-lab">Deposits held<b>'+live.length+' open</b></div>'+
@@ -795,6 +833,8 @@ const _dash=VIEWS.dashboard; VIEWS.dashboard=function(){
       (spec.length?'<span class="sep">·</span><span>'+spec.length+' special order'+(spec.length===1?'':'s')+' on the floor</span>':'')+
     '</div>'+
   '</section>';
+  const SKEL='<div id="svc-metrics"><div class="vault-skel" aria-hidden="true"></div></div>';
+  if(html.indexOf(SKEL)>-1) return html.replace(SKEL, band);
   if(html.indexOf('<div id="svc-metrics"></div>')>-1) return html.replace('<div id="svc-metrics"></div>', band);
   return html.replace('<section class="lux-actions">', band+'<section class="lux-actions">');
 };
@@ -826,13 +866,22 @@ VIEWS.orders=function(){
 };
 /* boot hook: migrate + LS status after data loads */
 async function lsBoot(){
+  let before=''; try{ before=JSON.stringify(db); }catch(e){}
   db = migrateDB(db);
   curUser();
   const u=new URL(location.href);
   if(u.searchParams.get('ls_connected')==='1'){ toast('Lightspeed connected: '+(u.searchParams.get('store')||'')); history.replaceState({},'',location.pathname); }
-  await LS.status();
-  if(LS.connected() && (!db.settings.ls.lastSync || !db.settings.ls.genericServiceProductId)){ try{ await LS.syncRef(); }catch(e){ console.warn('ref sync failed', e); } }
-  commit(); render();
+  /* paint straight away — the Lightspeed handshake is not worth a blank screen */
+  render();
+  let changed=false; try{ changed = JSON.stringify(db)!==before; }catch(e){ changed=true; }
+  if(changed) commit();   /* only write when the migration actually rewrote something */
+  try{
+    await LS.status();
+    if(LS.connected() && (!db.settings.ls.lastSync || !db.settings.ls.genericServiceProductId)){
+      try{ await LS.syncRef(); }catch(e){ console.warn('ref sync failed', e); }
+    }
+  }catch(e){ console.warn('LS status failed', e); }
+  render();
 }
 
 /* ---------- SPECIAL ORDERS: dedicated section — deposits or full prepayment stay an open

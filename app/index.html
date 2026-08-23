@@ -270,6 +270,12 @@
   .page-title{font-size:33px;line-height:1.12;}
   .page-title em{font-style:italic;font-weight:500;color:var(--gold-dark);}
   /* dashboard lede — one line, engraved rule beneath */
+  .vault-skel{height:250px;border-radius:7px;margin:6px 0 14px;border:1px solid rgba(211,188,125,.16);
+    background:linear-gradient(150deg,#10294f 0%,#0b203f 46%,#071730 100%);position:relative;overflow:hidden;}
+  .vault-skel::after{content:'';position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg,transparent,rgba(255,248,228,.055),transparent);animation:vskel 1.5s ease-in-out infinite;}
+  @keyframes vskel{100%{transform:translateX(100%)}}
+  @media(prefers-reduced-motion:reduce){.vault-skel::after{animation:none}}
   .head-lede{position:relative;max-width:760px;}
   .page-title.greet{font-size:38px;line-height:1.1;letter-spacing:-.018em;font-weight:600;white-space:nowrap;}
   .page-title.greet em{font-style:italic;font-weight:400;color:var(--gold-dark);}
@@ -480,6 +486,7 @@
     .shell{margin-left:65px;}
   }
 </style>
+  <link rel="preload" as="script" href="./qm_module.js">
 </head>
 <body>
 
@@ -548,18 +555,9 @@ function luxParts(n,dec){
   const p=Math.abs(v).toLocaleString('en-CA',{minimumFractionDigits:dec?2:0,maximumFractionDigits:dec?2:0}).split('.');
   return '<span class="lux-cur">'+cur+'</span>'+(v<0?'-':'')+p[0]+(p[1]?'<span class="lux-dec">.'+p[1]+'</span>':'');
 }
-/* figures count up once the plate is painted */
-function luxCountUp(){
-  document.querySelectorAll('.lux-val[data-count]').forEach(el=>{
-    const target=parseFloat(el.getAttribute('data-count'))||0;
-    const dec=el.getAttribute('data-dec')==='1';
-    if(!target){el.innerHTML=luxParts(0,dec);return;}
-    const t0=performance.now(),dur=520;
-    const step=now=>{const q=Math.min(1,(now-t0)/dur);const e=1-Math.pow(1-q,3);
-      el.innerHTML=luxParts(target*e,dec); if(q<1) requestAnimationFrame(step); else el.innerHTML=luxParts(target,dec);};
-    requestAnimationFrame(step);
-  });
-}
+/* figures are written at their final value when the plate is built — counting up from zero
+   read as a slow load. Kept as a no-op so any existing call site stays safe. */
+function luxCountUp(){}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2200);}
 
 /* ================= persistence ================= */
@@ -812,7 +810,7 @@ VIEWS.dashboard=function(){
     '<div class="head-tools">'+
     '<select class="select" data-chg="loc" aria-label="Location filter"><option value="all"'+(state.loc==='all'?' selected':'')+'>All locations</option>'+
     s.locations.map(l=>'<option'+(state.loc===l?' selected':'')+'>'+esc(l)+'</option>').join('')+'</select></div></div>'+
-  '<div id="svc-metrics"></div>'+
+  '<div id="svc-metrics"><div class="vault-skel" aria-hidden="true"></div></div>'+
   '<section class="lux-actions">'+
     action('newQuote','file-signature','New Estimate','Quote a service or a piece','prime')+
     action('newInvoice','file-invoice-dollar','New Invoice','Bill work that is finished','')+
