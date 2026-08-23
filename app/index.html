@@ -269,6 +269,12 @@
   .kicker{font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold-dark);font-weight:700;margin-bottom:9px;}
   .page-title{font-size:33px;line-height:1.12;}
   .page-title em{font-style:italic;font-weight:500;color:var(--gold-dark);}
+  /* dashboard lede */
+  .head-lede{position:relative;padding-left:18px;max-width:760px;}
+  .head-lede::before{content:'';position:absolute;left:0;top:3px;bottom:5px;width:2px;border-radius:2px;background:linear-gradient(180deg,var(--gold),rgba(176,141,63,.12));}
+  .page-title.greet{font-size:37px;line-height:1.14;letter-spacing:-.012em;font-weight:600;}
+  .page-title.greet em{font-style:italic;font-weight:400;color:var(--gold-dark);}
+  @media(max-width:640px){.page-title.greet{font-size:26px;}.head-lede{padding-left:13px;}}
 
   .metrics{gap:20px;}
   .metric{position:relative;padding:26px 18px 28px;border-radius:7px;box-shadow:0 1px 2px rgba(13,26,46,.04),0 16px 34px -26px rgba(13,26,46,.4);transition:transform .18s ease,box-shadow .18s ease;}
@@ -780,31 +786,28 @@ VIEWS.dashboard=function(){
   const qAge=q=>ageDays(q.createdAt||T((q.date||todayISO())+'T09:00'));
   const oldestQ=openQ.length?Math.max.apply(null,openQ.map(qAge)):0;
   const dueSoon=openI.filter(i=>{const d=T((i.dueDate||todayISO())+'T23:59');return d>=Date.now()&&(d-Date.now())<=7*86400000;}).length;
-  const plate=(o)=>'<button class="lux-stat" data-act="'+(o.act||'goChip')+'" data-view="'+o.view+'"'+(o.chip?' data-chip="'+o.chip+'"':'')+'>'+
-    '<span class="lux-lab">'+o.label+(o.n===undefined?'':'<b>'+o.n+'</b>')+'</span>'+
-    '<span class="lux-val'+(o.warn?' warn':'')+'" data-count="'+(Math.round(o.value*100)/100)+'" data-dec="'+(Math.abs(o.value%1)>0.001?1:0)+'">'+luxParts(o.value,Math.abs(o.value%1)>0.001)+'</span>'+
-    '<span class="lux-foot"><span class="lux-note">'+esc(o.note)+'</span><span class="lux-go">View <i class="fa-solid fa-arrow-right-long"></i></span></span>'+
-  '</button>';
+  window.DASHBOOK={openQ:openQ,accQ:accQ,openI:openI,overI:overI,oldestQ:oldestQ,dueSoon:dueSoon,sum:sum};
   const action=(act,ico,title,hint,cls)=>'<button class="lux-act'+(cls?' '+cls:'')+'" data-act="'+act+'">'+
     '<span class="ico"><i class="fa-solid fa-'+ico+'"></i></span>'+
     '<span class="txt"><span class="t">'+title+'</span><span class="h">'+hint+'</span></span>'+
     '<span class="arw"><i class="fa-solid fa-arrow-right-long"></i></span></button>';
+  const hr=new Date().getHours();
+  const salute=hr<12?'Good morning':(hr<17?'Good afternoon':'Good evening');
+  const first=String(s.user||'').trim().split(/\s+/)[0]||'there';
+  const svcOrders=db.orders.filter(o=>o.status!=='completed'&&o.status!=='cancelled');
+  const nReady=svcOrders.filter(o=>o.status==='ready').length, nBench=svcOrders.filter(o=>o.status==='in_progress').length;
+  const line = overI.length ? (overI.length+' invoice'+(overI.length===1?' is':'s are')+' past due.')
+             : nReady ? (nReady+' piece'+(nReady===1?' is':'s are')+' ready for collection.')
+             : nBench ? (nBench+' piece'+(nBench===1?' is':'s are')+' on the bench.')
+             : openQ.length ? (openQ.length+' estimate'+(openQ.length===1?' is':'s are')+' with clients.')
+             : 'the book is clear.';
   return ''+
-  '<div class="page-head"><div><div class="kicker">'+esc(new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}))+'</div><h1 class="page-title">Hi '+esc(s.user)+', <em>here\u2019s what\u2019s new.</em></h1></div>'+
+  '<div class="page-head"><div class="head-lede"><div class="kicker">'+esc(new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}))+'</div>'+
+    '<h1 class="page-title greet">'+salute+', '+esc(first)+' &mdash; <em>'+esc(line)+'</em></h1></div>'+
     '<div class="head-tools">'+
     '<select class="select" data-chg="loc" aria-label="Location filter"><option value="all"'+(state.loc==='all'?' selected':'')+'>All locations</option>'+
     s.locations.map(l=>'<option'+(state.loc===l?' selected':'')+'>'+esc(l)+'</option>').join('')+'</select></div></div>'+
   '<div id="svc-metrics"></div>'+
-  '<section class="lux-ledger">'+
-    plate({label:'Open estimates',n:openQ.length,value:sum(openQ,q=>totals(q).total),view:'quotes',chip:'open',
-           note:openQ.length?('oldest waiting '+oldestQ+' day'+(oldestQ===1?'':'s')):'nothing waiting on a client'})+
-    plate({label:'Accepted',n:accQ.length,value:sum(accQ,q=>totals(q).total),view:'quotes',chip:'accepted',
-           note:accQ.length?(accQ.length+' ready to convert'):'none awaiting conversion'})+
-    plate({label:'Open invoices',n:openI.length,value:sum(openI,i=>balance(i)),view:'invoices',chip:'open',
-           note:dueSoon?(dueSoon+' due within 7 days'):'nothing due this week'})+
-    plate({label:'Overdue',n:overI.length,value:sum(overI,i=>balance(i)),view:'invoices',chip:'overdue',warn:!!overI.length,
-           note:overI.length?(overI.length+' past the due date'):'every invoice is current'})+
-  '</section>'+
   '<section class="lux-actions">'+
     action('newQuote','file-signature','New Estimate','Quote a service or a piece','prime')+
     action('newInvoice','file-invoice-dollar','New Invoice','Bill work that is finished','')+
@@ -1291,7 +1294,9 @@ function csvOut(name,rows){
 
 /* ================= action handlers ================= */
 const ACT={
-  feedAll:ds=>{const want=ds.open==='1';document.querySelectorAll('.feed-day').forEach(d=>{d.open=want;state.feedDays[d.dataset.day]=want;});
+  feedAll:ds=>{const want=ds.open==='1';feedBulk=true;
+    document.querySelectorAll('.feed-day').forEach(d=>{d.open=want;state.feedDays[d.dataset.day]=want;});
+    setTimeout(()=>{feedBulk=false;},0);
     const b=document.querySelector('[data-act="feedAll"]');if(b){b.dataset.open=want?'0':'1';b.textContent=want?'Collapse all':'Expand all';}},
   go:d=>go(d.view,d.id),
   open:d=>go(d.type,d.id),
@@ -1566,9 +1571,15 @@ document.addEventListener('click',e=>{
   const a=el.dataset.act;
   if(ACT[a]){e.preventDefault();ACT[a](el.dataset,el,e);}
 });
+let feedBulk=false;
 document.addEventListener('toggle',e=>{
   const d=e.target&&e.target.classList&&e.target.classList.contains('feed-day')?e.target:null;
-  if(d&&d.dataset.day) state.feedDays[d.dataset.day]=d.open;
+  if(!d||!d.dataset.day) return;
+  /* one day at a time: opening a date folds the others */
+  if(d.open&&!feedBulk){
+    document.querySelectorAll('.feed-day[open]').forEach(o=>{if(o!==d){o.open=false;state.feedDays[o.dataset.day]=false;}});
+  }
+  state.feedDays[d.dataset.day]=d.open;
 },true);
 document.addEventListener('input',e=>{
   const li=e.target.closest('[data-li]');

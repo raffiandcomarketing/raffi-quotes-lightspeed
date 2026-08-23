@@ -723,8 +723,19 @@ function vaultEnsureCss(){
     '.vault-foot .ok{color:#8fc79a;font-weight:700;letter-spacing:.16em}'+
     '.vault-foot .bad{color:#e8879a;font-weight:700;letter-spacing:.16em}'+
     '.vault-foot .sep{opacity:.3}'+
-    '@media(max-width:1180px){.vault-top{grid-template-columns:1fr}.vault-hero{border-right:none;border-bottom:1px solid rgba(245,241,230,.11)}.v-grid{grid-template-columns:1fr 1fr}.v-cell:nth-child(3)::before,.v-cell:nth-child(3){border-top:0}}'+
-    '@media(max-width:640px){.v-grid{grid-template-columns:1fr}.v-cell+.v-cell::before{display:none}.v-cell+.v-cell{border-top:1px solid rgba(245,241,230,.11)}}';
+    '.v2{display:grid;grid-template-columns:repeat(4,1fr);position:relative;z-index:1;border-top:1px solid rgba(245,241,230,.11);background:rgba(255,255,255,.028)}'+
+    '.v2-cell{padding:19px 22px 18px;cursor:pointer;position:relative;transition:background .22s ease}'+
+    '.v2-cell+.v2-cell::before{content:"";position:absolute;left:0;top:20%;bottom:20%;width:1px;background:rgba(245,241,230,.1)}'+
+    '.v2-cell:hover{background:rgba(211,188,125,.075)}'+
+    '.v2-val{font-family:var(--serif);font-size:25px;line-height:1;font-weight:600;color:#f5f1e6;margin-top:12px;font-variant-numeric:tabular-nums}'+
+    '.v2-val .lux-cur{color:rgba(245,241,230,.5);vertical-align:.7em;font-size:10px}'+
+    '.v2-val .lux-dec{color:rgba(245,241,230,.5)}'+
+    '.v2-cell.warn .v2-val{color:#e8879a}'+
+    '.v2-foot{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:10px}'+
+    '.v-go{font-family:var(--sans);font-size:8.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-soft);opacity:0;transform:translateX(-4px);transition:opacity .2s ease,transform .2s ease;white-space:nowrap;flex:none}'+
+    '.v2-cell:hover .v-go,.v-cell:hover .v-go{opacity:1;transform:none}'+
+    '@media(max-width:1180px){.vault-top{grid-template-columns:1fr}.vault-hero{border-right:none;border-bottom:1px solid rgba(245,241,230,.11)}.v-grid{grid-template-columns:1fr 1fr}.v2{grid-template-columns:1fr 1fr}}'+
+    '@media(max-width:640px){.v-grid,.v2{grid-template-columns:1fr}.v-cell+.v-cell::before,.v2-cell+.v2-cell::before{display:none}.v-cell+.v-cell,.v2-cell+.v2-cell{border-top:1px solid rgba(245,241,230,.11)}}';
   document.head.appendChild(st);
 }
 const _dash=VIEWS.dashboard; VIEWS.dashboard=function(){
@@ -734,14 +745,30 @@ const _dash=VIEWS.dashboard; VIEWS.dashboard=function(){
   const held=r2(live.reduce((s,o)=>s+orderPaid(o),0));
   const outstanding=r2(live.reduce((s,o)=>s+Math.max(0,orderBalance(o)),0));
   const recog=r2(db.orders.filter(o=>o.status==='completed').reduce((s,o)=>s+totals(o).total,0)+db.orders.filter(o=>o.status==='cancelled').reduce((s,o)=>s+(+o.cancelFee||0),0));
-  const cash=r2(db.orders.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+orderPaid(o),0));
+  const cash=r2(db.orders.reduce((s,o)=>s+orderPaid(o),0)); /* every dollar taken in, cancellations included */
   const shop=live.filter(o=>o.status==='in_progress'), ready=live.filter(o=>o.status==='ready');
   const spec=live.filter(o=>isSpecial(o));
   const oldest=live.length?Math.max.apply(null,live.map(o=>Math.max(0,Math.floor((Date.now()-(o.createdAt||Date.now()))/86400000)))):0;
   const balanced=Math.abs(r2(cash-recog-held))<0.01;
   const P=(n)=>{ const dec=Math.abs(n%1)>0.001; return luxParts(n,dec); };
   const cell=(view,lab,val,sub,n)=>'<div class="v-cell" data-act="go" data-view="'+view+'">'+
-    '<div class="v-lab">'+lab+(n===undefined?'':'<b>'+n+'</b>')+'</div><div class="v-val">'+P(val)+'</div><div class="v-sub">'+esc(sub)+'</div></div>';
+    '<div class="v-lab">'+lab+(n===undefined?'':'<b>'+n+'</b>')+'</div><div class="v-val">'+P(val)+'</div>'+
+    '<div class="v-sub">'+esc(sub)+'</div></div>';
+  /* second tier: the estimate + invoice book, folded into the same panel */
+  const bk=window.DASHBOOK||null;
+  const cell2=(o)=>'<div class="v2-cell'+(o.warn?' warn':'')+'" data-act="goChip" data-view="'+o.view+'" data-chip="'+o.chip+'">'+
+    '<div class="v-lab">'+o.lab+'<b>'+o.n+'</b></div><div class="v2-val">'+P(o.val)+'</div>'+
+    '<div class="v2-foot"><span class="v-sub">'+esc(o.sub)+'</span><span class="v-go">Open <i class="fa-solid fa-arrow-right-long"></i></span></div></div>';
+  const tier2 = bk ? ('<div class="v2">'+
+      cell2({lab:'Open estimates',n:bk.openQ.length,val:bk.sum(bk.openQ,q=>totals(q).total),view:'quotes',chip:'open',
+             sub:bk.openQ.length?('oldest waiting '+bk.oldestQ+' day'+(bk.oldestQ===1?'':'s')):'nothing waiting on a client'})+
+      cell2({lab:'Accepted',n:bk.accQ.length,val:bk.sum(bk.accQ,q=>totals(q).total),view:'quotes',chip:'accepted',
+             sub:bk.accQ.length?(bk.accQ.length+' ready to convert'):'none awaiting conversion'})+
+      cell2({lab:'Open invoices',n:bk.openI.length,val:bk.sum(bk.openI,i=>balance(i)),view:'invoices',chip:'open',
+             sub:bk.dueSoon?(bk.dueSoon+' due within 7 days'):'nothing due this week'})+
+      cell2({lab:'Overdue',n:bk.overI.length,val:bk.sum(bk.overI,i=>balance(i)),view:'invoices',chip:'overdue',warn:!!bk.overI.length,
+             sub:bk.overI.length?(bk.overI.length+' past the due date'):'every invoice is current'})+
+    '</div>') : '';
   const band='<section class="vault">'+
     '<div class="vault-top">'+
       '<div class="vault-hero" data-act="go" data-view="orders">'+
@@ -756,6 +783,7 @@ const _dash=VIEWS.dashboard; VIEWS.dashboard=function(){
         cell('orders','Ready for pickup',ready.reduce((s,o)=>s+totals(o).total,0),ready.length?(ready.length+' waiting on the client'):'nothing waiting',ready.length)+
       '</div>'+
     '</div>'+
+    tier2+
     '<div class="vault-foot">'+
       '<span>Cash received <span class="eq">'+money(cash)+'</span></span><span class="sep">=</span>'+
       '<span>Recognised <span class="eq">'+money(recog)+'</span></span><span class="sep">+</span>'+
@@ -1772,14 +1800,17 @@ VIEWS.service=function(){
       (arch?kbColumn('Settled','inv','paid',byI('paid')):''));
   setTimeout(kbFit,0); setTimeout(kbFit,240);
   const locs=['all'].concat(db.settings.locations||[]);
+  const sCell=(o)=>'<div class="v2-cell" data-act="'+(o.chip?'goChip':'go')+'" data-view="'+o.view+'"'+(o.chip?' data-chip="'+o.chip+'"':'')+'>'+
+      '<div class="v-lab">'+o.lab+'<b>'+o.n+'</b></div><div class="v2-val"'+(o.gold?' style="color:#e2c479"':'')+'>'+luxParts(o.val,Math.abs(o.val%1)>0.001)+'</div>'+
+      '<div class="v2-foot"><span class="v-sub">'+esc(o.sub)+'</span><span class="v-go">Open <i class="fa-solid fa-arrow-right-long"></i></span></div></div>';
   return '<div class="page-head"><div><div class="kicker">'+esc(new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}))+'</div>'+
     '<h1 class="page-title">Service <em>overview</em></h1></div></div>'+
-    '<section class="lux-ledger" style="margin-bottom:14px">'+
-      '<div class="lux-stat" data-act="goChip" data-view="quotes" data-chip="open"><div class="lux-lab">Awaiting client <span>'+byQ('open').length+'</span></div><div class="lux-val">'+kbMoney(byQ('open').reduce((s,q)=>s+totals(q).total,0))+'</div></div>'+
-      '<div class="lux-stat" data-act="go" data-view="orders"><div class="lux-lab">In the workshop <span>'+byO(svc,'in_progress').length+'</span></div><div class="lux-val">'+kbMoney(byO(svc,'in_progress').reduce((s,o)=>s+totals(o).total,0))+'</div></div>'+
-      '<div class="lux-stat" data-act="go" data-view="orders"><div class="lux-lab">Ready for pickup <span>'+ready.length+'</span></div><div class="lux-val">'+kbMoney(ready.reduce((s,o)=>s+totals(o).total,0))+'</div></div>'+
-      '<div class="lux-stat" data-act="go" data-view="payments"><div class="lux-lab">Deposits held · unearned <span>'+openOrders+' open</span></div><div class="lux-val" style="color:var(--gold)">'+kbMoney(heldAll)+'</div></div>'+
-    '</section>'+
+    '<section class="vault" style="margin-bottom:14px"><div class="v2" style="border-top:0;background:none">'+
+      sCell({lab:'Awaiting client',n:byQ('open').length,val:byQ('open').reduce((s,q)=>s+totals(q).total,0),view:'quotes',chip:'open',sub:'estimates sent, not yet signed'})+
+      sCell({lab:'In the workshop',n:byO(svc,'in_progress').length,val:byO(svc,'in_progress').reduce((s,o)=>s+totals(o).total,0),view:'orders',sub:'on the bench right now'})+
+      sCell({lab:'Ready for pickup',n:ready.length,val:ready.reduce((s,o)=>s+totals(o).total,0),view:'orders',sub:'waiting on the client'})+
+      sCell({lab:'Deposits held',n:openOrders+' open',val:heldAll,view:'payments',gold:true,sub:'unearned until collection'})+
+    '</div></section>'+
     '<div class="kb-tools">'+
       '<input class="kbf" data-kbq placeholder="Search the board…" value="'+esc(state.kbQ||'')+'" style="min-width:230px">'+
       '<select class="kbf" data-kbloc>'+locs.map(l=>'<option value="'+esc(l)+'"'+((state.kbLoc||'all')===l?' selected':'')+'>'+(l==='all'?'All locations':esc(l))+'</option>').join('')+'</select>'+
