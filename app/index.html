@@ -43,6 +43,7 @@
   .nav-divider{width:30px;height:1px;background:rgba(255,255,255,.1);margin:9px 0;flex:none;}
   .nav-add{width:40px;height:40px;border-radius:50%;background:var(--gold);color:#fff;font-size:17px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-top:6px;flex:none;transition:background .15s,transform .15s;border:none;}
   .nav-add:hover{background:var(--gold-dark);transform:scale(1.06);}
+  .nav-add span{display:none;}
 
   /* ---------- LAYOUT / TOPBAR ---------- */
   .shell{margin-left:65px;min-height:100vh;display:flex;flex-direction:column;}
@@ -53,6 +54,21 @@
   .crumb-link{color:var(--blue);cursor:pointer;}
   .crumb-current{font-weight:500;}
   .topbar-right{display:flex;align-items:center;gap:16px;}
+  /* live Lightspeed sync state, left of the user */
+  .ls-chip{display:inline-flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap;
+    font-family:var(--sans);font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:#8a8b96;background:#fbf9f4;border:1px solid var(--border);border-radius:99px;padding:6px 13px 6px 11px;
+    transition:border-color .18s ease,color .18s ease,background .18s ease;}
+  .ls-chip:empty{display:none;}
+  .ls-chip:hover{border-color:rgba(176,141,63,.5);color:var(--navy);background:#fff;}
+  .ls-chip .lsd{width:7px;height:7px;border-radius:50%;flex:none;}
+  .ls-chip.on .lsd{background:#4fa96a;box-shadow:0 0 0 0 rgba(79,169,106,.55);animation:lsbeat 2.4s ease-out infinite;}
+  .ls-chip.off .lsd{background:var(--red,#b11226);box-shadow:0 0 7px rgba(177,18,38,.55);}
+  .ls-chip.on{color:#5c7a66;}
+  .ls-chip.off{color:#a4545f;border-color:rgba(177,18,38,.32);background:#fdf6f6;}
+  .ls-chip b{font-weight:700;letter-spacing:.14em;}
+  @keyframes lsbeat{0%{box-shadow:0 0 0 0 rgba(79,169,106,.5)}70%{box-shadow:0 0 0 6px rgba(79,169,106,0)}100%{box-shadow:0 0 0 0 rgba(79,169,106,0)}}
+  @media(max-width:900px){.ls-chip{display:none;}}
   .user-link{display:flex;align-items:center;gap:7px;color:var(--blue);font-weight:500;cursor:pointer;font-size:13.5px;}
   .logout{color:var(--blue);font-size:16px;cursor:pointer;border:none;background:none;}
 
@@ -308,14 +324,29 @@
 </style>
 <style id="lux-dash">
   /* ---- premium dashboard (luxury refresh) ---- */
-  .lux-ledger{display:grid;grid-template-columns:repeat(4,1fr);background:#fff;border:1px solid var(--border);border-top:2px solid var(--gold);border-radius:14px;overflow:hidden;margin:4px 0 14px;box-shadow:0 1px 3px rgba(23,32,69,.05);}
-  .lux-stat{padding:24px 28px 22px;cursor:pointer;position:relative;transition:background .15s ease;}
-  .lux-stat:not(:first-child)::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:1px;background:linear-gradient(180deg,transparent,var(--border) 35%,var(--border) 65%,transparent);}
-  .lux-stat:hover{background:#fbf9f4;}
-  .lux-lab{font-family:var(--sans);font-size:9.5px;letter-spacing:.24em;color:#93949f;text-transform:uppercase;font-weight:600;margin-bottom:12px;white-space:nowrap;}
-  .lux-lab span{color:var(--gold);margin-left:6px;letter-spacing:.1em;}
-  .lux-val{font-family:var(--serif);font-size:31px;color:var(--navy);line-height:1;font-weight:600;}
+  /* ---- ledger tiles: each figure is its own engraved plate ---- */
+  .lux-ledger{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin:6px 0 14px;background:none;border:0;border-radius:0;box-shadow:none;overflow:visible;}
+  .lux-stat{appearance:none;-webkit-appearance:none;font:inherit;text-align:left;width:100%;display:block;
+    padding:21px 22px 15px;cursor:pointer;position:relative;overflow:hidden;
+    background:linear-gradient(176deg,#fffefb 0%,#faf7ef 100%);border:1px solid var(--border);border-radius:5px;
+    box-shadow:0 1px 2px rgba(23,32,69,.05);
+    transition:transform .24s cubic-bezier(.2,.75,.3,1),box-shadow .24s ease,border-color .24s ease,background .24s ease;}
+  .lux-stat::before{content:'';position:absolute;left:0;top:0;height:2px;width:38px;background:linear-gradient(90deg,var(--gold),var(--gold-soft));transition:width .34s cubic-bezier(.2,.75,.3,1);}
+  .lux-stat::after{content:'';position:absolute;inset:0;background:radial-gradient(120% 130% at 100% 0%,rgba(176,141,63,.09),transparent 58%);opacity:0;transition:opacity .24s ease;pointer-events:none;}
+  .lux-stat:hover,.lux-stat:focus-visible{transform:translateY(-3px);border-color:rgba(176,141,63,.42);box-shadow:0 14px 26px -16px rgba(23,32,69,.4);background:#fffefa;}
+  .lux-stat:hover::before,.lux-stat:focus-visible::before{width:100%;}
+  .lux-stat:hover::after,.lux-stat:focus-visible::after{opacity:1;}
+  .lux-stat:active{transform:translateY(-1px);}
+  .lux-lab{font-family:var(--sans);font-size:9.5px;letter-spacing:.24em;color:#93949f;text-transform:uppercase;font-weight:600;margin-bottom:13px;white-space:nowrap;display:flex;align-items:center;gap:8px;}
+  .lux-lab span,.lux-lab b{font-weight:700;color:var(--gold-dark);letter-spacing:.08em;font-size:9.5px;background:rgba(176,141,63,.11);border-radius:99px;padding:2px 8px;line-height:1.5;}
+  .lux-val{font-family:var(--serif);font-size:33px;color:var(--navy);line-height:1;font-weight:600;display:block;font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
   .lux-val.warn{color:var(--red);}
+  .lux-cur{font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--gold-dark);vertical-align:.72em;margin-right:3px;}
+  .lux-dec{font-size:.62em;color:rgba(11,32,63,.5);letter-spacing:0;}
+  .lux-foot{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:13px;padding-top:11px;border-top:1px solid rgba(230,225,214,.85);}
+  .lux-note{font-family:var(--sans);font-size:10.5px;color:#a2a3ad;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lux-go{font-family:var(--sans);font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-dark);opacity:0;transform:translateX(-5px);transition:opacity .22s ease,transform .22s ease;white-space:nowrap;flex:none;}
+  .lux-stat:hover .lux-go,.lux-stat:focus-visible .lux-go{opacity:1;transform:none;}
   .lux-band{display:grid;grid-template-columns:1.25fr 1fr 1fr auto;background:var(--navy);color:#f5f1e6;border-radius:14px;padding:26px 30px;margin:0 0 18px;align-items:center;position:relative;overflow:hidden;box-shadow:0 10px 30px -18px rgba(23,32,69,.55);}
   .lux-band::before{content:'';position:absolute;left:30px;right:30px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(200,166,77,.65),transparent);}
   .lux-band::after{content:'';position:absolute;inset:0;background:radial-gradient(130% 200% at 100% 0%,rgba(200,166,77,.12),transparent 55%);pointer-events:none;}
@@ -328,11 +359,50 @@
   .lux-band .lux-val.gold{color:#d9b96a;}
   .lux-ls{position:relative;align-self:start;text-align:right;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(245,241,230,.5);white-space:nowrap;padding-left:28px;cursor:pointer;}
   .lux-ls .ok{display:inline-block;width:6px;height:6px;border-radius:50%;background:#8fc79a;box-shadow:0 0 6px rgba(143,199,154,.8);margin-right:7px;vertical-align:1px;}
-  .lux-actions{display:flex;gap:12px;margin:2px 0 28px;flex-wrap:wrap;}
-  .lux-btn{border:1px solid rgba(23,32,69,.45);background:transparent;color:var(--navy);font-family:var(--sans);font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;font-weight:600;padding:13px 28px;border-radius:999px;cursor:pointer;transition:all .18s ease;}
-  .lux-btn:hover{background:var(--navy);border-color:var(--navy);color:#f5f1e6;}
-  @media(max-width:1100px){.lux-ledger{grid-template-columns:repeat(2,1fr)}.lux-band{grid-template-columns:1fr 1fr;row-gap:20px}.lux-ls{grid-column:1/-1;text-align:left;padding-left:0}}
-  @media(max-width:640px){.lux-ledger{grid-template-columns:1fr}.lux-stat:not(:first-child)::before{display:none}.lux-band{grid-template-columns:1fr}.lux-cell+.lux-cell{padding-left:0}.lux-cell+.lux-cell::before{display:none}}
+  .lux-cap{font-family:var(--sans);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:rgba(245,241,230,.42);margin-top:9px;}
+  .lux-ls .ok{animation:lspulse 2.6s ease-in-out infinite;}
+  @keyframes lspulse{0%,100%{box-shadow:0 0 5px rgba(143,199,154,.7)}50%{box-shadow:0 0 11px rgba(143,199,154,1)}}
+
+  /* ---- quick actions ---- */
+  .lux-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin:4px 0 30px;}
+  .lux-act{appearance:none;-webkit-appearance:none;font:inherit;text-align:left;cursor:pointer;position:relative;overflow:hidden;
+    display:flex;align-items:center;gap:16px;padding:17px 20px;border-radius:5px;
+    background:linear-gradient(176deg,#fffefb 0%,#faf7ef 100%);border:1px solid var(--border);
+    box-shadow:0 1px 2px rgba(23,32,69,.05);
+    transition:transform .24s cubic-bezier(.2,.75,.3,1),box-shadow .24s ease,border-color .24s ease,background .3s ease;}
+  .lux-act.prime{border-color:rgba(176,141,63,.5);box-shadow:0 1px 2px rgba(23,32,69,.05),inset 0 0 0 1px rgba(211,188,125,.28);}
+  .lux-act .ico{flex:none;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;
+    color:var(--gold-dark);background:radial-gradient(circle at 32% 28%,rgba(211,188,125,.4),rgba(176,141,63,.16));
+    border:1px solid rgba(176,141,63,.34);transition:all .26s ease;}
+  .lux-act .txt{min-width:0;}
+  .lux-act .t{font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:.19em;text-transform:uppercase;color:var(--navy);transition:color .26s ease;}
+  .lux-act .h{font-family:var(--sans);font-size:11.5px;color:#9b9ca6;margin-top:5px;transition:color .26s ease;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lux-act .arw{margin-left:auto;flex:none;color:var(--gold-dark);font-size:12px;opacity:0;transform:translateX(-6px);transition:opacity .24s ease,transform .24s ease;}
+  .lux-act:hover,.lux-act:focus-visible{transform:translateY(-3px);border-color:var(--navy);background:linear-gradient(176deg,#12294d 0%,#0b203f 100%);box-shadow:0 16px 30px -18px rgba(11,32,63,.75);}
+  .lux-act:hover .t,.lux-act:focus-visible .t{color:#f5f1e6;}
+  .lux-act:hover .h,.lux-act:focus-visible .h{color:rgba(245,241,230,.52);}
+  .lux-act:hover .ico,.lux-act:focus-visible .ico{color:#f7ecd0;background:radial-gradient(circle at 32% 28%,rgba(211,188,125,.32),rgba(176,141,63,.1));border-color:rgba(211,188,125,.6);}
+  .lux-act:hover .arw,.lux-act:focus-visible .arw{opacity:1;transform:none;color:var(--gold-soft);}
+  .lux-act:active{transform:translateY(-1px);}
+
+  /* ---- collapsible activity feed ---- */
+  .feed-day{margin:0;}
+  .feed-day>summary{list-style:none;display:inline-flex;align-items:center;gap:9px;cursor:pointer;user-select:none;}
+  .feed-day>summary::-webkit-details-marker{display:none;}
+  .feed-day>summary::marker{content:'';}
+  .feed-day>summary:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:4px;}
+  .dp-ch{font-size:8px;opacity:.7;transition:transform .22s cubic-bezier(.2,.75,.3,1);display:inline-block;}
+  .feed-day[open]>summary .dp-ch{transform:rotate(90deg);}
+  .dp-n{font-size:9px;letter-spacing:.1em;background:rgba(211,188,125,.22);color:var(--gold-soft);border-radius:99px;padding:1px 7px;font-weight:700;}
+  .feed-day>summary:hover{filter:brightness(1.25);}
+  .feed-day-body{animation:feedIn .24s cubic-bezier(.2,.75,.3,1);}
+  @keyframes feedIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+  .feed-tog{appearance:none;font:inherit;background:transparent;border:1px solid var(--border);border-radius:99px;cursor:pointer;
+    font-family:var(--sans);font-size:9.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#8d8e99;padding:8px 16px;transition:all .18s ease;}
+  .feed-tog:hover{border-color:var(--navy);color:var(--navy);}
+  @media(max-width:900px){.lux-actions{grid-template-columns:1fr}}
+  @media(max-width:1100px){.lux-ledger{grid-template-columns:repeat(2,1fr)}.lux-actions{grid-template-columns:1fr 1fr}.lux-band{grid-template-columns:1fr 1fr;row-gap:20px}.lux-ls{grid-column:1/-1;text-align:left;padding-left:0}}
+  @media(max-width:640px){.lux-ledger{grid-template-columns:1fr}.lux-band{grid-template-columns:1fr}.lux-cell+.lux-cell{padding-left:0}.lux-cell+.lux-cell::before{display:none}}
   @media print{.lux-band{background:#fff;color:var(--navy)}}
   /* ---- flat print: a document prints as plain paper — no card, no shadow, no canvas ---- */
   @page{margin:14mm 13mm;}
@@ -367,7 +437,14 @@
   .sidebar .nav-item.nav-sub[data-tip]::after{font-size:12.5px;font-weight:500;letter-spacing:.2px;}
 
   .nav-divider{width:100%;}
-  .nav-add{margin-top:8px;align-self:center;}
+  /* wide quick-action button when the rail is expanded */
+  .sidebar .nav-add{width:100%;height:44px;border-radius:9px;margin-top:12px;align-self:stretch;justify-content:flex-start;gap:12px;padding:0 12px;
+    background:linear-gradient(180deg,#c6a75f 0%,#a9863c 100%);border:1px solid rgba(255,247,224,.22);
+    box-shadow:0 8px 18px -10px rgba(169,134,60,.95),inset 0 1px 0 rgba(255,250,235,.28);transition:filter .18s ease,box-shadow .18s ease,transform .1s ease;}
+  .sidebar .nav-add i{width:22px;text-align:center;font-size:12.5px;}
+  .sidebar .nav-add span{display:inline;font-family:var(--sans);font-size:10.5px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#fffdf6;}
+  .sidebar .nav-add:hover{transform:none;filter:brightness(1.07);box-shadow:0 10px 22px -10px rgba(169,134,60,1),inset 0 1px 0 rgba(255,250,235,.4);}
+  .sidebar .nav-add:active{transform:translateY(1px);}
   .shell{margin-left:212px;}
   @media(max-width:900px){
     .sidebar{width:65px;align-items:center;padding:8px 0 12px;}
@@ -379,6 +456,8 @@
     .sidebar .nav-item[data-tip]:hover::after{display:block;content:attr(data-tip);position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#11151f;color:#fff;font-size:12px;padding:5px 9px;border-radius:5px;white-space:nowrap;z-index:80;box-shadow:0 4px 12px rgba(0,0,0,.25);}
     .sidebar .nav-item.active::before{left:-8px;}
     .nav-divider{width:30px;}
+    .sidebar .nav-add{width:40px;height:40px;border-radius:50%;padding:0;gap:0;justify-content:center;align-self:center;margin-top:8px;}
+    .sidebar .nav-add span{display:none;}
     .shell{margin-left:65px;}
   }
 </style>
@@ -403,7 +482,7 @@
       <div class="nav-divider"></div>
       <div class="nav-item" data-act="go" data-view="products" data-tip="Products" role="button" tabindex="0"><i class="fa-solid fa-tag"></i></div>
       <div class="nav-item" data-act="go" data-view="settings" data-tip="Settings" role="button" tabindex="0"><i class="fa-solid fa-building-columns"></i></div>
-      <button class="nav-add" data-act="quickNew" data-tip="New" aria-label="Create new"><i class="fa-solid fa-plus"></i></button>
+      <button class="nav-add" data-act="quickNew" aria-label="Quick action"><i class="fa-solid fa-plus"></i><span>Quick Action</span></button>
     </nav>
   </aside>
 
@@ -411,6 +490,7 @@
     <header class="topbar">
       <div class="crumbs" id="crumbs"></div>
       <div class="topbar-right">
+        <div class="ls-chip" id="lsChip" data-act="go" data-view="settings" role="button" tabindex="0"></div>
         <div class="user-link" data-act="go" data-view="settings"><i class="fa-solid fa-user"></i> <span id="topUser">Al S.</span></div>
         <button class="logout" data-act="logout" aria-label="Log out"><i class="fa-solid fa-right-from-bracket"></i></button>
       </div>
@@ -441,6 +521,26 @@ const fmtLong=ts=>{const d=new Date(ts);return d.toLocaleDateString('en-US',{wee
 const dayKey=ts=>new Date(ts).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
 const pad4=n=>String(n).padStart(4,'0');
 const T=s=>new Date(s).getTime();
+const ageDays=ts=>Math.max(0,Math.floor((Date.now()-ts)/86400000));
+/* price typography: small currency mark, tabular figures, muted decimals */
+function luxParts(n,dec){
+  const cur=((typeof db!=='undefined'&&db.settings&&db.settings.currency)||'CA$');
+  const v=Math.round((+n||0)*100)/100;
+  const p=Math.abs(v).toLocaleString('en-CA',{minimumFractionDigits:dec?2:0,maximumFractionDigits:dec?2:0}).split('.');
+  return '<span class="lux-cur">'+cur+'</span>'+(v<0?'-':'')+p[0]+(p[1]?'<span class="lux-dec">.'+p[1]+'</span>':'');
+}
+/* figures count up once the plate is painted */
+function luxCountUp(){
+  document.querySelectorAll('.lux-val[data-count]').forEach(el=>{
+    const target=parseFloat(el.getAttribute('data-count'))||0;
+    const dec=el.getAttribute('data-dec')==='1';
+    if(!target){el.innerHTML=luxParts(0,dec);return;}
+    const t0=performance.now(),dur=520;
+    const step=now=>{const q=Math.min(1,(now-t0)/dur);const e=1-Math.pow(1-q,3);
+      el.innerHTML=luxParts(target*e,dec); if(q<1) requestAnimationFrame(step); else el.innerHTML=luxParts(target,dec);};
+    requestAnimationFrame(step);
+  });
+}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2200);}
 
 /* ================= persistence ================= */
@@ -483,19 +583,19 @@ function seed(){
       {id:'p6',name:'Spring Bar Set',sku:'ACC-SB',category:'Accessories',price:12,taxable:true,desc:''}
     ],
     quotes:[
-      {id:'q1',number:'QUO-0001',contactId:'c1',date:'2026-04-25',expiry:'2026-05-25',loc:'Mississauga',status:'accepted',
+      {id:'q1',number:'EST-0001',contactId:'c1',date:'2026-04-25',expiry:'2026-05-25',loc:'Mississauga',status:'accepted',
        items:[{name:'Watch sizing & polish',desc:'',qty:1,price:4,taxable:false}],discountPct:0,notes:'',
        signedBy:'Test Customer TEST',signedAt:T('2026-04-27T12:41'),signature:null,createdAt:T('2026-04-25T09:30'),orderId:null,invoiceId:null,isTemplate:false},
-      {id:'q2',number:'QUO-0002',contactId:'c2',date:'2026-05-20',expiry:'2026-06-20',loc:'Mississauga',status:'open',
+      {id:'q2',number:'EST-0002',contactId:'c2',date:'2026-05-20',expiry:'2026-06-20',loc:'Mississauga',status:'open',
        items:[{name:'Strap adjustment',desc:'',qty:1,price:4,taxable:false}],discountPct:0,notes:'',
        signedBy:null,signedAt:null,signature:null,createdAt:T('2026-05-20T11:00'),orderId:null,invoiceId:null,isTemplate:false},
-      {id:'q3',number:'QUO-0003',contactId:'c2',date:'2026-05-02',expiry:'2026-06-02',loc:'Mississauga',status:'accepted',
+      {id:'q3',number:'EST-0003',contactId:'c2',date:'2026-05-02',expiry:'2026-06-02',loc:'Mississauga',status:'accepted',
        items:[{name:'Leather Strap \u2014 20mm',desc:'Fitted in store',qty:1,price:12.5,taxable:false}],discountPct:0,notes:'',
        signedBy:'nicole Carmount',signedAt:T('2026-05-04T14:33'),signature:null,createdAt:T('2026-05-02T10:00'),orderId:null,invoiceId:null,isTemplate:false},
-      {id:'q3b',number:'QUO-0003-2',contactId:'c2',date:'2026-05-03',expiry:'2026-06-03',loc:'Mississauga',status:'accepted',
-       items:[{name:'Leather Strap \u2014 20mm (revised)',desc:'Revision of QUO-0003',qty:1,price:8.75,taxable:false}],discountPct:0,notes:'',
+      {id:'q3b',number:'EST-0003-2',contactId:'c2',date:'2026-05-03',expiry:'2026-06-03',loc:'Mississauga',status:'accepted',
+       items:[{name:'Leather Strap \u2014 20mm (revised)',desc:'Revision of EST-0003',qty:1,price:8.75,taxable:false}],discountPct:0,notes:'',
        signedBy:'nicole Carmount',signedAt:T('2026-05-04T14:37'),signature:null,createdAt:T('2026-05-03T10:00'),orderId:null,invoiceId:null,isTemplate:false},
-      {id:'q4',number:'QUO-0004',contactId:'c4',date:'2026-05-24',expiry:'2026-06-24',loc:'Mississauga',status:'accepted',
+      {id:'q4',number:'EST-0004',contactId:'c4',date:'2026-05-24',expiry:'2026-06-24',loc:'Mississauga',status:'accepted',
        items:[{name:'Watch Service & Polish',desc:'Light polish, pressure test',qty:1,price:40,taxable:false},{name:'Spring Bar Set',desc:'',qty:1,price:5.9,taxable:false}],discountPct:0,notes:'',
        signedBy:'Test ustomer TEST',signedAt:T('2026-05-26T15:40'),signature:null,createdAt:T('2026-05-24T13:00'),orderId:'o1',invoiceId:null,isTemplate:false},
       {id:'qt1',number:null,contactId:null,date:null,expiry:null,loc:'Mississauga',status:'draft',
@@ -513,25 +613,25 @@ function seed(){
     payments:[],
     activity:[
       {id:'a1',at:T('2026-04-27T12:41'),icon:'thumbs-up',actor:'Test Customer TEST',
-       parts:[{l:'Test Customer TEST',v:'contact',id:'c1'},{t:' approved '},{l:'QUO-0001',v:'quote-doc',id:'q1'},{t:' from Al Sukara'}],preview:null},
+       parts:[{l:'Test Customer TEST',v:'contact',id:'c1'},{t:' approved '},{l:'EST-0001',v:'quote-doc',id:'q1'},{t:' from Al Sukara'}],preview:null},
       {id:'a2',at:T('2026-04-27T12:41:30'),icon:'pen',actor:'Test Customer TEST',
-       parts:[{t:'Your quote '},{l:'QUO-0001',v:'quote-doc',id:'q1'},{t:' was signed by '},{l:'Test Customer TEST',v:'contact',id:'c1'}],
-       preview:[{t:'Open your document from '},{l:'QUO-0001',v:'quote-doc',id:'q1'}]},
+       parts:[{t:'Your quote '},{l:'EST-0001',v:'quote-doc',id:'q1'},{t:' was signed by '},{l:'Test Customer TEST',v:'contact',id:'c1'}],
+       preview:[{t:'Open your document from '},{l:'EST-0001',v:'quote-doc',id:'q1'}]},
       {id:'a3',at:T('2026-05-04T14:33'),icon:'thumbs-up',actor:'nicole Carmount',
-       parts:[{l:'nicole Carmount',v:'contact',id:'c2'},{t:' approved '},{l:'QUO-0003',v:'quote-doc',id:'q3'},{t:' from Nicole Carmount'}],preview:null},
+       parts:[{l:'nicole Carmount',v:'contact',id:'c2'},{t:' approved '},{l:'EST-0003',v:'quote-doc',id:'q3'},{t:' from Nicole Carmount'}],preview:null},
       {id:'a4',at:T('2026-05-04T14:33:30'),icon:'pen',actor:'nicole Carmount',
-       parts:[{t:'Your quote '},{l:'QUO-0003',v:'quote-doc',id:'q3'},{t:' was signed by '},{l:'nicole Carmount',v:'contact',id:'c2'}],
-       preview:[{t:'Open your document from '},{l:'QUO-0003',v:'quote-doc',id:'q3'}]},
+       parts:[{t:'Your quote '},{l:'EST-0003',v:'quote-doc',id:'q3'},{t:' was signed by '},{l:'nicole Carmount',v:'contact',id:'c2'}],
+       preview:[{t:'Open your document from '},{l:'EST-0003',v:'quote-doc',id:'q3'}]},
       {id:'a5',at:T('2026-05-04T14:36'),icon:'thumbs-up',actor:'nicole Carmount',
-       parts:[{l:'nicole Carmount',v:'contact',id:'c2'},{t:' approved '},{l:'QUO-0003-2',v:'quote-doc',id:'q3b'},{t:' from Nicole Carmount'}],preview:null},
+       parts:[{l:'nicole Carmount',v:'contact',id:'c2'},{t:' approved '},{l:'EST-0003-2',v:'quote-doc',id:'q3b'},{t:' from Nicole Carmount'}],preview:null},
       {id:'a6',at:T('2026-05-04T14:37'),icon:'pen',actor:'nicole Carmount',
-       parts:[{t:'Your quote '},{l:'QUO-0003-2',v:'quote-doc',id:'q3b'},{t:' was signed by '},{l:'nicole Carmount',v:'contact',id:'c2'}],
-       preview:[{t:'Open your document from '},{l:'QUO-0003-2',v:'quote-doc',id:'q3b'}]},
+       parts:[{t:'Your quote '},{l:'EST-0003-2',v:'quote-doc',id:'q3b'},{t:' was signed by '},{l:'nicole Carmount',v:'contact',id:'c2'}],
+       preview:[{t:'Open your document from '},{l:'EST-0003-2',v:'quote-doc',id:'q3b'}]},
       {id:'a7',at:T('2026-05-26T15:40'),icon:'thumbs-up',actor:'Test ustomer TEST',
-       parts:[{l:'Test ustomer TEST',v:'contact',id:'c4'},{t:' approved '},{l:'QUO-0004',v:'quote-doc',id:'q4'},{t:' from Al Sukara'}],preview:null},
+       parts:[{l:'Test ustomer TEST',v:'contact',id:'c4'},{t:' approved '},{l:'EST-0004',v:'quote-doc',id:'q4'},{t:' from Al Sukara'}],preview:null},
       {id:'a8',at:T('2026-05-26T15:40:30'),icon:'pen',actor:'Test ustomer TEST',
-       parts:[{t:'Your quote '},{l:'QUO-0004',v:'quote-doc',id:'q4'},{t:' was signed by '},{l:'Test ustomer TEST',v:'contact',id:'c4'}],
-       preview:[{t:'Open your document from '},{l:'QUO-0004',v:'quote-doc',id:'q4'}]},
+       parts:[{t:'Your quote '},{l:'EST-0004',v:'quote-doc',id:'q4'},{t:' was signed by '},{l:'Test ustomer TEST',v:'contact',id:'c4'}],
+       preview:[{t:'Open your document from '},{l:'EST-0004',v:'quote-doc',id:'q4'}]},
       {id:'a9',at:T('2026-05-26T15:47'),icon:'comment',actor:'Test ustomer TEST',
        parts:[{l:'Test ustomer TEST',v:'contact',id:'c4'},{t:' sent a chat message to Al Sukara in '},{l:'ORD-0003',v:'order',id:'o1'}],
        preview:'how are you'}
@@ -545,7 +645,7 @@ function logAct(icon,actor,parts,preview){
 
 /* ================= state & framework ================= */
 let db=null;
-const state={view:'dashboard',id:null,q:'',qChip:'all',iChip:'all',loc:'all',feedUser:'all'};
+const state={view:'dashboard',id:null,q:'',qChip:'all',iChip:'all',loc:'all',feedUser:'all',feedDays:{}};
 const mounts=[];
 const NAVPARENT={dashboard:'dashboard',contacts:'contacts',contact:'contacts',service:'service',specialorders:'specialorders',quotes:'quotes',quote:'quotes','quote-doc':'quotes',orders:'orders',order:'orders',invoices:'invoices',invoice:'invoices','invoice-doc':'invoices',payments:'payments',products:'products',settings:'settings'};
 // the three sub-tabs live under Service — the parent stays lit while you are inside one
@@ -567,7 +667,9 @@ function render(){
   $('#main').innerHTML=bannerHTML()+html;
   markNav();crumbs();
   $('#topUser').textContent=shortName(db.settings.user);
+  try{const c=$('#lsChip');if(c)c.innerHTML=(typeof lsChip==='function')?lsChip():'';}catch(e){}
   while(mounts.length)mounts.shift()();
+  try{luxCountUp();}catch(e){}
 }
 function bannerHTML(){
   if(hasStore)return'';
@@ -659,36 +761,58 @@ VIEWS.dashboard=function(){
   const mv=n=>{const v=r2(n);return (db.settings.currency||'CA$')+(v%1===0?v.toLocaleString('en-CA'):v.toLocaleString('en-CA',{minimumFractionDigits:1,maximumFractionDigits:2}));};
   const actors=Array.from(new Set(db.activity.map(a=>a.actor).filter(Boolean)));
   const feedItems=db.activity.filter(a=>state.feedUser==='all'||a.actor===state.feedUser).slice().sort((a,b)=>b.at-a.at);
-  let feed='',lastDay=null;
-  feedItems.forEach(a=>{
-    const dk=dayKey(a.at);
-    if(dk!==lastDay){feed+='<div class="date-pill">'+esc(dk)+'</div>';lastDay=dk;}
-    feed+='<div class="event"><span class="dot"></span><div class="event-time">'+esc(fmtLong(a.at))+'</div>'+
+  const evHTML=a=>'<div class="event"><span class="dot"></span><div class="event-time">'+esc(fmtLong(a.at))+'</div>'+
       '<div class="event-card"><div class="event-ico"><i class="fa-solid fa-'+a.icon+'"></i></div><div class="event-body">'+
       '<div class="event-text">'+renderParts(a.parts)+'</div>'+
       (a.preview?'<div class="event-preview">'+renderParts(a.preview)+'</div>':'')+
       '</div></div></div>';
-  });
+  const dayGroups=[]; let curG=null;
+  feedItems.forEach(a=>{const dk=dayKey(a.at); if(!curG||curG.dk!==dk){curG={dk:dk,items:[]};dayGroups.push(curG);} curG.items.push(a);});
+  let feed=dayGroups.map((g,gi)=>{
+    const open=(state.feedDays[g.dk]===undefined)?gi===0:!!state.feedDays[g.dk];
+    return '<details class="feed-day"'+(open?' open':'')+' data-day="'+esc(g.dk)+'">'+
+      '<summary class="date-pill"><span class="dp-ch"><i class="fa-solid fa-chevron-right"></i></span>'+esc(g.dk)+'<span class="dp-n">'+g.items.length+'</span></summary>'+
+      '<div class="feed-day-body">'+g.items.map(evHTML).join('')+'</div></details>';
+  }).join('');
   if(!feedItems.length)feed='<div class="event"><span class="dot" style="background:#c4cbd6"></span><div class="event-card"><div class="event-body mut">No activity yet \u2014 create an estimate to get started.</div></div></div>';
+  const allOpen=dayGroups.length>0&&dayGroups.every((g,gi)=>(state.feedDays[g.dk]===undefined)?gi===0:!!state.feedDays[g.dk]);
+  const qAge=q=>ageDays(q.createdAt||T((q.date||todayISO())+'T09:00'));
+  const oldestQ=openQ.length?Math.max.apply(null,openQ.map(qAge)):0;
+  const dueSoon=openI.filter(i=>{const d=T((i.dueDate||todayISO())+'T23:59');return d>=Date.now()&&(d-Date.now())<=7*86400000;}).length;
+  const plate=(o)=>'<button class="lux-stat" data-act="'+(o.act||'goChip')+'" data-view="'+o.view+'"'+(o.chip?' data-chip="'+o.chip+'"':'')+'>'+
+    '<span class="lux-lab">'+o.label+(o.n===undefined?'':'<b>'+o.n+'</b>')+'</span>'+
+    '<span class="lux-val'+(o.warn?' warn':'')+'" data-count="'+(Math.round(o.value*100)/100)+'" data-dec="'+(Math.abs(o.value%1)>0.001?1:0)+'">'+luxParts(o.value,Math.abs(o.value%1)>0.001)+'</span>'+
+    '<span class="lux-foot"><span class="lux-note">'+esc(o.note)+'</span><span class="lux-go">View <i class="fa-solid fa-arrow-right-long"></i></span></span>'+
+  '</button>';
+  const action=(act,ico,title,hint,cls)=>'<button class="lux-act'+(cls?' '+cls:'')+'" data-act="'+act+'">'+
+    '<span class="ico"><i class="fa-solid fa-'+ico+'"></i></span>'+
+    '<span class="txt"><span class="t">'+title+'</span><span class="h">'+hint+'</span></span>'+
+    '<span class="arw"><i class="fa-solid fa-arrow-right-long"></i></span></button>';
   return ''+
   '<div class="page-head"><div><div class="kicker">'+esc(new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}))+'</div><h1 class="page-title">Hi '+esc(s.user)+', <em>here\u2019s what\u2019s new.</em></h1></div>'+
-    '<div class="head-tools"><button class="configure" data-act="go" data-view="settings"><i class="fa-solid fa-gear"></i> Configure</button>'+
+    '<div class="head-tools">'+
     '<select class="select" data-chg="loc" aria-label="Location filter"><option value="all"'+(state.loc==='all'?' selected':'')+'>All locations</option>'+
     s.locations.map(l=>'<option'+(state.loc===l?' selected':'')+'>'+esc(l)+'</option>').join('')+'</select></div></div>'+
-  '<section class="lux-ledger">'+
-    '<div class="lux-stat" data-act="goChip" data-view="quotes" data-chip="open"><div class="lux-lab">Open Estimates <span>'+openQ.length+'</span></div><div class="lux-val">'+mv(sum(openQ,q=>totals(q).total))+'</div></div>'+
-    '<div class="lux-stat" data-act="goChip" data-view="quotes" data-chip="accepted"><div class="lux-lab">Accepted Estimates <span>'+accQ.length+'</span></div><div class="lux-val">'+mv(sum(accQ,q=>totals(q).total))+'</div></div>'+
-    '<div class="lux-stat" data-act="goChip" data-view="invoices" data-chip="open"><div class="lux-lab">Open Invoices <span>'+openI.length+'</span></div><div class="lux-val">'+mv(sum(openI,i=>balance(i)))+'</div></div>'+
-    '<div class="lux-stat" data-act="goChip" data-view="invoices" data-chip="overdue"><div class="lux-lab">Overdue <span>'+overI.length+'</span></div><div class="lux-val'+(overI.length?' warn':'')+'">'+mv(sum(overI,i=>balance(i)))+'</div></div>'+
-  '</section>'+
   '<div id="svc-metrics"></div>'+
+  '<section class="lux-ledger">'+
+    plate({label:'Open estimates',n:openQ.length,value:sum(openQ,q=>totals(q).total),view:'quotes',chip:'open',
+           note:openQ.length?('oldest waiting '+oldestQ+' day'+(oldestQ===1?'':'s')):'nothing waiting on a client'})+
+    plate({label:'Accepted',n:accQ.length,value:sum(accQ,q=>totals(q).total),view:'quotes',chip:'accepted',
+           note:accQ.length?(accQ.length+' ready to convert'):'none awaiting conversion'})+
+    plate({label:'Open invoices',n:openI.length,value:sum(openI,i=>balance(i)),view:'invoices',chip:'open',
+           note:dueSoon?(dueSoon+' due within 7 days'):'nothing due this week'})+
+    plate({label:'Overdue',n:overI.length,value:sum(overI,i=>balance(i)),view:'invoices',chip:'overdue',warn:!!overI.length,
+           note:overI.length?(overI.length+' past the due date'):'every invoice is current'})+
+  '</section>'+
   '<section class="lux-actions">'+
-    '<button class="lux-btn" data-act="newContact">New Contact</button>'+
-    '<button class="lux-btn" data-act="newQuote">New Estimate</button>'+
-    '<button class="lux-btn" data-act="newInvoice">New Invoice</button>'+
+    action('newQuote','file-signature','New Estimate','Quote a service or a piece','prime')+
+    action('newInvoice','file-invoice-dollar','New Invoice','Bill work that is finished','')+
+    action('newContact','user-plus','New Contact','Add a client to the book','')+
   '</section>'+
   '<div class="feed-head"><h2 class="feed-title">Activity Feed</h2>'+
-    '<div class="feed-filter"><i class="fa-solid fa-user"></i><select class="select" data-chg="feedUser" aria-label="Filter feed by user"><option value="all"'+(state.feedUser==='all'?' selected':'')+'>All users</option>'+
+    '<div class="feed-filter">'+
+    (dayGroups.length?'<button class="feed-tog" data-act="feedAll" data-open="'+(allOpen?'0':'1')+'">'+(allOpen?'Collapse all':'Expand all')+'</button>':'')+
+    '<i class="fa-solid fa-user"></i><select class="select" data-chg="feedUser" aria-label="Filter feed by user"><option value="all"'+(state.feedUser==='all'?' selected':'')+'>All users</option>'+
     actors.map(a=>'<option'+(state.feedUser===a?' selected':'')+'>'+esc(a)+'</option>').join('')+'</select></div></div>'+
   '<div class="feed">'+feed+'<p class="feed-end">End of activity feed. Nothing more to show.</p></div>';
 };
@@ -1166,6 +1290,8 @@ function csvOut(name,rows){
 
 /* ================= action handlers ================= */
 const ACT={
+  feedAll:ds=>{const want=ds.open==='1';document.querySelectorAll('.feed-day').forEach(d=>{d.open=want;state.feedDays[d.dataset.day]=want;});
+    const b=document.querySelector('[data-act="feedAll"]');if(b){b.dataset.open=want?'0':'1';b.textContent=want?'Collapse all':'Expand all';}},
   go:d=>go(d.view,d.id),
   open:d=>go(d.type,d.id),
   goChip:d=>{if(d.view==='quotes')state.qChip=d.chip;if(d.view==='invoices')state.iChip=d.chip;go(d.view);},
@@ -1439,6 +1565,10 @@ document.addEventListener('click',e=>{
   const a=el.dataset.act;
   if(ACT[a]){e.preventDefault();ACT[a](el.dataset,el,e);}
 });
+document.addEventListener('toggle',e=>{
+  const d=e.target&&e.target.classList&&e.target.classList.contains('feed-day')?e.target:null;
+  if(d&&d.dataset.day) state.feedDays[d.dataset.day]=d.open;
+},true);
 document.addEventListener('input',e=>{
   const li=e.target.closest('[data-li]');
   if(li){liHandle(li);return;}

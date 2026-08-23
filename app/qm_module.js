@@ -41,6 +41,17 @@ function audit(action, entity, entityId, detail){
 }
 
 /* ---------- migration of older documents ---------- */
+/* estimates are numbered EST- ; rewrite every historical QUO- reference so the numbering reads consistently.
+   Walks strings only, skips data URIs and long blobs (photos, signatures). Idempotent. */
+function estRenumber(v){
+  if(typeof v==='string'){
+    if(v.length>400 || v.lastIndexOf('data:',0)===0 || v.indexOf('QUO-')<0) return v;
+    return v.split('QUO-').join('EST-');
+  }
+  if(Array.isArray(v)){ for(let i=0;i<v.length;i++) v[i]=estRenumber(v[i]); return v; }
+  if(v && typeof v==='object'){ for(const k in v){ if(Object.prototype.hasOwnProperty.call(v,k)) v[k]=estRenumber(v[k]); } return v; }
+  return v;
+}
 function migrateDB(d){
   d.settings = d.settings||{};
   const s = d.settings;
@@ -71,6 +82,7 @@ function migrateDB(d){
   (d.contacts||[]).forEach(c=>{ c.lsCustomerId=c.lsCustomerId||null; });
   (d.products||[]).forEach(p=>{ p.lsProductId=p.lsProductId||null; p.storeOwned=!!p.storeOwned; p.brand=p.brand||''; });
   d.counters = Object.assign({quote:1,order:1,invoice:1,payment:1}, d.counters||{});
+  estRenumber(d);
   d.v = 1; d.build = LS_CFG.build;
   return d;
 }
@@ -672,16 +684,85 @@ function expandSidebar(){
 }
 const _render=render; render=function(){ _render(); mountUserSwitch(); expandSidebar(); };
 /* dashboard: unearned revenue card */
+/* topbar sync chip: green + store name when Lightspeed is live, red when it is not */
+function lsChip(){
+  try{
+    const on=LS.connected(); const store=(db.settings.ls&&db.settings.ls.store)||'';
+    const el=document.getElementById('lsChip'); if(el){ el.className='ls-chip '+(on?'on':'off'); }
+    return '<span class="lsd"></span>'+(on?('Synced · <b>'+esc(store||'Lightspeed')+'</b>'):'Lightspeed · not connected');
+  }catch(e){ return ''; }
+}
+/* ---------- the vault: what the money is actually doing ---------- */
+function vaultEnsureCss(){
+  if(document.getElementById('vault-css')) return;
+  const st=document.createElement('style'); st.id='vault-css';
+  st.textContent=
+    '.vault{position:relative;overflow:hidden;background:linear-gradient(150deg,#0d2549 0%,#0b203f 46%,#081a34 100%);color:#f5f1e6;border-radius:6px;margin:6px 0 14px;box-shadow:0 18px 40px -26px rgba(8,20,44,.9)}'+
+    '.vault::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(211,188,125,.85) 22%,rgba(211,188,125,.85) 78%,transparent)}'+
+    '.vault::after{content:"";position:absolute;inset:0;background:radial-gradient(105% 150% at 88% -10%,rgba(200,166,77,.15),transparent 58%);pointer-events:none}'+
+    '.vault-top{display:grid;grid-template-columns:minmax(280px,1.05fr) 2fr;gap:0;position:relative;z-index:1}'+
+    '.vault-hero{padding:26px 30px 24px;border-right:1px solid rgba(245,241,230,.11);cursor:pointer;position:relative;transition:background .22s ease}'+
+    '.vault-hero:hover{background:rgba(211,188,125,.06)}'+
+    '.v-lab{font-family:var(--sans);font-size:9px;letter-spacing:.24em;text-transform:uppercase;font-weight:700;color:rgba(245,241,230,.46);display:flex;align-items:center;gap:9px}'+
+    '.v-lab b{font-weight:700;letter-spacing:.1em;color:#d9b96a;background:rgba(211,188,125,.14);border-radius:99px;padding:2px 8px;font-size:9px}'+
+    '.v-hero-val{font-family:var(--serif);font-size:42px;line-height:1;font-weight:600;color:#e2c479;margin-top:15px;font-variant-numeric:tabular-nums;letter-spacing:-.015em;text-shadow:0 2px 22px rgba(211,188,125,.28)}'+
+    '.v-hero-val .lux-cur{color:rgba(226,196,121,.72);vertical-align:.68em;font-size:14px}'+
+    '.v-hero-val .lux-dec{color:rgba(226,196,121,.55)}'+
+    '.v-cap{font-family:var(--sans);font-size:10px;letter-spacing:.05em;color:rgba(245,241,230,.42);margin-top:12px;line-height:1.5}'+
+    '.v-grid{display:grid;grid-template-columns:repeat(4,1fr);align-items:stretch}'+
+    '.v-cell{padding:26px 22px 24px;cursor:pointer;position:relative;transition:background .22s ease}'+
+    '.v-cell+.v-cell::before{content:"";position:absolute;left:0;top:24%;bottom:24%;width:1px;background:rgba(245,241,230,.11)}'+
+    '.v-cell:hover{background:rgba(245,241,230,.045)}'+
+    '.v-val{font-family:var(--serif);font-size:23px;line-height:1;font-weight:600;color:#f5f1e6;margin-top:14px;font-variant-numeric:tabular-nums}'+
+    '.v-val .lux-cur{color:rgba(245,241,230,.5);vertical-align:.7em;font-size:10px}'+
+    '.v-val .lux-dec{color:rgba(245,241,230,.5)}'+
+    '.v-sub{font-family:var(--sans);font-size:10px;color:rgba(245,241,230,.36);margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'+
+    '.vault-foot{position:relative;z-index:1;border-top:1px solid rgba(245,241,230,.11);padding:13px 30px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;'+
+      'font-family:var(--sans);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:rgba(245,241,230,.4)}'+
+    '.vault-foot .eq{color:rgba(245,241,230,.72);font-weight:700}'+
+    '.vault-foot .ok{color:#8fc79a;font-weight:700;letter-spacing:.16em}'+
+    '.vault-foot .bad{color:#e8879a;font-weight:700;letter-spacing:.16em}'+
+    '.vault-foot .sep{opacity:.3}'+
+    '@media(max-width:1180px){.vault-top{grid-template-columns:1fr}.vault-hero{border-right:none;border-bottom:1px solid rgba(245,241,230,.11)}.v-grid{grid-template-columns:1fr 1fr}.v-cell:nth-child(3)::before,.v-cell:nth-child(3){border-top:0}}'+
+    '@media(max-width:640px){.v-grid{grid-template-columns:1fr}.v-cell+.v-cell::before{display:none}.v-cell+.v-cell{border-top:1px solid rgba(245,241,230,.11)}}';
+  document.head.appendChild(st);
+}
 const _dash=VIEWS.dashboard; VIEWS.dashboard=function(){
+  vaultEnsureCss();
   const html=_dash();
-  const open=db.orders.filter(o=>o.status!=='completed'&&o.status!=='cancelled');
-  const held=r2(open.reduce((s,o)=>s+orderPaid(o),0)); const outstanding=r2(open.reduce((s,o)=>s+Math.max(0,orderBalance(o)),0));
+  const live=db.orders.filter(o=>o.status!=='completed'&&o.status!=='cancelled');
+  const held=r2(live.reduce((s,o)=>s+orderPaid(o),0));
+  const outstanding=r2(live.reduce((s,o)=>s+Math.max(0,orderBalance(o)),0));
   const recog=r2(db.orders.filter(o=>o.status==='completed').reduce((s,o)=>s+totals(o).total,0)+db.orders.filter(o=>o.status==='cancelled').reduce((s,o)=>s+(+o.cancelFee||0),0));
-  const band='<section class="lux-band">'+
-    '<div class="lux-cell" data-act="go" data-view="orders"><div class="lux-lab">Deposits Held — Unearned <span>'+open.length+' open</span></div><div class="lux-val gold">'+money(held)+'</div></div>'+
-    '<div class="lux-cell" data-act="go" data-view="orders"><div class="lux-lab">Open Service Balances</div><div class="lux-val">'+money(outstanding)+'</div></div>'+
-    '<div class="lux-cell" data-act="go" data-view="payments"><div class="lux-lab">Recognised Revenue</div><div class="lux-val">'+money(recog)+'</div></div>'+
-    '<div class="lux-ls" data-act="go" data-view="settings">'+(LS.connected()?'<span class="ok"></span>Lightspeed · '+esc(db.settings.ls.store||'connected'):'Lightspeed · not connected')+'</div>'+
+  const cash=r2(db.orders.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+orderPaid(o),0));
+  const shop=live.filter(o=>o.status==='in_progress'), ready=live.filter(o=>o.status==='ready');
+  const spec=live.filter(o=>isSpecial(o));
+  const oldest=live.length?Math.max.apply(null,live.map(o=>Math.max(0,Math.floor((Date.now()-(o.createdAt||Date.now()))/86400000)))):0;
+  const balanced=Math.abs(r2(cash-recog-held))<0.01;
+  const P=(n)=>{ const dec=Math.abs(n%1)>0.001; return luxParts(n,dec); };
+  const cell=(view,lab,val,sub,n)=>'<div class="v-cell" data-act="go" data-view="'+view+'">'+
+    '<div class="v-lab">'+lab+(n===undefined?'':'<b>'+n+'</b>')+'</div><div class="v-val">'+P(val)+'</div><div class="v-sub">'+esc(sub)+'</div></div>';
+  const band='<section class="vault">'+
+    '<div class="vault-top">'+
+      '<div class="vault-hero" data-act="go" data-view="orders">'+
+        '<div class="v-lab">Deposits held<b>'+live.length+' open</b></div>'+
+        '<div class="v-hero-val">'+P(held)+'</div>'+
+        '<div class="v-cap">Client money sitting on open work — not revenue until the piece is collected.'+(oldest?' Oldest open order '+oldest+' days.':'')+'</div>'+
+      '</div>'+
+      '<div class="v-grid">'+
+        cell('orders','Still to collect',outstanding,live.length+' order'+(live.length===1?'':'s')+' with a balance')+
+        cell('payments','Recognised revenue',recog,'earned on completed work')+
+        cell('orders','In the workshop',shop.reduce((s,o)=>s+totals(o).total,0),shop.length?(shop.length+' being worked on'):'nothing on the bench',shop.length)+
+        cell('orders','Ready for pickup',ready.reduce((s,o)=>s+totals(o).total,0),ready.length?(ready.length+' waiting on the client'):'nothing waiting',ready.length)+
+      '</div>'+
+    '</div>'+
+    '<div class="vault-foot">'+
+      '<span>Cash received <span class="eq">'+money(cash)+'</span></span><span class="sep">=</span>'+
+      '<span>Recognised <span class="eq">'+money(recog)+'</span></span><span class="sep">+</span>'+
+      '<span>Held unearned <span class="eq">'+money(held)+'</span></span>'+
+      '<span class="'+(balanced?'ok':'bad')+'" style="margin-left:auto">'+(balanced?'Books balance':'Out by '+money(r2(cash-recog-held)))+'</span>'+
+      (spec.length?'<span class="sep">·</span><span>'+spec.length+' special order'+(spec.length===1?'':'s')+' on the floor</span>':'')+
+    '</div>'+
   '</section>';
   if(html.indexOf('<div id="svc-metrics"></div>')>-1) return html.replace('<div id="svc-metrics"></div>', band);
   return html.replace('<section class="lux-actions">', band+'<section class="lux-actions">');
