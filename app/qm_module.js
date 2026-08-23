@@ -67,7 +67,7 @@ function migrateDB(d){
     s.locations=['Cambridge','Waterloo','Montréal – TUDOR Royalmount'];
   }
   s.locationMap = s.locationMap||{};
-  const TAXDEF={'Cambridge':{taxName:'HST',taxRate:13},'Waterloo':{taxName:'HST',taxRate:13},'Montréal – TUDOR Royalmount':{taxName:'GST+QST',taxRate:14.975},'Montréal – Rolex Boutique':{taxName:'GST+QST',taxRate:14.975}};
+  const TAXDEF={'Cambridge':{taxName:'HST',taxRate:13},'Cambridge Rolex':{taxName:'HST',taxRate:13},'Waterloo':{taxName:'HST',taxRate:13},'Montréal - Rolex Boutique':{taxName:'GST+QST',taxRate:14.975},'Montréal - TUDOR Boutique':{taxName:'GST+QST',taxRate:14.975},'Montréal – TUDOR Royalmount':{taxName:'GST+QST',taxRate:14.975},'Montréal – Rolex Boutique':{taxName:'GST+QST',taxRate:14.975}};
   s.locations.forEach(n=>{ s.locationMap[n]=Object.assign({lsOutletId:null,lsRegisterId:null,taxId:null,taxRate:null,taxName:null,allowedBrands:null}, TAXDEF[n]||{}, s.locationMap[n]||{}); });
   if(!s.users||!s.users.length) s.users=[{id:'u-al', name: s.user||'Al Sukara', role:'admin', pin:'1111', lsUserId:null}];
   s.ls = Object.assign({connected:false, store:null, retailerName:null, lastSync:null, ref:{outlets:[],registers:[],users:[],taxes:[],paymentTypes:[]}, paymentMap:{}, genericServiceProductId:null, noTaxId:null}, s.ls||{});
@@ -224,10 +224,24 @@ const LS = {
     ref.taxes = (await g('/api/2.0/taxes')).map(t=>({id:t.id,name:t.name,rate:(t.rates&&t.rates[0]?t.rates[0].rate:(t.rate||0)),is_default:t.is_default}));
     ref.paymentTypes = (await g('/api/2.0/payment_types')).filter(p=>!p.deleted_at&&!p.disabled).map(p=>({id:p.id,name:p.name,type_id:p.type_id,internal:p.internal}));
     const noTax = ref.taxes.find(t=>/no tax/i.test(t.name)); s.noTaxId = noTax?noTax.id:null;
-    // auto-map locations by name
+    /* auto-map locations to outlets by name — tolerant of the differences that actually occur
+       between what someone types in Lightspeed and what the app calls a store: en/em dashes vs
+       hyphens, accents, and stray double spaces. */
+    /* every backslash is doubled inside new RegExp(...) on purpose: this file round-trips
+       through a SQL chunk table that rewrites lone backslashes, so regex literals are unsafe here. */
+    const DIACRITIC = new RegExp('[\\u0300-\\u036f]','g');       /* accents, once NFD has split them off */
+    const ANYDASH   = new RegExp('[\\u2010-\\u2015\\u2212]','g'); /* en dash, em dash, minus */
+    const PADDASH   = new RegExp('\\s*-\\s*','g');
+    const MULTISP   = new RegExp('\\s+','g');
+    const normLoc = v => String(v||'').normalize('NFD').replace(DIACRITIC,'')
+      .replace(ANYDASH,'-').replace(PADDASH,' - ').replace(MULTISP,' ').trim().toLowerCase();
     db.settings.locations.forEach(n=>{
       const l = db.settings.locationMap[n] = db.settings.locationMap[n]||{};
-      const o = ref.outlets.find(x=>x.name.trim().toLowerCase()===n.trim().toLowerCase());
+      /* a mapping pointing at an outlet or register that no longer exists is worse than none:
+         clear it so it can re-attach by name instead of silently posting nowhere */
+      if(l.lsOutletId && !ref.outlets.some(x=>x.id===l.lsOutletId)){ l.lsOutletId=null; l.lsRegisterId=null; }
+      if(l.lsRegisterId && !ref.registers.some(r=>r.id===l.lsRegisterId)) l.lsRegisterId=null;
+      const o = ref.outlets.find(x=>normLoc(x.name)===normLoc(n));
       if(o&&!l.lsOutletId) l.lsOutletId=o.id;
       if(l.lsOutletId&&!l.lsRegisterId){ const rg=ref.registers.find(r=>r.outlet_id===l.lsOutletId); if(rg) l.lsRegisterId=rg.id; }
       if(!l.taxId){
