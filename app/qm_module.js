@@ -118,6 +118,10 @@ function migrateDB(d){
 const LOCAL_KEY = 'raffi-service-db-v1';
 const LOCAL_KEY_LEGACY = 'quotemachine-db-v1';   /* read once, then retired */
 let serverVersion = 0, serverOK = false, saveInFlight = false, saveQueued = false, pendingPush = false;
+/* true once the server has actually answered this boot — win or lose. Until then nothing
+   may be written up: the copy on screen came from this browser, and the browser's copy can be
+   behind the server without either of them knowing it. */
+let serverSettled = false;
 /* serverVersion is the newest version we have SEEN. docVersion is the version the document in
    memory actually came FROM. They diverge whenever we look at the server without adopting its
    copy — and a save must be based on the second, never the first, or a tab left open all day
@@ -147,8 +151,14 @@ loadDB = async function(){
   }
   if(!local && hasStore){ try{ const r=await window.storage.get(KEY); if(r&&r.value){ const d=JSON.parse(r.value); if(d&&d.v===1) local=d; } }catch(e){} }
 
-  /* the local copy carries the version it was saved from, so a save based on it is checkable */
-  try{ docVersion = parseInt(localStorage.getItem(LOCAL_VER_KEY)||'0',10)||0; }catch(e){ docVersion=0; }
+  /* The stored version number and the stored document are two separate keys, and they can
+     disagree — a tab that merged a conflict and was closed a moment later leaves the newer
+     number beside the older document. Pairing them would hand the server a write token for a
+     document it never accepted, and the newer records would go quietly. So this boot starts
+     with no token at all: the first save either happens after the server copy has been adopted
+     (real token) or goes through the conflict merge, which is the safe answer either way.
+     The stored number is still written for diagnostics; it is never read back as authority. */
+  docVersion = 0;
 
   const fromServer = (async()=>{
     try{
@@ -174,13 +184,16 @@ loadDB = async function(){
       /* repaint whether or not the document changed — the first paint was drawn while the
          connection was still unknown, so the offline banner and sync chip are stale by now */
       try{ render(); }catch(e){}
+      serverSettled = true;
       /* anything saved before the server answered was parked, not dropped */
       if(pendingPush){ pendingPush=false; pushServer(); }
     });
     return local;
   }
   const doc = await fromServer;
+  serverSettled = true;
   if(doc) rememberVersion(serverVersion);
+  if(pendingPush){ pendingPush=false; pushServer(); }
   return doc;
 };
 /* Keep the in-browser mirror in step with db. Called on every commit and again after a
@@ -192,7 +205,7 @@ function mirrorLocal(){
   return Promise.resolve();
 }
 async function pushServer(){
-  if(!serverOK){ pendingPush=true; return; }   /* park it; loadDB flushes once the server answers */
+  if(!serverOK || !serverSettled){ pendingPush=true; return; }   /* park it; loadDB flushes once the server answers */
   if(saveInFlight){ saveQueued=true; return; }
   saveInFlight=true;
   try{
