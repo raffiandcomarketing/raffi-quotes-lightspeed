@@ -163,11 +163,62 @@
   .totals .grand{border-top:2px solid var(--navy);font-weight:700;font-size:16px;padding-top:9px;margin-top:4px;}
 
   /* dashboard feed */
-  .feed-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:20px;}
-  .feed-title{font-family:var(--serif);font-size:24px;font-weight:600;color:var(--navy);}
-  .feed-filter{display:flex;align-items:center;gap:8px;color:var(--muted);}
-  .feed{position:relative;padding-left:30px;}
-  .feed::before{content:"";position:absolute;left:5px;top:8px;bottom:14px;width:2px;background:var(--line);}
+  .feed-head{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:16px;}
+  .feed-title{font-family:var(--serif);font-size:29px;font-weight:600;color:var(--navy);letter-spacing:-.01em;}
+  .feed-title em{font-style:italic;font-weight:400;color:var(--gold-dark);}
+  .feed-sub{font-family:var(--sans);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#a6a7b1;margin-top:7px;}
+  .feed-filter{display:flex;align-items:center;gap:9px;color:var(--muted);flex-wrap:wrap;}
+  .feed-search{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border);border-radius:999px;padding:7px 15px;transition:border-color .18s ease;}
+  .feed-search:focus-within{border-color:var(--gold);}
+  .feed-search i{font-size:11px;color:#b3b4be;}
+  .feed-search input{border:0;outline:0;background:none;font-family:var(--sans);font-size:13px;width:170px;color:var(--text);}
+
+  /* filter chips */
+  .kindbar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 20px;}
+  .kchipf{appearance:none;font:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:8px;
+    background:#fff;border:1px solid var(--border);border-radius:999px;padding:8px 15px;
+    font-family:var(--sans);font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#7e7f8b;
+    transition:all .18s ease;}
+  .kchipf i{font-size:11px;color:var(--gold-dark);transition:color .18s ease;}
+  .kchipf span{font-size:10px;letter-spacing:.06em;color:#a9aab4;background:#f3f1ea;border-radius:999px;padding:1px 7px;transition:all .18s ease;}
+  .kchipf:hover{border-color:var(--navy);color:var(--navy);}
+  .kchipf.on{background:var(--navy);border-color:var(--navy);color:#f5f1e6;}
+  .kchipf.on i{color:var(--gold-soft);}
+  .kchipf.on span{background:rgba(211,188,125,.22);color:var(--gold-soft);}
+
+  /* the book itself */
+  .feed{position:relative;padding-left:0;}
+  .feed::before{display:none;}
+  .daybar{list-style:none;cursor:pointer;user-select:none;display:flex;align-items:center;gap:12px;
+    padding:11px 16px;margin:0 0 2px;border-radius:5px;background:linear-gradient(90deg,rgba(11,32,63,.055),rgba(11,32,63,.02) 60%,transparent);
+    border-left:2px solid var(--gold);transition:background .18s ease;}
+  .daybar::-webkit-details-marker{display:none;} .daybar::marker{content:'';}
+  .daybar:hover{background:linear-gradient(90deg,rgba(176,141,63,.14),rgba(11,32,63,.03) 60%,transparent);}
+  .daybar:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  .day-date{font-family:var(--sans);font-size:10.5px;font-weight:700;letter-spacing:.19em;text-transform:uppercase;color:var(--navy);white-space:nowrap;}
+  .day-sum{font-family:var(--sans);font-size:11.5px;color:#9a9ba5;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .day-sum b{font-weight:700;color:var(--gold-dark);}
+  .day-sum .lux-cur{font-size:9px;vertical-align:.5em;margin-right:2px;color:var(--gold-dark);}
+  .day-sum .lux-dec{font-size:.8em;opacity:.75;}
+  .feed-day[open]>.daybar{background:linear-gradient(90deg,rgba(11,32,63,.09),rgba(11,32,63,.03) 60%,transparent);}
+
+  /* one entry = one line */
+  .feed-day-body{padding:8px 0 16px 6px;position:relative;}
+  .feed-day-body::before{content:'';position:absolute;left:15px;top:2px;bottom:14px;width:1px;background:linear-gradient(180deg,var(--gold-soft),rgba(230,225,214,.5));}
+  .ev{position:relative;display:flex;align-items:baseline;gap:12px;padding:8px 12px 8px 32px;border-radius:5px;transition:background .15s ease;}
+  .ev:hover{background:rgba(255,255,255,.75);}
+  .ev-node{position:absolute;left:6px;top:14px;width:7px;height:7px;border-radius:1.5px;transform:rotate(45deg);
+    background:linear-gradient(135deg,var(--gold-soft),var(--gold-dark));border:1px solid #8a6d2b;box-shadow:0 0 0 3px var(--bg);}
+  .ev-who{flex:none;width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;align-self:center;
+    font-family:var(--sans);font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--navy);
+    background:linear-gradient(180deg,#fffdf7,#f1ede2);border:1px solid var(--border);}
+  .ev-ico{flex:none;width:17px;text-align:center;color:var(--gold-dark);font-size:12px;align-self:center;}
+  .ev-main{flex:1;min-width:0;}
+  .ev-text{font-size:13.5px;color:var(--text);line-height:1.5;}
+  .ev-note{display:block;font-size:12px;color:#9a9ba5;margin-top:3px;padding-left:11px;border-left:2px solid var(--gold-soft);}
+  .ev-when{flex:none;font-family:var(--sans);font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:#b2b3bd;white-space:nowrap;align-self:center;}
+  .ev-empty{padding:26px;text-align:center;color:#a9aab4;font-size:13px;border:1px dashed var(--border);border-radius:7px;}
+  @media(max-width:760px){.ev-when,.ev-who{display:none}.ev{padding-left:26px}.day-sum{display:none}}
   .date-pill{display:inline-block;background:var(--navy-2);color:#fff;font-size:11px;font-weight:500;padding:3px 11px;border-radius:4px;margin:14px 0 18px -30px;position:relative;letter-spacing:.3px;}
   .event{position:relative;margin-bottom:26px;}
   .event .dot{position:absolute;left:-30px;top:2px;width:11px;height:11px;border-radius:50%;background:#b11226;box-shadow:0 0 0 3px var(--bg);}
@@ -412,14 +463,15 @@
 
   /* ---- collapsible activity feed ---- */
   .feed-day{margin:0;}
-  .feed-day>summary{list-style:none;display:inline-flex;align-items:center;gap:9px;cursor:pointer;user-select:none;}
+  .feed-day>summary{list-style:none;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none;}
   .feed-day>summary::-webkit-details-marker{display:none;}
   .feed-day>summary::marker{content:'';}
   .feed-day>summary:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:4px;}
-  .dp-ch{font-size:8px;opacity:.7;transition:transform .22s cubic-bezier(.2,.75,.3,1);display:inline-block;}
+  .dp-ch{font-size:8px;color:var(--gold-dark);opacity:.85;transition:transform .22s cubic-bezier(.2,.75,.3,1);display:inline-block;flex:none;}
   .feed-day[open]>summary .dp-ch{transform:rotate(90deg);}
-  .dp-n{font-size:9px;letter-spacing:.1em;background:rgba(211,188,125,.22);color:var(--gold-soft);border-radius:99px;padding:1px 7px;font-weight:700;}
-  .feed-day>summary:hover{filter:brightness(1.25);}
+  .dp-n{font-size:9.5px;letter-spacing:.08em;background:rgba(11,32,63,.08);color:var(--navy);border-radius:99px;padding:2px 8px;font-weight:700;flex:none;}
+  .feed-day[open]>.daybar .dp-n{background:rgba(176,141,63,.2);color:var(--gold-dark);}
+
   .feed-day-body{animation:feedIn .24s cubic-bezier(.2,.75,.3,1);}
   @keyframes feedIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
   .feed-tog{appearance:none;font:inherit;background:transparent;border:1px solid var(--border);border-radius:99px;cursor:pointer;
@@ -548,6 +600,38 @@ const dayKey=ts=>new Date(ts).toLocaleDateString('en-US',{month:'long',day:'nume
 const pad4=n=>String(n).padStart(4,'0');
 const T=s=>new Date(s).getTime();
 const ageDays=ts=>Math.max(0,Math.floor((Date.now()-ts)/86400000));
+/* what kind of thing happened — read off the record the entry points at, with the icon as a fallback */
+const FEEDKINDS=[['money','Money','fa-coins'],['estimate','Estimates','fa-file-signature'],['job','Jobs','fa-screwdriver-wrench'],['special','Special orders','fa-gem'],['invoice','Invoices','fa-file-invoice'],['client','Clients','fa-user']];
+function feedKindOf(a){
+  const ic=a.icon||'', vs=(a.parts||[]).map(p=>p.v).filter(Boolean);
+  if(/dollar-sign|cash-register|rotate-left/.test(ic)) return 'money';
+  if(ic==='gem'||ic==='box-open') return 'special';
+  if(vs.includes('order')) return 'job';
+  if(vs.includes('quote')||vs.includes('quote-doc')) return 'estimate';
+  if(vs.includes('invoice')) return 'invoice';
+  if(vs.includes('contact')) return 'client';
+  return 'job';
+}
+/* a folded day should still tell you something: how much moved, and how many entries */
+function feedDaySummary(items){
+  let money=0, seen={};
+  items.forEach(a=>{
+    const k=feedKindOf(a); seen[k]=(seen[k]||0)+1;
+    if(k==='money'){ const t=(a.parts||[]).map(p=>p.t||p.l||'').join(' ');
+      const m=t.match(/[\d][\d,]*\.?\d*/g); if(m) money+=Math.max.apply(null,m.map(x=>parseFloat(x.replace(/,/g,''))||0)); }
+  });
+  const bits=[];
+  if(money>0) bits.push('<b>'+luxParts(money, money%1>0.001)+'</b> moved');
+  FEEDKINDS.forEach(([k,label])=>{ if(!seen[k]||k==='money') return;
+    const n=seen[k], word=n===1?label.toLowerCase().replace(/s$/,''):label.toLowerCase();
+    bits.push(n+' '+word); });
+  return bits.slice(0,3).join(' · ');
+}
+const relTime=ts=>{const m=Math.floor((Date.now()-ts)/60000);
+  if(m<1)return'just now'; if(m<60)return m+' min ago'; const h=Math.floor(m/60);
+  if(h<24)return h+(h===1?' hour ago':' hours ago'); const d=Math.floor(h/24);
+  if(d<7)return d+(d===1?' day ago':' days ago'); return fmtD(new Date(ts).toISOString().slice(0,10));};
+const initials=n=>String(n||'').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?';
 /* price typography: small currency mark, tabular figures, muted decimals */
 function luxParts(n,dec){
   const cur=((typeof db!=='undefined'&&db.settings&&db.settings.currency)||'CA$');
@@ -662,7 +746,7 @@ function logAct(icon,actor,parts,preview){
 
 /* ================= state & framework ================= */
 let db=null;
-const state={view:'dashboard',id:null,q:'',qChip:'all',iChip:'all',loc:'all',feedUser:'all',feedDays:{}};
+const state={view:'dashboard',id:null,q:'',qChip:'all',iChip:'all',loc:'all',feedUser:'all',feedDays:{},feedKind:'all',feedQ:''};
 const mounts=[];
 const NAVPARENT={dashboard:'dashboard',contacts:'contacts',contact:'contacts',service:'service',specialorders:'specialorders',quotes:'quotes',quote:'quotes','quote-doc':'quotes',orders:'orders',order:'orders',invoices:'invoices',invoice:'invoices','invoice-doc':'invoices',payments:'payments',products:'products',settings:'settings'};
 // the three sub-tabs live under Service — the parent stays lit while you are inside one
@@ -778,20 +862,32 @@ VIEWS.dashboard=function(){
   const mv=n=>{const v=r2(n);return (db.settings.currency||'CA$')+(v%1===0?v.toLocaleString('en-CA'):v.toLocaleString('en-CA',{minimumFractionDigits:1,maximumFractionDigits:2}));};
   const actors=Array.from(new Set(db.activity.map(a=>a.actor).filter(Boolean)));
   const feedItems=db.activity.filter(a=>state.feedUser==='all'||a.actor===state.feedUser).slice().sort((a,b)=>b.at-a.at);
-  const evHTML=a=>'<div class="event"><span class="dot"></span><div class="event-time">'+esc(fmtLong(a.at))+'</div>'+
-      '<div class="event-card"><div class="event-ico"><i class="fa-solid fa-'+a.icon+'"></i></div><div class="event-body">'+
-      '<div class="event-text">'+renderParts(a.parts)+'</div>'+
-      (a.preview?'<div class="event-preview">'+renderParts(a.preview)+'</div>':'')+
-      '</div></div></div>';
+  const kindCounts={}; feedItems.forEach(a=>{const k=feedKindOf(a);kindCounts[k]=(kindCounts[k]||0)+1;});
+  const fq=(state.feedQ||'').trim().toLowerCase();
+  const shown=feedItems.filter(a=>{
+    if(state.feedKind!=='all' && feedKindOf(a)!==state.feedKind) return false;
+    if(!fq) return true;
+    const t=((a.parts||[]).concat(a.preview||[])).map(p=>p.t||p.l||'').join(' ')+' '+(a.actor||'');
+    return t.toLowerCase().indexOf(fq)>=0;
+  });
+  const evHTML=a=>'<div class="ev"><span class="ev-node"></span>'+
+      '<span class="ev-who" title="'+esc(a.actor||'')+'">'+esc(initials(a.actor))+'</span>'+
+      '<span class="ev-ico"><i class="fa-solid fa-'+a.icon+'"></i></span>'+
+      '<span class="ev-main"><span class="ev-text">'+renderParts(a.parts)+'</span>'+
+      (a.preview?'<span class="ev-note">'+renderParts(a.preview)+'</span>':'')+'</span>'+
+      '<span class="ev-when" title="'+esc(fmtLong(a.at))+'">'+esc(relTime(a.at))+'</span></div>';
   const dayGroups=[]; let curG=null;
-  feedItems.forEach(a=>{const dk=dayKey(a.at); if(!curG||curG.dk!==dk){curG={dk:dk,items:[]};dayGroups.push(curG);} curG.items.push(a);});
+  shown.forEach(a=>{const dk=dayKey(a.at); if(!curG||curG.dk!==dk){curG={dk:dk,items:[]};dayGroups.push(curG);} curG.items.push(a);});
   let feed=dayGroups.map((g,gi)=>{
     const open=(state.feedDays[g.dk]===undefined)?gi===0:!!state.feedDays[g.dk];
     return '<details class="feed-day"'+(open?' open':'')+' data-day="'+esc(g.dk)+'">'+
-      '<summary class="date-pill"><span class="dp-ch"><i class="fa-solid fa-chevron-right"></i></span>'+esc(g.dk)+'<span class="dp-n">'+g.items.length+'</span></summary>'+
+      '<summary class="daybar"><span class="dp-ch"><i class="fa-solid fa-chevron-right"></i></span>'+
+        '<span class="day-date">'+esc(g.dk)+'</span>'+
+        '<span class="day-sum">'+feedDaySummary(g.items)+'</span>'+
+        '<span class="dp-n">'+g.items.length+'</span></summary>'+
       '<div class="feed-day-body">'+g.items.map(evHTML).join('')+'</div></details>';
   }).join('');
-  if(!feedItems.length)feed='<div class="event"><span class="dot" style="background:#c4cbd6"></span><div class="event-card"><div class="event-body mut">No activity yet \u2014 create an estimate to get started.</div></div></div>';
+  if(!dayGroups.length) feed='<div class="ev-empty">'+(feedItems.length?'Nothing matches that filter.':'Nothing recorded yet \u2014 write an estimate to open the book.')+'</div>';
   const allOpen=dayGroups.length>0&&dayGroups.every((g,gi)=>(state.feedDays[g.dk]===undefined)?gi===0:!!state.feedDays[g.dk]);
   const qAge=q=>ageDays(q.createdAt||T((q.date||todayISO())+'T09:00'));
   const oldestQ=openQ.length?Math.max.apply(null,openQ.map(qAge)):0;
@@ -816,12 +912,20 @@ VIEWS.dashboard=function(){
     action('newInvoice','file-invoice-dollar','New Invoice','Bill work that is finished','')+
     action('newContact','user-plus','New Contact','Add a client to the book','')+
   '</section>'+
-  '<div class="feed-head"><h2 class="feed-title">Activity Feed</h2>'+
+  '<div class="feed-head"><div><h2 class="feed-title">Day <em>Book</em></h2>'+
+      '<div class="feed-sub">'+shown.length+' of '+feedItems.length+' entries'+(dayGroups.length?' \u00b7 '+dayGroups.length+' day'+(dayGroups.length===1?'':'s'):'')+'</div></div>'+
     '<div class="feed-filter">'+
-    (dayGroups.length?'<button class="feed-tog" data-act="feedAll" data-open="'+(allOpen?'0':'1')+'">'+(allOpen?'Collapse all':'Expand all')+'</button>':'')+
-    '<i class="fa-solid fa-user"></i><select class="select" data-chg="feedUser" aria-label="Filter feed by user"><option value="all"'+(state.feedUser==='all'?' selected':'')+'>All users</option>'+
-    actors.map(a=>'<option'+(state.feedUser===a?' selected':'')+'>'+esc(a)+'</option>').join('')+'</select></div></div>'+
-  '<div class="feed">'+feed+'<p class="feed-end">End of activity feed. Nothing more to show.</p></div>';
+      '<span class="feed-search"><i class="fa-solid fa-magnifying-glass"></i><input data-chg="feedQ" value="'+esc(state.feedQ||'')+'" placeholder="Search the book\u2026"></span>'+
+      '<select class="select" data-chg="feedUser" aria-label="Filter by user"><option value="all"'+(state.feedUser==='all'?' selected':'')+'>All hands</option>'+
+      actors.map(a=>'<option'+(state.feedUser===a?' selected':'')+'>'+esc(a)+'</option>').join('')+'</select>'+
+      (dayGroups.length?'<button class="feed-tog" data-act="feedAll" data-open="'+(allOpen?'0':'1')+'">'+(allOpen?'Fold all':'Open all')+'</button>':'')+
+    '</div></div>'+
+  '<div class="kindbar">'+
+    '<button class="kchipf'+(state.feedKind==='all'?' on':'')+'" data-act="feedKind" data-k="all">All<span>'+feedItems.length+'</span></button>'+
+    FEEDKINDS.filter(k=>kindCounts[k[0]]).map(k=>'<button class="kchipf'+(state.feedKind===k[0]?' on':'')+'" data-act="feedKind" data-k="'+k[0]+'">'+
+      '<i class="fa-solid '+k[2]+'"></i>'+k[1]+'<span>'+kindCounts[k[0]]+'</span></button>').join('')+
+  '</div>'+
+  '<div class="feed">'+feed+'</div>';
 };
 
 /* ---- contacts ---- */
@@ -1297,6 +1401,7 @@ function csvOut(name,rows){
 
 /* ================= action handlers ================= */
 const ACT={
+  feedKind:ds=>{ state.feedKind=ds.k; render(); },
   feedAll:ds=>{const want=ds.open==='1';feedBulk=true;
     document.querySelectorAll('.feed-day').forEach(d=>{d.open=want;state.feedDays[d.dataset.day]=want;});
     setTimeout(()=>{feedBulk=false;},0);
@@ -1523,6 +1628,9 @@ ACT.askYes=()=>{const f=askCb;askCb=null;if(f)f();closeModal();};
 const CHG={
   loc:el=>{state.loc=el.value;render();},
   feedUser:el=>{state.feedUser=el.value;render();},
+  feedQ:el=>{ const v=el.value, pos=el.selectionStart; state.feedQ=v; render();
+    const again=document.querySelector('[data-chg="feedQ"]');
+    if(again){ again.focus(); try{ again.setSelectionRange(pos,pos); }catch(e){} } },
   addProd:el=>{
     const p=P(el.value);el.value='';
     if(!p)return;
