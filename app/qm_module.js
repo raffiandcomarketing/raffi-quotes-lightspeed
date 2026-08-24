@@ -1787,6 +1787,62 @@ function svcStore(o){
   const s=db.settings;
   return [(s.company||'Raffi Jewellers'), [o.loc,(s.address||'')].filter(Boolean).join(' · '), [(s.phone||''),(s.email||'')].filter(Boolean).join(' / ')];
 }
+/* ---------- intake photographs on the printed document ----------
+   The photographs exist so there is a record of the state a client's piece arrived in. That
+   record is only worth something if the client has a copy of it too, so it goes on whatever
+   they are handed — the estimate, the job document and the invoice all draw from the same job.
+   Special orders are excluded: store merchandise arriving from a supplier has no intake to
+   document, and the camera is not offered there either. */
+function intakePhotos(ord){
+  if(!ord || isSpecial(ord)) return [];
+  return (((ord.customerItem||{}).photos)||[]).filter(function(p){ return p && p.data; });
+}
+function orderForDoc(d, kind){
+  try{
+    if(!d) return null;
+    if(kind==='invoice') return d.orderId ? O(d.orderId) : null;
+    /* an estimate carries no piece of its own — the job raised from it holds the intake */
+    return (db.orders||[]).filter(function(x){ return x.quoteId===d.id; })[0] || null;
+  }catch(e){ return null; }
+}
+function intakePhotosHTML(ord){
+  const ph=intakePhotos(ord); if(!ph.length) return '';
+  return '<div class="ph-block">'+
+    '<div class="ph-head">Condition photographs at intake &mdash; '+esc(ord.number)+'</div>'+
+    '<div class="ph-strip">'+ph.map(function(p){
+      const when=p.at?fmtD(new Date(p.at).toISOString().slice(0,10)):'';
+      return '<figure><img src="'+p.data+'" alt="">'+(when?'<figcaption>'+esc(when)+'</figcaption>':'')+'</figure>';
+    }).join('')+'</div>'+
+    '<p class="ph-note">Photographed by Raffi Jewellers when the piece was received, and supplied with this document as our record of the condition it arrived in.</p>'+
+  '</div>';
+}
+function photoDocCss(){
+  if(document.getElementById('qm-photodoc-css')) return;
+  const st=document.createElement('style'); st.id='qm-photodoc-css';
+  st.textContent=
+    '.ph-block{margin:14px 0;page-break-inside:avoid;break-inside:avoid}'+
+    '.ph-head{font-weight:700;font-size:11.5px;margin:0 0 6px}'+
+    '.ph-strip{display:flex;flex-wrap:wrap;gap:8px}'+
+    '.ph-strip figure{margin:0;width:23%;min-width:110px}'+
+    '.ph-strip img{display:block;width:100%;height:auto;border:1px solid #d8d2c4;border-radius:3px}'+
+    '.ph-strip figcaption{font-size:9px;color:#777;margin-top:3px;text-align:center}'+
+    '.ph-note{font-size:10px;color:#666;margin:7px 0 0;line-height:1.45}'+
+    '@media print{.ph-strip figure{width:23%}.ph-strip img{border-color:#bbb}}';
+  document.head.appendChild(st);
+}
+photoDocCss();
+/* the estimate and the invoice are rendered by the shell; add the strip just above the
+   signature block, where a client reading the document will already have seen the work */
+const _docHTMLBeforePhotos = docHTML;
+docHTML = function(d, kind){
+  let h = _docHTMLBeforePhotos(d, kind);
+  try{
+    const strip = intakePhotosHTML(orderForDoc(d, kind));
+    if(strip) h = h.replace('%%SIG%%', strip+'%%SIG%%');
+  }catch(e){ console.warn('intake photos on document failed', e); }
+  return h;
+};
+
 function serviceDoc(o){
   const s=db.settings, c=C(o.contactId)||{}, ci=o.customerItem||{}, t=totals(o);
   const special=isSpecial(o), st=svcStore(o);
@@ -1837,6 +1893,7 @@ function serviceDoc(o){
       (special?'':svcKV('Condition at intake',ci.condition))+
       (special?'':svcKV('Accessories received',ci.accessories))+
     '</div>'+
+    intakePhotosHTML(o)+
     '<div class="rxsec">'+(special?'Order Detail':'Work &amp; Parts')+'</div>'+
     '<table class="rxtbl"><tr><th>Description</th><th class="r" style="width:60px">Qty</th><th class="r" style="width:95px">Price CAD $</th><th class="r" style="width:100px">Amount CAD $</th></tr>'+lines+'</table>'+
     totalsTbl+heldNote+
@@ -1945,6 +2002,7 @@ function camCountdown(o){
 }
 ACT.camOpen=async d=>{
   const o=O((d&&d.id)||state.id); if(!o) return;
+  if(isSpecial(o)){ toast('Intake photographs are for a client’s own piece. A special order is our stock coming in — use Add photo if you need one on the record.', 7000); return; }
   if(!requirePerm('edit_service','photograph the item')) return;
   const ci=o.customerItem=o.customerItem||{}; ci.photos=ci.photos||[];
   if(ci.photos.length>=6){ toast('Maximum 6 photos on an intake — remove one first.'); return; }
@@ -1981,7 +2039,11 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&document.body.clas
 const _orderView5=VIEWS.order; VIEWS.order=function(){
   let h=_orderView5();
   const o=O(state.id);
-  if(o && h.indexOf('data-chg="addPhoto"')>-1){
+  /* The camera documents the client's own property as it comes across the counter — the state
+     it arrived in, so there is no argument later. A special order is our merchandise arriving
+     from a supplier; there is nothing of the client's to photograph at intake, so the button
+     belongs on service jobs only. Anything already photographed stays on the record. */
+  if(o && !isSpecial(o) && h.indexOf('data-chg="addPhoto"')>-1){
     h=h.replace('data-chg="addPhoto" style="display:none"></label>',
       'data-chg="addPhoto" style="display:none"></label>'+
       '<button class="b2 p" data-act="camOpen" data-id="'+o.id+'" style="margin-top:6px;margin-left:8px"><i class="fa-solid fa-camera-retro"></i> Photograph item (3s)</button>');
