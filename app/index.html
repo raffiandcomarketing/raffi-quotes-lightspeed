@@ -893,7 +893,7 @@ VIEWS.dashboard=function(){
         '<span class="dp-n">'+g.items.length+'</span></summary>'+
       '<div class="feed-day-body">'+g.items.map(evHTML).join('')+'</div></details>';
   }).join('');
-  if(!dayGroups.length) feed='<div class="ev-empty">'+(feedItems.length?'Nothing matches that filter.':'Nothing recorded yet \u2014 write an estimate to open the book.')+'</div>';
+  if(!dayGroups.length) feed='<div class="ev-empty">'+(feedItems.length?'Nothing matches that filter.':'No movements yet \u2014 write an estimate to get things going.')+'</div>';
   const allOpen=dayGroups.length>0&&dayGroups.every((g,gi)=>(state.feedDays[g.dk]===undefined)?gi===0:!!state.feedDays[g.dk]);
   const qAge=q=>ageDays(q.createdAt||T((q.date||todayISO())+'T09:00'));
   const oldestQ=openQ.length?Math.max.apply(null,openQ.map(qAge)):0;
@@ -918,10 +918,10 @@ VIEWS.dashboard=function(){
     action('newInvoice','file-invoice-dollar','New Invoice','Bill work that is finished','')+
     action('newContact','user-plus','New Contact','Add a client to the book','')+
   '</section>'+
-  '<div class="feed-head"><div><h2 class="feed-title">Day <em>Book</em></h2>'+
+  '<div class="feed-head"><div><h2 class="feed-title">Movements</h2>'+
       '<div class="feed-sub">'+shown.length+' of '+feedItems.length+' entries'+(dayGroups.length?' \u00b7 '+dayGroups.length+' day'+(dayGroups.length===1?'':'s'):'')+'</div></div>'+
     '<div class="feed-filter">'+
-      '<span class="feed-search"><i class="fa-solid fa-magnifying-glass"></i><input data-chg="feedQ" value="'+esc(state.feedQ||'')+'" placeholder="Search the book\u2026"></span>'+
+      '<span class="feed-search"><i class="fa-solid fa-magnifying-glass"></i><input data-chg="feedQ" value="'+esc(state.feedQ||'')+'" placeholder="Search movements\u2026"></span>'+
       '<select class="select" data-chg="feedUser" aria-label="Filter by user"><option value="all"'+(state.feedUser==='all'?' selected':'')+'>All hands</option>'+
       actors.map(a=>'<option'+(state.feedUser===a?' selected':'')+'>'+esc(a)+'</option>').join('')+'</select>'+
       (dayGroups.length?'<button class="feed-tog" data-act="feedAll" data-open="'+(allOpen?'0':'1')+'">'+(allOpen?'Fold all':'Open all')+'</button>':'')+
