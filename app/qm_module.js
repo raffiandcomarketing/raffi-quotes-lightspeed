@@ -1259,18 +1259,21 @@ function importLsPayments(o, d){
      (Layaway is not offered at $0 balance — platform behaviour). An unreceived special must not
      sit in Lightspeed as a completed sale, so this check runs on EVERY refresh — even when the
      payment was already imported on an earlier pull. */
-  const ciR=o.customerItem||{};
-  const premature = d.state==='closed' && o.status!=='completed' && o.status!=='cancelled' && isSpecial(o) && !(ciR.raffiId&&String(ciR.raffiId).trim());
+  /* Paying in full is not collecting. The register force-completes a sale the moment the balance
+     reaches zero — that is the platform deciding a tender is finished, not anybody saying the
+     client has the piece. A watch paid for in full is still on the bench until someone hands it
+     over, so a sale the register closed is premature for EVERY kind of job, special order or
+     service, received or not. The only thing that recognises revenue is Complete & close in this
+     app, which is a person saying the client walked out with it. */
+  const premature = d.state==='closed' && o.status!=='completed' && o.status!=='cancelled';
   if(premature) setTimeout(function(){ reopenPrematureClose(o); },0);
   if(added){
     if(orderBalance(o)<=0.004){ const ps=orderPays(o).filter(p=>p.source==='register'); if(ps.length) ps[ps.length-1].kind='final'; }
     if(o.ls) o.ls.expectAtRegister=null;
-    logAct('cash-register','Lightspeed',[{t:added+' register payment(s) imported for '},{l:o.number,v:'order',id:o.id},{t:' — deposits held '+money(orderPaid(o))}],null);
-    if(!premature && d.state==='closed' && o.status!=='completed' && o.status!=='cancelled'){
-      const ci=o.customerItem||{};
-      o.status='completed'; o.completedAt=Date.now(); o.completedBy=null; ensureInvoiceForOrder(o);
-      audit('order.completed','order',o.id,{via:'register final payment (Lightspeed closed the layaway)'});
-      if(isSpecial(o) && !(ci.serial&&String(ci.serial).trim())) toast(o.number+': the register closed this sale before a serial number was recorded — add the serial on the job for your records.');
+    logAct('cash-register','Lightspeed',[{t:added+' register payment(s) imported for '},{l:o.number,v:'order',id:o.id},{t:' — held unearned '+money(orderPaid(o))}],null);
+    if(orderBalance(o)<=0.004 && o.status!=='completed' && o.status!=='cancelled'){
+      audit('payment.paid_in_full_not_recognised','order',o.id,'paid in full at the register — held as unearned revenue until Complete & close');
+      toast(o.number+' is paid in full. It stays unearned until you press Complete & close at pickup.', 7000);
     }
     commit();
   }
@@ -1437,13 +1440,13 @@ async function reopenPrematureClose(o){
     try{ d=await postOrderSale(o,'pending',{op:'reopen_layby', opId:'reopen-'+o.id+'-'+Date.now()}); }
     catch(e1){ console.warn('PUT pending on closed sale refused — rebuilding', e1); d=await rebuildAsLayby(o); }
     if(d && d.state!=='closed'){
-      audit('special.reopened_layby','order',o.id,{receipt:o.ls.receipt, paid:orderPaid(o)});
-      logAct('rotate-left','Lightspeed',[{t:'Register completed '},{l:o.number,v:'order',id:o.id},{t:' before the piece arrived — reopened as an open layaway; '+money(orderPaid(o))+' held as unearned revenue'}],null);
-      render(); toast(o.number+': the register completed this sale, but the piece has not arrived — it has been reopened as an open layaway. The prepayment stays unearned revenue until pickup.');
+      audit('order.reopened_layby','order',o.id,{receipt:o.ls.receipt, paid:orderPaid(o)});
+      logAct('rotate-left','Lightspeed',[{t:'Register completed '},{l:o.number,v:'order',id:o.id},{t:' on full payment — reopened as an open layaway; '+money(orderPaid(o))+' held as unearned revenue until pickup'}],null);
+      render(); toast(o.number+': the register completed this sale because it was paid in full, but the client has not collected — it has been reopened as an open layaway. The money stays unearned until pickup.', 9000);
     }
   }catch(e){
     o.ls.error='The register completed this sale prematurely and it could not be reopened: '+String(e.message||e).slice(0,140);
-    commit(); render(); toast(o.number+': could not reopen the completed register sale — see the job for details.');
+    commit(); render(); toast(o.number+': could not reopen the completed register sale — see the job for details. Do NOT treat it as revenue until this is resolved.', 9000);
   }finally{ o.__reopening=false; }
 }
 async function rebuildAsLayby(o){
