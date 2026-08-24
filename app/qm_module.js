@@ -41,6 +41,27 @@ function audit(action, entity, entityId, detail){
 }
 
 /* ---------- migration of older documents ---------- */
+/* On a save conflict we adopt the other side's document, but anything of ours it has never
+   seen would be lost — so carry those records across by id. Records both sides hold are left
+   as the server has them: last writer wins on edits, first writer never loses a whole record. */
+function carryOverMissing(theirs, mine){
+  if(!theirs || !mine) return 0;
+  let carried = 0;
+  ['contacts','quotes','orders','invoices','payments','products'].forEach(k=>{
+    if(!Array.isArray(mine[k])) return;
+    if(!Array.isArray(theirs[k])) theirs[k] = [];
+    const known = {}; theirs[k].forEach(x=>{ if(x&&x.id) known[x.id]=1; });
+    mine[k].forEach(x=>{ if(x&&x.id&&!known[x.id]){ theirs[k].push(x); carried++; } });
+  });
+  /* counters must not go backwards or the next record reuses a number */
+  if(mine.counters && theirs.counters){
+    Object.keys(mine.counters).forEach(k=>{
+      theirs.counters[k] = Math.max(+theirs.counters[k]||0, +mine.counters[k]||0);
+    });
+  }
+  return carried;
+}
+
 /* renumbering: estimates are EST- (was QUO-) and service jobs are JOB- (was ORD-).
    Rewrites every historical reference so the numbering reads consistently.
    Walks strings only, skips data URIs and long blobs (photos, signatures). Idempotent. */
@@ -91,8 +112,16 @@ function migrateDB(d){
 }
 
 /* ---------- persistence: server (shared) + localStorage + artifact storage ---------- */
-const LOCAL_KEY = 'quotemachine-db-v1';
+const LOCAL_KEY = 'raffi-service-db-v1';
+const LOCAL_KEY_LEGACY = 'quotemachine-db-v1';   /* read once, then retired */
 let serverVersion = 0, serverOK = false, saveInFlight = false, saveQueued = false, pendingPush = false;
+/* serverVersion is the newest version we have SEEN. docVersion is the version the document in
+   memory actually came FROM. They diverge whenever we look at the server without adopting its
+   copy — and a save must be based on the second, never the first, or a tab left open all day
+   overwrites newer work without ever seeing a conflict. */
+let docVersion = 0;
+const LOCAL_VER_KEY = LOCAL_KEY + '-version';
+function rememberVersion(v){ docVersion = v||0; try{ localStorage.setItem(LOCAL_VER_KEY, String(docVersion)); }catch(e){} }
 /* set once the live Lightspeed handshake has answered — its result must survive the
    server document landing a moment later with an older copy of settings.ls */
 let lsStatusFresh = false;
@@ -110,7 +139,13 @@ let dirtySinceBoot=false;
 loadDB = async function(){
   let local=null;
   try{ const raw=localStorage.getItem(LOCAL_KEY); if(raw){ const d=JSON.parse(raw); if(d&&d.v===1) local=d; } }catch(e){}
+  if(!local){ /* a browser that last ran the old build still has its copy under the old key */
+    try{ const raw=localStorage.getItem(LOCAL_KEY_LEGACY); if(raw){ const d=JSON.parse(raw); if(d&&d.v===1){ local=d; localStorage.setItem(LOCAL_KEY,raw); localStorage.removeItem(LOCAL_KEY_LEGACY); } } }catch(e){}
+  }
   if(!local && hasStore){ try{ const r=await window.storage.get(KEY); if(r&&r.value){ const d=JSON.parse(r.value); if(d&&d.v===1) local=d; } }catch(e){} }
+
+  /* the local copy carries the version it was saved from, so a save based on it is checkable */
+  try{ docVersion = parseInt(localStorage.getItem(LOCAL_VER_KEY)||'0',10)||0; }catch(e){ docVersion=0; }
 
   const fromServer = (async()=>{
     try{
@@ -128,6 +163,9 @@ loadDB = async function(){
           const liveLs = (lsStatusFresh && db && db.settings) ? db.settings.ls : null;
           db = migrateDB(doc);
           if(liveLs) db.settings.ls = Object.assign({}, db.settings.ls, liveLs);
+          rememberVersion(serverVersion);           /* this document is now the server's */
+        }else if(doc && !dirtySinceBoot){
+          rememberVersion(serverVersion);           /* identical content, same version */
         }
       }catch(e){ console.warn('server reconcile failed', e); }
       /* repaint whether or not the document changed — the first paint was drawn while the
@@ -138,21 +176,34 @@ loadDB = async function(){
     });
     return local;
   }
-  return await fromServer;
+  const doc = await fromServer;
+  if(doc) rememberVersion(serverVersion);
+  return doc;
 };
 async function pushServer(){
   if(!serverOK){ pendingPush=true; return; }   /* park it; loadDB flushes once the server answers */
   if(saveInFlight){ saveQueued=true; return; }
   saveInFlight=true;
   try{
-    const r = await sbFetch('/qm-state',{method:'PUT', body: JSON.stringify({doc:db, base_version:serverVersion, user:curUser().name})});
+    const r = await sbFetch('/qm-state',{method:'PUT', body: JSON.stringify({doc:db, base_version:docVersion, user:curUser().name})});
     if(r.status===409 && r.j && r.j.conflict){
-      // another user saved first: adopt server copy, re-render, surface conflict
+      /* someone else saved first. Take their copy as the base, but carry over anything of ours
+         they have never seen — a job raised at this counter must not vanish because another
+         till saved a second earlier. Records both sides hold keep the server's version. */
       serverVersion = r.j.version||serverVersion;
-      if(r.j.doc && r.j.doc.v===1){ db = migrateDB(r.j.doc); render(); }
-      toast('Updated by '+(r.j.updated_by||'another user')+' — screen refreshed with latest data');
-      audit('conflict','db',null,'server version '+serverVersion+' adopted; local changes since last sync were discarded');
-    }else if(r.ok){ serverVersion = r.j.version||serverVersion; }
+      if(r.j.doc && r.j.doc.v===1){
+        const mine = db, theirs = migrateDB(r.j.doc);
+        const carried = carryOverMissing(theirs, mine);
+        db = theirs; rememberVersion(serverVersion); render();
+        toast(carried
+          ? ('Updated by '+(r.j.updated_by||'another user')+' — '+carried+' of your record'+(carried===1?'':'s')+' kept and re-saved')
+          : ('Updated by '+(r.j.updated_by||'another user')+' — screen refreshed with latest data'));
+        audit('conflict','db',null,'server version '+serverVersion+' adopted; '+carried+' local record(s) carried over');
+        if(carried){ saveQueued=true; }        /* push the merged copy back up */
+      }else{
+        toast('Updated by '+(r.j.updated_by||'another user')+' — screen refreshed with latest data');
+      }
+    }else if(r.ok){ serverVersion = r.j.version||serverVersion; rememberVersion(serverVersion); }
     else { console.warn('server save failed', r.status, r.j); }
   }catch(e){ console.warn('server save error', e); }
   finally{ saveInFlight=false; if(saveQueued){ saveQueued=false; pushServer(); } }

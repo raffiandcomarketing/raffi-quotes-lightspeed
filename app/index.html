@@ -673,11 +673,14 @@ function luxCountUp(){}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2200);}
 
 /* ================= persistence ================= */
-const KEY='quotemachine-db-v1';
+const KEY='raffi-service-db-v1';
+const KEY_LEGACY='quotemachine-db-v1';
 const hasStore=(typeof window!=='undefined')&&!!window.storage&&typeof window.storage.get==='function';
 async function loadDB(){
   if(!hasStore)return null;
-  try{const r=await window.storage.get(KEY);return(r&&r.value)?JSON.parse(r.value):null;}catch(e){return null;}
+  try{let r=await window.storage.get(KEY);
+    if(!(r&&r.value)) r=await window.storage.get(KEY_LEGACY);
+    return(r&&r.value)?JSON.parse(r.value):null;}catch(e){return null;}
 }
 let saveT=null;
 function commit(){
@@ -1629,7 +1632,7 @@ const ACT={
     s.terms=$('#s-terms').value;
     commit();render();toast('Settings saved');
   },
-  exportJSON:()=>{dl('quotemachine-data-'+todayISO()+'.json',JSON.stringify(db,null,2),'application/json');toast('Export downloaded');},
+  exportJSON:()=>{dl('raffi-service-data-'+todayISO()+'.json',JSON.stringify(db,null,2),'application/json');toast('Export downloaded');},
   resetData:()=>{
     ask('Replace everything with the original sample data?',()=>{
       db=seed();state.qChip='all';state.iChip='all';state.loc='all';state.feedUser='all';
