@@ -1488,18 +1488,47 @@ async function rebuildAsLayby(o){
    Lightspeed looking like a completed sale until someone opened the order in the app. The refresh
    imports the payment and reopenPrematureClose() puts the sale straight back to an open layby, so
    Lightspeed's sales reports do not keep a completed sale for an unreceived special order. */
-setInterval(function(){
+/* A sale sitting on the register is a person standing at a counter waiting to be told the
+   money landed, so the cadence follows how long it has been waiting rather than a flat tick.
+   The previous version polled ONE order per 25s pass and round-robined between them, so with
+   three expectations open the newest waited over 90 seconds to be noticed — the reversal itself
+   takes about a second. Every waiting sale now keeps its own clock: the one raised a moment ago
+   is never queued behind an expectation left over from the morning. */
+function registerWatchList(){
+  if(typeof db==='undefined'||!db||!db.orders) return [];
+  const now=Date.now();
+  return db.orders.filter(function(o){
+    if(!(o.ls&&o.ls.saleId&&o.ls.created&&o.ls.expectAtRegister)) return false;
+    if(o.status==='completed'||o.status==='cancelled') return false;
+    const at=(o.ls.expectAtRegister&&o.ls.expectAtRegister.at)||0;
+    return !at || (now-at) < 8*60*60*1000;   /* one trading day, then stop asking */
+  });
+}
+function registerPollGap(o){
+  const at=(o.ls.expectAtRegister&&o.ls.expectAtRegister.at)||0;
+  const age=Date.now()-at;
+  if(age <  4*60*1000) return 2000;    /* they are at the till right now */
+  if(age < 20*60*1000) return 8000;    /* stepped away mid-sale */
+  return 30000;                        /* left open, still ours to finish */
+}
+function registerWatchTick(force){
   try{
-    if(typeof db==='undefined'||!db||!db.orders) return;
     if(!LS.connected||!LS.connected()) return;
-    const watch=db.orders.filter(function(o){ return o.ls&&o.ls.saleId&&o.ls.created&&o.ls.expectAtRegister&&o.status!=='completed'&&o.status!=='cancelled'; });
-    if(!watch.length) return;
-    const o=watch.sort(function(a,b){ return (a.ls.lastAutoPull||0)-(b.ls.lastAutoPull||0); })[0];
-    const now=Date.now(); if(o.ls.lastAutoPull&&now-o.ls.lastAutoPull<20000) return;
-    o.ls.lastAutoPull=now;
-    LS.refreshSale(o).catch(function(){});
+    const list=registerWatchList(); if(!list.length) return;
+    const now=Date.now();
+    list.forEach(function(o){
+      const last=o.ls.lastAutoPull||0;
+      if(now-last < (force ? 1000 : registerPollGap(o))) return;
+      o.ls.lastAutoPull=now;
+      LS.refreshSale(o).catch(function(){});
+    });
   }catch(e){}
-}, 25000);
+}
+setInterval(function(){ registerWatchTick(false); }, 1000);
+/* The rep tenders in Lightspeed and comes back to this screen. That switch is the best signal
+   there is that something just happened at the till — better than any interval. */
+document.addEventListener('visibilitychange', function(){ if(!document.hidden) registerWatchTick(true); });
+window.addEventListener('focus', function(){ registerWatchTick(true); });
 
 /* ---------- inline "new contact" on document editors ----------
    The quote and invoice editors' contact dropdown previously only listed existing contacts.
