@@ -612,16 +612,22 @@ function feedKindOf(a){
   if(vs.includes('contact')) return 'client';
   return 'job';
 }
-/* a folded day should still tell you something: how much moved, and how many entries */
-function feedDaySummary(items){
-  let money=0, seen={};
-  items.forEach(a=>{
-    const k=feedKindOf(a); seen[k]=(seen[k]||0)+1;
-    if(k==='money'){ const t=(a.parts||[]).map(p=>p.t||p.l||'').join(' ');
-      const m=t.match(/[\d][\d,]*\.?\d*/g); if(m) money+=Math.max.apply(null,m.map(x=>parseFloat(x.replace(/,/g,''))||0)); }
-  });
+/* a folded day should still tell you something: what was taken, and what was worked on.
+   The money comes from the payment records themselves, never from scraping the entry text —
+   a summary that overstates the takings is worse than one that omits them. */
+function feedDayMoney(dk){
+  let net=0;
+  (db.payments||[]).forEach(p=>{ if(dayKey(p.at)!==dk) return;
+    net += (p.kind==='refund' ? -Math.abs(+p.amount||0) : Math.abs(+p.amount||0)); });
+  return Math.round(net*100)/100;
+}
+function feedDaySummary(items, dk){
+  const seen={};
+  items.forEach(a=>{ const k=feedKindOf(a); seen[k]=(seen[k]||0)+1; });
+  const money=feedDayMoney(dk);
   const bits=[];
-  if(money>0) bits.push('<b>'+luxParts(money, money%1>0.001)+'</b> moved');
+  if(money>0) bits.push('<b>'+luxParts(money, Math.abs(money%1)>0.001)+'</b> taken');
+  else if(money<0) bits.push('<b>'+luxParts(Math.abs(money), Math.abs(money%1)>0.001)+'</b> refunded');
   FEEDKINDS.forEach(([k,label])=>{ if(!seen[k]||k==='money') return;
     const n=seen[k], word=n===1?label.toLowerCase().replace(/s$/,''):label.toLowerCase();
     bits.push(n+' '+word); });
@@ -883,7 +889,7 @@ VIEWS.dashboard=function(){
     return '<details class="feed-day"'+(open?' open':'')+' data-day="'+esc(g.dk)+'">'+
       '<summary class="daybar"><span class="dp-ch"><i class="fa-solid fa-chevron-right"></i></span>'+
         '<span class="day-date">'+esc(g.dk)+'</span>'+
-        '<span class="day-sum">'+feedDaySummary(g.items)+'</span>'+
+        '<span class="day-sum">'+feedDaySummary(g.items,g.dk)+'</span>'+
         '<span class="dp-n">'+g.items.length+'</span></summary>'+
       '<div class="feed-day-body">'+g.items.map(evHTML).join('')+'</div></details>';
   }).join('');
