@@ -47,6 +47,14 @@ function audit(action, entity, entityId, detail){
 /* On a save conflict we adopt the other side's document, but anything of ours it has never
    seen would be lost — so carry those records across by id. Records both sides hold are left
    as the server has them: last writer wins on edits, first writer never loses a whole record. */
+/* Some records have an identity outside this document. A payment taken at the Lightspeed
+   register is ONE row in Lightspeed, but two browsers that each pulled it made two local records
+   with two different ids — carry both across and the client's money is counted twice. Where a
+   record names something external, that name is its identity in the merge as well as its id. */
+const NATURAL_KEY = {
+  payments: function(p){ return (p && p.lsPaymentId) ? 'ls:'+p.lsPaymentId : null; }
+};
+
 /* Which collections carry a document number, and where the next one comes from. */
 const NUMBERED = {
   quotes:   {counter:'quote',   prefix:function(){ return 'EST-'; }},
@@ -84,15 +92,23 @@ function renumberCollisions(theirs, brought){
 }
 function carryOverMissing(theirs, mine){
   carryOverMissing.lastRenumbered = [];
+  carryOverMissing.lastDropped = 0;
   if(!theirs || !mine) return 0;
-  let carried = 0;
+  let carried = 0, dropped = 0;
   const brought = {};
   ['contacts','quotes','orders','invoices','payments','products'].forEach(k=>{
     if(!Array.isArray(mine[k])) return;
     if(!Array.isArray(theirs[k])) theirs[k] = [];
-    const known = {}; theirs[k].forEach(x=>{ if(x&&x.id) known[x.id]=1; });
+    const nat = NATURAL_KEY[k] || null;
+    const known = {}, knownNat = {};
+    theirs[k].forEach(x=>{ if(x&&x.id) known[x.id]=1; const t=nat&&nat(x); if(t) knownNat[t]=1; });
     brought[k] = [];
-    mine[k].forEach(x=>{ if(x&&x.id&&!known[x.id]){ theirs[k].push(x); brought[k].push(x); carried++; } });
+    mine[k].forEach(x=>{
+      if(!x || !x.id || known[x.id]) return;
+      const t = nat && nat(x);
+      if(t && knownNat[t]){ dropped++; return; }   /* the other side already has this very thing */
+      theirs[k].push(x); brought[k].push(x); if(t) knownNat[t]=1; carried++;
+    });
   });
   /* counters must not go backwards or the next record reuses a number */
   if(mine.counters && theirs.counters){
@@ -100,6 +116,7 @@ function carryOverMissing(theirs, mine){
       theirs.counters[k] = Math.max(+theirs.counters[k]||0, +mine.counters[k]||0);
     });
   }
+  carryOverMissing.lastDropped = dropped;
   if(carried) carryOverMissing.lastRenumbered = renumberCollisions(theirs, brought);
   return carried;
 }
@@ -266,6 +283,9 @@ async function pushServer(){
         /* a re-issued number is not housekeeping — one toast that survives, plus a notice that
            stays on the document itself, because a toast can be missed and this must not be */
         renum.forEach(function(c){ audit('record.renumbered', c.kind, c.id, c.was+' was already in use — re-issued as '+c.now); });
+        if(carryOverMissing.lastDropped){
+          audit('conflict.deduped','db',null, carryOverMissing.lastDropped+' record(s) of ours were the same Lightspeed payment the other side already had — not added twice');
+        }
         if(renum.length){
           toast(renum.length===1
             ? (renum[0].was+' was already used by another counter — this one is now '+renum[0].now)
@@ -1136,6 +1156,22 @@ expandSidebar=function(){ if(document.getElementById('qm-sidebar-expand-static')
 const _render5=render; render=function(){ _render5(); mountBigLogo(); };
 try{ mountBigLogo(); }catch(e){}
 
+/* ---------- one pull at a time per sale ----------
+   Two overlapping refreshes of the same sale both read the payment list before either had
+   written its import, so both imported it. Callers now share a single in-flight pull. */
+const _pullInFlight = {};
+const _refreshSaleRaw = LS.refreshSale.bind(LS);
+LS.refreshSale = function(o){
+  const k = o && o.ls && o.ls.saleId;
+  if(!k) return _refreshSaleRaw(o);
+  if(_pullInFlight[k]) return _pullInFlight[k];
+  _pullInFlight[k] = Promise.resolve()
+    .then(function(){ return _refreshSaleRaw(o); })
+    .then(function(v){ delete _pullInFlight[k]; return v; },
+          function(e){ delete _pullInFlight[k]; throw e; });
+  return _pullInFlight[k];
+};
+
 /* ---------- a re-issued number stays on the document until someone deals with it ----------
    A number is only ever re-issued when two counters raised a record in the same moment. The
    client may be holding paperwork with the old number and the Lightspeed sale note still carries
@@ -1207,7 +1243,9 @@ ACT.toRegister=async d=>{ const o=O(d.id); if(!o) return;
 };
 function importLsPayments(o, d){
   if(!d || !Array.isArray(d.payments) || !d.payments.length) return 0;
-  const known=new Set(orderPays(o).map(p=>String(p.lsPaymentId||p.id)));
+  /* a Lightspeed payment id can only ever belong to one record anywhere in the book */
+  const known=new Set((db.payments||[]).map(p=>String(p.lsPaymentId||'')).filter(Boolean));
+  orderPays(o).forEach(p=>known.add(String(p.lsPaymentId||p.id)));
   let added=0;
   d.payments.forEach(lp=>{
     const lid=String(lp.id||''); if(!lid||known.has(lid)) return;
