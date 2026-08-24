@@ -591,7 +591,7 @@ const $$=s=>Array.from(document.querySelectorAll(s));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const r2=n=>Math.round((+n||0)*100)/100;
-const money=n=>(db.settings.currency||'CA$')+r2(n).toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2});
+const money=n=>(db.settings.currency||'$')+r2(n).toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2});
 const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 const plusDays=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 const fmtD=iso=>!iso?'\u2014':new Date(iso+'T12:00:00').toLocaleDateString('en-CA',{year:'numeric',month:'short',day:'numeric'});
@@ -640,7 +640,7 @@ const relTime=ts=>{const m=Math.floor((Date.now()-ts)/60000);
 const initials=n=>String(n||'').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?';
 /* price typography: small currency mark, tabular figures, muted decimals */
 function luxParts(n,dec){
-  const cur=((typeof db!=='undefined'&&db.settings&&db.settings.currency)||'CA$');
+  const cur=((typeof db!=='undefined'&&db.settings&&db.settings.currency)||'$');
   const v=Math.round((+n||0)*100)/100;
   const p=Math.abs(v).toLocaleString('en-CA',{minimumFractionDigits:dec?2:0,maximumFractionDigits:dec?2:0}).split('.');
   return '<span class="lux-cur">'+cur+'</span>'+(v<0?'-':'')+p[0]+(p[1]?'<span class="lux-dec">.'+p[1]+'</span>':'');
@@ -671,7 +671,7 @@ function seed(){
     settings:{
       company:'Raffi Jewellers', email:'info@example.com', phone:'(905) 000-0000',
       address:'100 City Centre Dr\nMississauga, ON',
-      user:'Al Sukara', currency:'CA$', taxName:'HST', taxRate:13,
+      user:'Al Sukara', currency:'$', taxName:'HST', taxRate:13,
       locations:['Mississauga','Toronto'],
       terms:'Estimate valid until the expiry date shown. Prices in Canadian dollars. All sales subject to availability.'
     },
@@ -865,7 +865,7 @@ VIEWS.dashboard=function(){
   const openI=invs.filter(i=>{const st=iStatus(i);return st==='open'||st==='partial';});
   const overI=invs.filter(i=>iStatus(i)==='overdue');
   const sum=(arr,fn)=>arr.reduce((s,x)=>s+fn(x),0);
-  const mv=n=>{const v=r2(n);return (db.settings.currency||'CA$')+(v%1===0?v.toLocaleString('en-CA'):v.toLocaleString('en-CA',{minimumFractionDigits:1,maximumFractionDigits:2}));};
+  const mv=n=>{const v=r2(n);return (db.settings.currency||'$')+(v%1===0?v.toLocaleString('en-CA'):v.toLocaleString('en-CA',{minimumFractionDigits:1,maximumFractionDigits:2}));};
   const actors=Array.from(new Set(db.activity.map(a=>a.actor).filter(Boolean)));
   const feedItems=db.activity.filter(a=>state.feedUser==='all'||a.actor===state.feedUser).slice().sort((a,b)=>b.at-a.at);
   const kindCounts={}; feedItems.forEach(a=>{const k=feedKindOf(a);kindCounts[k]=(kindCounts[k]||0)+1;});
@@ -1599,7 +1599,7 @@ const ACT={
     s.phone=$('#s-phone').value.trim();
     s.address=$('#s-address').value;
     s.user=$('#s-user').value.trim()||'User';
-    s.currency=$('#s-currency').value.trim()||'CA$';
+    s.currency=$('#s-currency').value.trim()||'$';
     s.taxName=$('#s-taxName').value.trim()||'Tax';
     s.taxRate=+$('#s-taxRate').value||0;
     s.locations=$('#s-locations').value.split(',').map(x=>x.trim()).filter(Boolean);

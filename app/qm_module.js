@@ -1793,7 +1793,7 @@ function kbEnsureCss(){
   document.head.appendChild(st);
 }
 function kbAge(ts){ if(!ts) return 0; return Math.floor((Date.now()-ts)/86400000); }
-function kbMoney(n){ const v=r2(n); return (db.settings.currency||'CA$')+v.toLocaleString('en-CA',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function kbMoney(n){ const v=r2(n); return (db.settings.currency||'$')+v.toLocaleString('en-CA',{minimumFractionDigits:0,maximumFractionDigits:0}); }
 function kbMatch(txt){ const q=(state.kbQ||'').trim().toLowerCase(); return !q || String(txt||'').toLowerCase().indexOf(q)>-1; }
 function kbLoc(x){ return !state.kbLoc || state.kbLoc==='all' || x.loc===state.kbLoc; }
 function kbCard(kind, x){
