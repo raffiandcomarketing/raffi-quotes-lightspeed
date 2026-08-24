@@ -218,11 +218,15 @@ async function pushServer(){
       if(r.j.doc && r.j.doc.v===1){
         const mine = db, theirs = migrateDB(r.j.doc);
         const carried = carryOverMissing(theirs, mine);
-        db = theirs; rememberVersion(serverVersion); mirrorLocal(); render();
+        db = theirs; rememberVersion(serverVersion); render();
         toast(carried
           ? ('Updated by '+(r.j.updated_by||'another user')+' — '+carried+' of your record'+(carried===1?'':'s')+' kept and re-saved')
           : ('Updated by '+(r.j.updated_by||'another user')+' — screen refreshed with latest data'));
         audit('conflict','db',null,'server version '+serverVersion+' adopted; '+carried+' local record(s) carried over');
+        /* mirror AFTER the audit line is on the document, or a conflict that carried nothing
+           leaves no trace anywhere: it is never re-pushed, so the browser copy is the only
+           place it could have been recorded. */
+        mirrorLocal();
         if(carried){ saveQueued=true; }        /* push the merged copy back up */
       }else{
         toast('Updated by '+(r.j.updated_by||'another user')+' — screen refreshed with latest data');
