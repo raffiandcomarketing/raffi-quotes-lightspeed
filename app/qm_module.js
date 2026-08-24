@@ -7,6 +7,11 @@
    - Deposits/partial payments -> Lightspeed LAYBY sale (revenue deferred until fully paid)
    - Idempotent sale/payment ids, retry-safe ops, guards on status transitions
    ===================================================================================== */
+/* Bump this on any deploy whose behaviour other tills must have before they write again.
+   The server keeps the highest sequence it has ever seen and refuses writes from anything
+   older, because a browser holding stale code cannot be reached any other way — it will go on
+   re-adding records the new code removed and re-making decisions the new code no longer makes. */
+const BUILD_SEQ = 3;
 const LS_CFG = {
   base: 'https://hjcgqxszwqmzirtlaxze.supabase.co/functions/v1',
   anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqY2dxeHN6d3FtemlydGxheHplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMjg5ODgsImV4cCI6MjEwMTcwNDk4OH0.NeeSPn4xcX91-3nyK2o3N0i4XhTIsMe5MGCHvS-htbA',
@@ -178,6 +183,8 @@ let serverVersion = 0, serverOK = false, saveInFlight = false, saveQueued = fals
    may be written up: the copy on screen came from this browser, and the browser's copy can be
    behind the server without either of them knowing it. */
 let serverSettled = false;
+/* set when the server has told this tab its code is too old to be trusted with a write */
+let staleBuild = false;
 /* serverVersion is the newest version we have SEEN. docVersion is the version the document in
    memory actually came FROM. They diverge whenever we look at the server without adopting its
    copy — and a save must be based on the second, never the first, or a tab left open all day
@@ -265,7 +272,16 @@ async function pushServer(){
   if(saveInFlight){ saveQueued=true; return; }
   saveInFlight=true;
   try{
-    const r = await sbFetch('/qm-state',{method:'PUT', body: JSON.stringify({doc:db, base_version:docVersion, user:curUser().name})});
+    if(staleBuild){ saveQueued=false; pendingPush=false; return; }
+    const r = await sbFetch('/qm-state',{method:'PUT', body: JSON.stringify({doc:db, base_version:docVersion, build_seq:BUILD_SEQ, user:curUser().name})});
+    if(r.status===426){
+      /* Everything typed here is still in this browser. Reloading picks up the current code and
+         the normal conflict merge then folds this work in — so say that, rather than just stopping. */
+      staleBuild = true; saveQueued=false; pendingPush=false;
+      try{ render(); }catch(e){}
+      toast('This tab is running an old version and can no longer save. Reload the page — nothing you have typed is lost.', 15000);
+      return;
+    }
     if(r.status===409 && r.j && r.j.conflict){
       /* someone else saved first. Take their copy as the base, but carry over anything of ours
          they have never seen — a job raised at this counter must not vanish because another
@@ -313,6 +329,11 @@ commit = function(){
   },250);
 };
 bannerHTML = function(){
+  if(staleBuild) return '<div class="banner no-print" style="background:#97303A;border-color:#97303A;color:#fff">'+
+    '<i class="fa-solid fa-triangle-exclamation"></i>'+
+    '<span><b>This tab is out of date and has stopped saving.</b> Another till is running a newer version of the app. '+
+    'Nothing you have typed is lost — reload and it will be saved. Until you do, changes made here stay in this browser only.</span> '+
+    '<button class="b2 p" data-act="reloadApp" style="margin-left:12px">Reload now</button></div>';
   if(serverOK||hasStore) return '';
   return '<div class="banner no-print"><i class="fa-solid fa-triangle-exclamation"></i><span>Shared server storage is unreachable — data is being kept in this browser only (localStorage). Changes made here are not visible to other users until the server is back.</span></div>';
 };
@@ -1193,6 +1214,7 @@ VIEWS.order = function(){
   }
   return h;
 };
+ACT.reloadApp = () => { location.reload(); };
 ACT.ackRenumber = d => {
   const o=O(d.id); if(!o||!o.renumberedFrom) return;
   audit('record.renumber_ack','order',o.id,o.renumberedFrom+' → '+o.number);
