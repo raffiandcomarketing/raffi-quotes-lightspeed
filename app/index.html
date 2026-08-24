@@ -670,7 +670,7 @@ function luxParts(n,dec){
 /* figures are written at their final value when the plate is built — counting up from zero
    read as a slow load. Kept as a no-op so any existing call site stays safe. */
 function luxCountUp(){}
-function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2200);}
+function toast(msg,ms){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),ms||2200);}
 
 /* ================= persistence ================= */
 const KEY='raffi-service-db-v1';

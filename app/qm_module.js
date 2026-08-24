@@ -47,14 +47,52 @@ function audit(action, entity, entityId, detail){
 /* On a save conflict we adopt the other side's document, but anything of ours it has never
    seen would be lost — so carry those records across by id. Records both sides hold are left
    as the server has them: last writer wins on edits, first writer never loses a whole record. */
+/* Which collections carry a document number, and where the next one comes from. */
+const NUMBERED = {
+  quotes:   {counter:'quote',   prefix:function(){ return 'EST-'; }},
+  orders:   {counter:'order',   prefix:function(x){ return (x&&x.kind==='special') ? 'SO-' : 'JOB-'; }},
+  invoices: {counter:'invoice', prefix:function(){ return 'INV-'; }},
+  payments: {counter:'payment', prefix:function(){ return 'PAY-'; }}
+};
+/* Two counters can raise a record in the same moment, each numbering from its own copy of the
+   counter, so a record carried across a conflict can arrive holding a number the other side has
+   already given out. The one that was already on the server keeps its number — it is the one a
+   client may already be holding paperwork for — and the newcomer is re-issued from the merged
+   counter. Every change is returned so it can be told to the person at the till, because the
+   Lightspeed sale note still carries the old number until they re-sync it. */
+function renumberCollisions(theirs, brought){
+  const changes = [];
+  if(!theirs || !theirs.counters) return changes;
+  Object.keys(NUMBERED).forEach(k=>{
+    const spec = NUMBERED[k], list = theirs[k];
+    if(!Array.isArray(list)) return;
+    const isNew = {}; (brought[k]||[]).forEach(x=>{ if(x&&x.id) isNew[x.id]=1; });
+    const taken = {};
+    list.forEach(x=>{ if(x&&x.number&&!isNew[x.id]) taken[x.number]=1; });
+    list.forEach(x=>{
+      if(!x || !x.id || !isNew[x.id] || !x.number) return;
+      if(!taken[x.number]){ taken[x.number]=1; return; }
+      let n, guard=0;
+      do { n = spec.prefix(x) + pad4(theirs.counters[spec.counter]++); } while(taken[n] && ++guard<10000);
+      taken[n] = 1;
+      changes.push({kind:k, id:x.id, was:x.number, now:n, hasSale:!!(x.ls&&x.ls.saleId)});
+      if(k==='orders') x.renumberedFrom = x.number;   /* shown on the document until acknowledged */
+      x.number = n;
+    });
+  });
+  return changes;
+}
 function carryOverMissing(theirs, mine){
+  carryOverMissing.lastRenumbered = [];
   if(!theirs || !mine) return 0;
   let carried = 0;
+  const brought = {};
   ['contacts','quotes','orders','invoices','payments','products'].forEach(k=>{
     if(!Array.isArray(mine[k])) return;
     if(!Array.isArray(theirs[k])) theirs[k] = [];
     const known = {}; theirs[k].forEach(x=>{ if(x&&x.id) known[x.id]=1; });
-    mine[k].forEach(x=>{ if(x&&x.id&&!known[x.id]){ theirs[k].push(x); carried++; } });
+    brought[k] = [];
+    mine[k].forEach(x=>{ if(x&&x.id&&!known[x.id]){ theirs[k].push(x); brought[k].push(x); carried++; } });
   });
   /* counters must not go backwards or the next record reuses a number */
   if(mine.counters && theirs.counters){
@@ -62,6 +100,7 @@ function carryOverMissing(theirs, mine){
       theirs.counters[k] = Math.max(+theirs.counters[k]||0, +mine.counters[k]||0);
     });
   }
+  if(carried) carryOverMissing.lastRenumbered = renumberCollisions(theirs, brought);
   return carried;
 }
 
@@ -218,11 +257,20 @@ async function pushServer(){
       if(r.j.doc && r.j.doc.v===1){
         const mine = db, theirs = migrateDB(r.j.doc);
         const carried = carryOverMissing(theirs, mine);
+        const renum = carryOverMissing.lastRenumbered || [];
         db = theirs; rememberVersion(serverVersion); render();
         toast(carried
           ? ('Updated by '+(r.j.updated_by||'another user')+' — '+carried+' of your record'+(carried===1?'':'s')+' kept and re-saved')
           : ('Updated by '+(r.j.updated_by||'another user')+' — screen refreshed with latest data'));
         audit('conflict','db',null,'server version '+serverVersion+' adopted; '+carried+' local record(s) carried over');
+        /* a re-issued number is not housekeeping — one toast that survives, plus a notice that
+           stays on the document itself, because a toast can be missed and this must not be */
+        renum.forEach(function(c){ audit('record.renumbered', c.kind, c.id, c.was+' was already in use — re-issued as '+c.now); });
+        if(renum.length){
+          toast(renum.length===1
+            ? (renum[0].was+' was already used by another counter — this one is now '+renum[0].now)
+            : (renum.length+' records were re-numbered — another counter had used those numbers'), 9000);
+        }
         /* mirror AFTER the audit line is on the document, or a conflict that carried nothing
            leaves no trace anywhere: it is never re-pushed, so the browser copy is the only
            place it could have been recorded. */
@@ -1087,6 +1135,33 @@ const _expandSidebar=expandSidebar;
 expandSidebar=function(){ if(document.getElementById('qm-sidebar-expand-static')) return; _expandSidebar(); };
 const _render5=render; render=function(){ _render5(); mountBigLogo(); };
 try{ mountBigLogo(); }catch(e){}
+
+/* ---------- a re-issued number stays on the document until someone deals with it ----------
+   A number is only ever re-issued when two counters raised a record in the same moment. The
+   client may be holding paperwork with the old number and the Lightspeed sale note still carries
+   it, so a toast is not enough — this sits on the job until it is acknowledged. */
+const _orderViewBeforeRenum = VIEWS.order;
+VIEWS.order = function(){
+  let h = _orderViewBeforeRenum.apply(this, arguments);
+  const o = O(state.id);
+  if(o && o.renumberedFrom){
+    const banner='<div class="card" style="margin-bottom:18px;border-left:5px solid #97303A"><div class="panel">'+
+      '<h3><i class="fa-solid fa-right-left"></i> This was '+esc(o.renumberedFrom)+' &mdash; it is now '+esc(o.number)+'</h3>'+
+      '<p class="mut sm" style="margin:6px 0 10px">Another counter had already used '+esc(o.renumberedFrom)+' when this was saved, so this one was re-issued. '+
+      ((o.ls&&o.ls.saleId) ? 'The Lightspeed sale note still reads '+esc(o.renumberedFrom)+' &mdash; press <b>Sync with Lightspeed</b> to correct it. ' : '')+
+      'Reprint anything the client was given with the old number.</p>'+
+      '<div class="actrow"><button class="b2 o" data-act="ackRenumber" data-id="'+o.id+'"><i class="fa-solid fa-check"></i> Done &mdash; hide this</button></div>'+
+      '</div></div>';
+    h = h.replace('<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Job details',
+                  banner+'<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Job details');
+  }
+  return h;
+};
+ACT.ackRenumber = d => {
+  const o=O(d.id); if(!o||!o.renumberedFrom) return;
+  audit('record.renumber_ack','order',o.id,o.renumberedFrom+' → '+o.number);
+  delete o.renumberedFrom; commit(); render(); toast('Noted');
+};
 
 /* ---------- special orders: Lightspeed line lifecycle ----------
    1) Created  → line posts as the shared "Special Order Product"; the line + sale note carry
