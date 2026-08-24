@@ -25,9 +25,12 @@ const PERMS = {
 const LS_STATUS_LABEL = (ls)=>{ if(!ls||!ls.saleId) return '—'; if(ls.state==='voided') return 'Voided'; if(ls.state==='closed') return (ls.attrs||[]).includes('layby')?'Layaway – completed':'Completed'; if(ls.state==='pending') return 'Layaway (open)'; return ls.state||'?'; };
 
 /* ---------- current user / roles ---------- */
+/* Which staff member this browser is signed in as. The old key carried the previous
+   product's prefix; it is read once so nobody is signed out, then dropped on next switch. */
+var USER_KEY = 'raffi-current-user', USER_KEY_LEGACY = 'qm-current-user';
 function curUser(){
   const us = (db.settings.users||[]);
-  let id = state.userId || localStorage.getItem('qm-current-user');
+  let id = state.userId || localStorage.getItem(USER_KEY) || localStorage.getItem(USER_KEY_LEGACY);
   let u = us.find(x=>x.id===id) || us[0] || {id:'u-local', name: db.settings.user||'User', role:'admin'};
   state.userId = u.id; return u;
 }
@@ -180,6 +183,14 @@ loadDB = async function(){
   if(doc) rememberVersion(serverVersion);
   return doc;
 };
+/* Keep the in-browser mirror in step with db. Called on every commit and again after a
+   conflict merge: without the second call a tab that merged would still hold its pre-merge
+   copy in localStorage, and reopening that tab offline would resurrect the losing side. */
+function mirrorLocal(){
+  try{ localStorage.setItem(LOCAL_KEY, JSON.stringify(db)); }catch(e){ console.warn('localStorage save failed', e); }
+  if(hasStore){ try{ return window.storage.set(KEY, JSON.stringify(db)); }catch(e){} }
+  return Promise.resolve();
+}
 async function pushServer(){
   if(!serverOK){ pendingPush=true; return; }   /* park it; loadDB flushes once the server answers */
   if(saveInFlight){ saveQueued=true; return; }
@@ -194,7 +205,7 @@ async function pushServer(){
       if(r.j.doc && r.j.doc.v===1){
         const mine = db, theirs = migrateDB(r.j.doc);
         const carried = carryOverMissing(theirs, mine);
-        db = theirs; rememberVersion(serverVersion); render();
+        db = theirs; rememberVersion(serverVersion); mirrorLocal(); render();
         toast(carried
           ? ('Updated by '+(r.j.updated_by||'another user')+' — '+carried+' of your record'+(carried===1?'':'s')+' kept and re-saved')
           : ('Updated by '+(r.j.updated_by||'another user')+' — screen refreshed with latest data'));
@@ -212,8 +223,7 @@ commit = function(){
   dirtySinceBoot=true;
   clearTimeout(saveT);
   saveT = setTimeout(async()=>{
-    try{ localStorage.setItem(LOCAL_KEY, JSON.stringify(db)); }catch(e){ console.warn('localStorage save failed', e); }
-    if(hasStore){ try{ await window.storage.set(KEY, JSON.stringify(db)); }catch(e){} }
+    try{ await mirrorLocal(); }catch(e){}
     pushServer();
   },250);
 };
@@ -754,7 +764,7 @@ function mountUserSwitch(){
   if(!$('#userSwitch')){ const sel=document.createElement('select'); sel.id='userSwitch'; sel.className='select'; sel.style.marginLeft='8px'; sel.setAttribute('aria-label','Switch user'); sel.addEventListener('change',()=>{ const target=db.settings.users.find(x=>x.id===sel.value); if(!target) return; if(target.pin){ openModal('Switch user — '+target.name,'<div class="fld"><label>PIN</label><input id="pin-input" type="password" inputmode="numeric" autocomplete="off"></div>','<button class="b2 o" data-act="pinCancel">Cancel</button><button class="b2 p" data-act="pinConfirm" data-id="'+target.id+'">Switch</button>'); setTimeout(()=>{ const i=$('#pin-input'); if(i) i.focus(); },0); return; } switchUser(target); }); tu.parentNode.insertBefore(sel, tu.nextSibling); }
   const sel=$('#userSwitch'); sel.innerHTML=(db.settings.users||[]).map(x=>'<option value="'+x.id+'"'+(x.id===u.id?' selected':'')+'>'+esc(x.name)+'</option>').join('');
 }
-function switchUser(target){ state.userId=target.id; localStorage.setItem('qm-current-user',target.id); db.settings.user=target.name; audit('user.switched','user',target.id,target.name); commit(); render(); toast('Now working as '+target.name+' ('+target.role+')'); }
+function switchUser(target){ state.userId=target.id; localStorage.setItem(USER_KEY,target.id); try{ localStorage.removeItem(USER_KEY_LEGACY); }catch(e){} db.settings.user=target.name; audit('user.switched','user',target.id,target.name); commit(); render(); toast('Now working as '+target.name+' ('+target.role+')'); }
 ACT.pinCancel=()=>{ closeModal(); const sel=$('#userSwitch'); if(sel) sel.value=curUser().id; };
 ACT.pinConfirm=d=>{ const target=db.settings.users.find(x=>x.id===d.id); const pin=($('#pin-input')||{}).value||''; if(!target) return; if(pin!==String(target.pin)){ toast('Wrong PIN'); audit('user.pin_failed','user',target.id,null); return; } closeModal(); switchUser(target); };
 document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target&&e.target.id==='pin-input'){ e.preventDefault(); const b=document.querySelector('[data-act="pinConfirm"]'); if(b) b.click(); } });
