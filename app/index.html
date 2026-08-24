@@ -1047,6 +1047,8 @@ function curDoc(){
   return null;
 }
 function lineRows(d){
+  if(!d.items.length) return '<tr><td colspan="6" class="mut sm" style="padding:16px 12px">'+
+    'Nothing on this document yet \u2014 add a line, or pick something from products.</td></tr>';
   return d.items.map((it,i)=>
     '<tr><td style="min-width:240px"><input class="nm" data-li="'+i+'" data-f="name" value="'+esc(it.name)+'" placeholder="Item name">'+
     '<input class="ds" data-li="'+i+'" data-f="desc" value="'+esc(it.desc||'')+'" placeholder="Description (optional)"></td>'+
@@ -1392,7 +1394,7 @@ const clone=x=>JSON.parse(JSON.stringify(x));
 function makeQuote(contactId){
   const n='EST-'+pad4(db.counters.quote++);
   const q={id:uid(),number:n,contactId:contactId||'',date:todayISO(),expiry:plusDays(todayISO(),30),loc:defLoc(),status:'draft',
-    items:[{name:'',desc:'',qty:1,price:0,taxable:true}],discountPct:0,notes:'',
+    items:[],discountPct:0,notes:'',
     signedBy:null,signedAt:null,signature:null,createdAt:Date.now(),orderId:null,invoiceId:null,isTemplate:false};
   db.quotes.push(q);
   logAct('plus',db.settings.user,[{t:db.settings.user+' created quote '},{l:n,v:'quote',id:q.id}],null);
@@ -1401,7 +1403,7 @@ function makeQuote(contactId){
 function makeInvoice(contactId,src){
   const n='INV-'+pad4(db.counters.invoice++);
   const inv={id:uid(),number:n,contactId:contactId||'',quoteId:src?src.id:null,date:todayISO(),dueDate:plusDays(todayISO(),30),
-    loc:src?src.loc:defLoc(),items:src?clone(src.items):[{name:'',desc:'',qty:1,price:0,taxable:true}],
+    loc:src?src.loc:defLoc(),items:src?clone(src.items):[],
     discountPct:src?(src.discountPct||0):0,notes:src?(src.notes||''):'',createdAt:Date.now()};
   db.invoices.push(inv);
   const parts=[{t:db.settings.user+' created invoice '},{l:n,v:'invoice',id:inv.id}].concat(src?[{t:' from '},{l:src.number,v:'quote-doc',id:src.id}]:[]);
@@ -1560,7 +1562,7 @@ const ACT={
   },
   /* line items */
   addLine:()=>{const dd=curDoc();if(!dd)return;dd.items.push({name:'',desc:'',qty:1,price:0,taxable:true});redrawItems();commit();},
-  rmLine:d=>{const dd=curDoc();if(!dd)return;dd.items.splice(+d.i,1);if(!dd.items.length)dd.items.push({name:'',desc:'',qty:1,price:0,taxable:true});redrawItems();commit();},
+  rmLine:d=>{const dd=curDoc();if(!dd)return;dd.items.splice(+d.i,1);redrawItems();commit();},
   sigClear:()=>{const cv=$('#sigpad');if(!cv||!cv.getContext)return;const ctx=cv.getContext('2d');if(ctx)ctx.clearRect(0,0,cv.width,cv.height);sigDrawn=false;},
   /* orders */
   sendMsg:d=>{
