@@ -11,7 +11,7 @@
    The server keeps the highest sequence it has ever seen and refuses writes from anything
    older, because a browser holding stale code cannot be reached any other way — it will go on
    re-adding records the new code removed and re-making decisions the new code no longer makes. */
-const BUILD_SEQ = 3;
+const BUILD_SEQ = 4;
 const LS_CFG = {
   base: 'https://hjcgqxszwqmzirtlaxze.supabase.co/functions/v1',
   anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqY2dxeHN6d3FtemlydGxheHplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMjg5ODgsImV4cCI6MjEwMTcwNDk4OH0.NeeSPn4xcX91-3nyK2o3N0i4XhTIsMe5MGCHvS-htbA',
@@ -354,6 +354,30 @@ const orderLocked = {}; // in-flight lock per order (double-click / double-submi
 
 /* ---------- Lightspeed API client (via backend proxy; test store locked server-side) ---------- */
 const LS = {
+  /* A stored Lightspeed id is only valid for the store it came from. Connecting the
+     app to a different store leaves every cached customer/product id pointing at
+     nothing, and the ensure* helpers below used to trust those ids blindly — the
+     first deposit after a store change would post a sale referencing a customer
+     and a product that do not exist. Verified once per id per session.
+     Only a definite answer invalidates — a 404, or a 200 carrying deleted_at. On a
+     network blip or a 5xx we keep the id, because re-creating a customer that does
+     exist is the worse mistake. */
+  _alive: {},
+  async alive(path, id){
+    if(!id) return false;
+    const k = path+'|'+id;
+    if(this._alive[k]!==undefined) return this._alive[k];
+    let r; try { r = await this.call('GET', path+id); } catch(_e){ return true; }
+    if(r.status===404){ this._alive[k]=false; return false; }
+    if(r.status>=200 && r.status<300){
+      /* a soft-deleted record still answers 200 — that is exactly how a retired
+         product stayed in use long after it was deleted, so check the flag too */
+      const d = r.data && r.data.data;
+      const ok = !(d && d.deleted_at);
+      this._alive[k]=ok; return ok;
+    }
+    return true;
+  },
   async call(method, path, body, opts={}){
     const payload = {method, path, body, op_id: opts.opId||undefined, raffi_user: curUser().name, meta: opts.meta||undefined};
     let lastErr=null;
@@ -449,7 +473,10 @@ const LS = {
   },
   async ensureGenericService(){
     const s = db.settings.ls;
-    if(s.genericServiceProductId) return s.genericServiceProductId;
+    if(s.genericServiceProductId){
+      if(await LS.alive('/api/2.0/products/', s.genericServiceProductId)) return s.genericServiceProductId;
+      s.genericServiceProductId=null; commit();
+    }
     const r = await LS.call('GET','/api/2.0/search?type=products&sku='+encodeURIComponent(LS_CFG.genericServiceSku));
     const hit = r.status===200 && r.data.data && r.data.data[0];
     if(hit){ s.genericServiceProductId=hit.id; return hit.id; }
@@ -459,7 +486,10 @@ const LS = {
   },
   async ensureSpecialOrderProduct(){
     const s = db.settings.ls;
-    if(s.specialOrderProductId) return s.specialOrderProductId;
+    if(s.specialOrderProductId){
+      if(await LS.alive('/api/2.0/products/', s.specialOrderProductId)) return s.specialOrderProductId;
+      s.specialOrderProductId=null; commit();
+    }
     const r = await LS.call('GET','/api/2.0/search?type=products&sku='+encodeURIComponent(LS_CFG.specialOrderSku));
     const hit = r.status===200 && r.data.data && r.data.data[0];
     if(hit){ s.specialOrderProductId=hit.id; commit(); return hit.id; }
@@ -470,7 +500,11 @@ const LS = {
   /* customers */
   async ensureCustomer(contact){
     if(!contact) throw new Error('A contact is required before taking a deposit (Lightspeed laybys need a customer)');
-    if(contact.lsCustomerId) return contact.lsCustomerId;
+    if(contact.lsCustomerId){
+      if(await LS.alive('/api/2.0/customers/', contact.lsCustomerId)) return contact.lsCustomerId;
+      audit('ls.customer.stale','contact',contact.id,{was:contact.lsCustomerId});
+      contact.lsCustomerId=null; commit();
+    }
     // 1) email match
     if(contact.email){ const r = await LS.call('GET','/api/2.0/search?type=customers&email='+encodeURIComponent(contact.email)); const hit=r.status===200&&r.data.data&&r.data.data.find(c=>(c.email||'').toLowerCase()===contact.email.toLowerCase()); if(hit){ contact.lsCustomerId=hit.id; audit('ls.customer.linked','contact',contact.id,{lsCustomerId:hit.id,by:'email'}); commit(); return hit.id; } }
     // 2) customer_code match (every record carries the RJ- prefix; the legacy-prefixed
