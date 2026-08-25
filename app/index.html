@@ -1041,10 +1041,20 @@ function lineRows(d){
     '<input class="ds" data-li="'+i+'" data-f="desc" value="'+esc(it.desc||'')+'" placeholder="Description (optional)"></td>'+
     '<td class="r"><input class="n" type="number" min="0" step="1" data-li="'+i+'" data-f="qty" value="'+(+it.qty||0)+'"></td>'+
     '<td class="r"><input class="n" type="number" min="0" step="0.01" data-li="'+i+'" data-f="price" value="'+(+it.price||0)+'"></td>'+
-    '<td class="r" style="white-space:nowrap"><label class="sm mut"><input type="checkbox" data-li="'+i+'" data-f="taxable"'+(it.taxable?' checked':'')+'> '+esc(db.settings.taxName)+'</label></td>'+
+    '<td class="r" style="white-space:nowrap"><label class="sm mut"><input type="checkbox" data-li="'+i+'" data-f="taxable"'+(it.taxable?' checked':'')+'> <span class="li-taxlbl">'+esc(docTaxName(d))+'</span></label></td>'+
     '<td class="r" id="lt-'+i+'">'+money((+it.qty||0)*(+it.price||0))+'</td>'+
     '<td class="r"><button class="li-rm" data-act="rmLine" data-i="'+i+'" aria-label="Remove line"><i class="fa-solid fa-xmark"></i></button></td></tr>'
   ).join('');
+}
+/* The tax name and rate belong to the LOCATION on the document, not to the global
+   default — an estimate raised in Montreal is GST+QST 14.975%, not HST 13%. totals()
+   already computes the right amount per location; these two keep the LABEL honest.
+   Guarded because index.html parses before the integration module defines them. */
+function docTaxName(d){
+  return (typeof locTaxName==='function' && d && d.loc) ? locTaxName(d.loc) : (db.settings.taxName||'Tax');
+}
+function docTaxRate(d){
+  return (typeof locTaxRate==='function' && d && d.loc) ? locTaxRate(d.loc) : (+db.settings.taxRate||0);
 }
 function totalsBlock(d,isInvoice){
   const t=totals(d);
@@ -1054,8 +1064,8 @@ function totalsBlock(d,isInvoice){
           '<div class="row" style="font-weight:600"><span>Balance due</span><span id="t-bal">'+money(balance(d))+'</span></div>';
   }
   return'<div class="totals"><div class="row mut"><span>Subtotal</span><span id="t-sub">'+money(t.sub)+'</span></div>'+
-  '<div class="row mut"><span>Discount ('+(+d.discountPct||0)+'%)</span><span id="t-disc">\u2212'+money(t.disc)+'</span></div>'+
-  '<div class="row mut"><span>'+esc(db.settings.taxName)+' ('+db.settings.taxRate+'%)</span><span id="t-tax">'+money(t.tax)+'</span></div>'+
+  '<div class="row mut"><span id="t-disc-lbl">Discount ('+(+d.discountPct||0)+'%)</span><span id="t-disc">\u2212'+money(t.disc)+'</span></div>'+
+  '<div class="row mut"><span id="t-tax-lbl">'+esc(docTaxName(d))+' ('+docTaxRate(d)+'%)</span><span id="t-tax">'+money(t.tax)+'</span></div>'+
   '<div class="row grand"><span>Total</span><span id="t-grand">'+money(t.total)+'</span></div>'+extra+'</div>';
 }
 function itemsPanel(d,isInvoice){
@@ -1076,6 +1086,10 @@ function updTotals(d){
   if($('#t-sub'))$('#t-sub').textContent=money(t.sub);
   if($('#t-disc'))$('#t-disc').textContent='\u2212'+money(t.disc);
   if($('#t-tax'))$('#t-tax').textContent=money(t.tax);
+  /* the labels carry the percentages, so they have to move with the values */
+  if($('#t-disc-lbl'))$('#t-disc-lbl').textContent='Discount ('+(+d.discountPct||0)+'%)';
+  if($('#t-tax-lbl'))$('#t-tax-lbl').textContent=docTaxName(d)+' ('+docTaxRate(d)+'%)';
+  $$('.li-taxlbl').forEach(el=>{el.textContent=docTaxName(d);});
   if($('#t-grand'))$('#t-grand').textContent=money(t.total);
   if(state.view==='invoice'){
     if($('#t-paid'))$('#t-paid').textContent=money(paidAmt(d));
@@ -1127,7 +1141,7 @@ function docHTML(d,kind){
   const st=isInv?badge(IB,iStatus(d)):badge(QB,d.status);
   let totalRows='<tr><td colspan="3" class="r mut">Subtotal</td><td class="r">'+money(t.sub)+'</td></tr>';
   if(t.disc>0)totalRows+='<tr><td colspan="3" class="r mut">Discount ('+(+d.discountPct||0)+'%)</td><td class="r">\u2212'+money(t.disc)+'</td></tr>';
-  totalRows+='<tr><td colspan="3" class="r mut">'+esc(s.taxName)+' ('+s.taxRate+'%)</td><td class="r">'+money(t.tax)+'</td></tr>'+
+  totalRows+='<tr><td colspan="3" class="r mut">'+esc(docTaxName(d))+' ('+docTaxRate(d)+'%)</td><td class="r">'+money(t.tax)+'</td></tr>'+
   '<tr><td colspan="3" class="r" style="font-weight:700;border-bottom:none">Total</td><td class="r" style="font-weight:700;border-bottom:none">'+money(t.total)+'</td></tr>';
   if(isInv&&paidAmt(d)>0){
     totalRows+='<tr><td colspan="3" class="r mut" style="border-bottom:none">Paid</td><td class="r mut" style="border-bottom:none">'+money(paidAmt(d))+'</td></tr>'+
