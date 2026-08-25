@@ -400,6 +400,18 @@ const LS = {
     try{ const r = await sbFetch('/lightspeed-oauth/status'); if(r.ok){ const c=r.j.connection; db.settings.ls.connected=!!r.j.connected; db.settings.ls.store=c?c.domain_prefix:null; db.settings.ls.retailerName=c?c.retailer_name:null; db.settings.ls.secretConfigured=!!r.j.secret_configured; db.settings.ls.scopes=c?c.scopes:null; db.settings.ls.tokenExpires=c?c.token_expires_at:null; return r.j; } }catch(e){}
     return null;
   },
+  /* X-Series Redirect API: hands a sale straight to the register with the Pay screen
+     open and the outstanding balance pre-filled and selected — no hunting through Sales
+     history, no receipt number to read off, and for a full settlement nothing to type.
+     Only platform / action / callback_url are supported; there is no parameter to
+     pre-fill a partial amount, so a deposit still has to be typed at the till.
+     The prefix comes from the live connection, not the build constant, so this keeps
+     working when the app is pointed at a different store. */
+  payUrl(o){
+    const prefix = (db.settings.ls && db.settings.ls.store) || LS_CFG.storePrefix;
+    if(!prefix || !o || !o.ls || !o.ls.saleId || !o.ls.created) return null;
+    return 'https://'+prefix+'.retail.lightspeed.app/redirect/1.0/sales/'+o.ls.saleId+'?action=pay';
+  },
   connectUrl(){ const ret = location.href.split('?')[0].split('#')[0]; return LS_CFG.base+'/lightspeed-oauth/start?return_to='+encodeURIComponent(ret); },
   /* reference data */
   async syncRef(){
@@ -1363,7 +1375,9 @@ const _orderView3=VIEWS.order; VIEWS.order=function(){
     const banner='<div class="card" style="margin-bottom:18px;border-left:5px solid #B08D3F"><div class="panel">'+
       '<h3><i class="fa-solid fa-cash-register"></i> Waiting on the register — collect '+(ex.amount?money(ex.amount):'the deposit')+'</h3>'+
       '<ol style="margin:8px 0 0 20px;line-height:1.8;font-size:14.5px">'+
-      '<li>In Lightspeed: <b>Sell → Sales history</b> → receipt <b>#'+esc(String(o.ls.receipt||'?'))+'</b> → <b>Continue sale</b>.</li>'+
+      (LS.payUrl(o)
+        ? '<li><a class="b2 p" style="text-decoration:none" href="'+LS.payUrl(o)+'" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open receipt #'+esc(String(o.ls.receipt||'?'))+' on the Lightspeed Pay screen</a> <span class="mut sm">Opens the right sale directly — check the register shown top-left is <b>'+esc(o.loc||'this location')+'</b> before taking the money.</span></li>'
+        : '<li>In Lightspeed: <b>Sell → Sales history</b> → receipt <b>#'+esc(String(o.ls.receipt||'?'))+'</b> → <b>Continue sale</b>.</li>')+
       (fullSettlement
         ? '<li>On the Pay screen the amount box <b>pre-fills the full balance, '+money(bal)+'</b> — <b>leave it exactly as it is.</b> <span class="mut">Do not retype it: a job left even a cent short cannot be closed.</span></li>'
         : '<li>On the Pay screen the amount box <b>pre-fills the full balance, '+money(bal)+'</b> — tap it and change it to <b>'+want+'</b> <span class="mut">(“Edit to make a partial payment”). Type it exactly — this should leave '+money(r2(bal-ex.amount))+' outstanding.</span></li>')+
