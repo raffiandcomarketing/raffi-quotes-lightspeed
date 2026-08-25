@@ -1242,3 +1242,56 @@ Chunk table updated by targeted `replace()` — all five anchors confirmed to ap
 ### What does not heal itself
 
 43 jobs still hold a `saleId` and 66 payments a register payment id, all belonging to the current store. Neither is repaired by the code change and neither should be: re-pointing them would duplicate history in the new store, and the payments are money taken somewhere else. That is a decision about the data, not a bug — see the cutover checklist.
+
+---
+
+## 2026-08-25 (evening) — a cent that wasn't a bug, and the register link that should have been there all along
+
+### I fixed the wrong thing first
+
+JOB-0050 could not be closed: the app said the sale was $177.13 and $177.12 had been collected. The obvious reading was a rounding disagreement between the app and Lightspeed, so a one-cent settlement mechanism was built, deployed and used to unstick the job.
+
+Al's response was that he didn't want a button, he wanted it not to happen. He was right, and the button was worse than useless — it would have absorbed every future recurrence silently.
+
+### What the evidence actually said
+
+The webhook trail for receipt 61, which is Lightspeed reporting its own state at each moment:
+
+| Time | Lightspeed's `total_to_pay` | Paid |
+|---|---|---|
+| 16:00:10 | 177.13 | 0 |
+| 16:16:53 | **27.13** | 150.00 |
+| 16:17:47 | 0.00465 *(tax transiently recomputed as 177.12 × 13/113)* | 177.12 |
+| 16:17:59 | 0.01 | 177.12 |
+
+Lightspeed said **27.13** immediately before the payment. The app agreed at every point — its own audit trail shows the job was sent to the register to collect **120**, after which 150 and then 27.12 came back.
+
+Nothing miscalculated. A cent was lost typing an amount into the till. Two earlier hypotheses — that per-line and aggregate tax rounding disagreed, and that Lightspeed's register offered 27.12 — were both tested and both wrong: the app and Lightspeed produce identical line taxes (1.85 + 18.53), and the back office reports 177.13 everywhere.
+
+Also learned in passing: **Lightspeed does not compute tax.** A line posted with `tax:{id}` and no `amount` is stored with zero tax. The caller is the sole authority for tax on a sale.
+
+### What was actually wrong
+
+The app's own register instructions:
+
+> "the amount box **pre-fills the FULL balance** — tap it and change it to $120.00"
+
+Correct for a partial deposit. Actively harmful for a full settlement, where the pre-filled figure is already right and editing it is the only way to get it wrong. The step now branches: leave it alone when the expectation is the whole balance, and state the expected remainder when it isn't.
+
+The rounding tolerance, the settle action, the button and the Rounding tender mapping were all removed. A stranded cent now blocks at closing, visibly, and can be taken as an ordinary payment — which always worked, making the button redundant as well as wrong.
+
+### The Redirect API
+
+Looking for a way to remove the typing entirely turned up something that should have been in the build from the start:
+
+```
+https://{prefix}.retail.lightspeed.app/redirect/1.0/sales/{saleId}?action=pay
+```
+
+Tested on receipt 20: it opens the register **directly on that sale, on the Pay screen**, with prior payments listed, the outstanding balance pre-filled and selected, and the tender buttons ready. It replaces "Sell → Sales history → find the receipt → Continue sale", which was four chances to open the wrong sale.
+
+`action=view` is the read-only variant and lands on the sales-history row for that sale alone.
+
+Only `platform`, `action` and `callback_url` are supported — **there is no parameter to pre-fill a partial amount**, and Lightspeed's deposit documentation confirms the register never prompts for a predetermined deposit. So a full settlement is now zero-typing; a deposit is still typed at the till, or taken in the app instead.
+
+Two things worth knowing about it: the prefix is read from the live connection rather than the build constant, so it survives a store change; and the redirect loads the sale into **whichever register is currently open**, not the sale's own outlet — a Cambridge sale opened into the Montréal register without complaint during testing. The link carries a warning to check the register name, but with five outlets that is worth watching.
