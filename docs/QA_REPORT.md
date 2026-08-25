@@ -110,7 +110,7 @@ as the counter-example.
 | No "Wire" payment type in store (maps to E-transfer) | **Configuration decision** |
 | Store-credit / gift-card tender flow | **Business-process decision** — deliberately unmapped |
 | Supabase rewrites HTML→plain text (UI on GitHub Pages) | **Supabase platform limitation** |
-| Global click handler / full-width inputs | **QuoteMachine dependency** — worked around |
+| Global click handler / full-width inputs | **Legacy base-page dependency** — worked around |
 
 ## Conditions before production
 
