@@ -1097,3 +1097,66 @@ README and the deployment doc rewritten rather than find-and-replaced: two of th
 ### Still open
 
 The 20 customer codes, the service SKU and the stale settings key all need the Lightspeed API, which is reachable only through the app in the browser. The browser extension has dropped repeatedly today, so these are queued rather than done — and the module keeps its fallback until the codes are renamed, not before.
+
+---
+
+## 2026-08-25 (later) — Lightspeed sale notes, and a partial PUT that ate a sale
+
+### The near-miss, first
+
+The seven sale notes still carrying the other company's name looked like a one-field change, so the first attempt sent Lightspeed a partial body — `PUT /api/2026-07/sales/{id}` with `{state, note}` and nothing else. It returned **200**.
+
+It also **deleted both line items and reset the sale date to today**. Receipt 16 became a $0 sale with $45.90 of payments hanging off it, dated five days after it happened. Lightspeed's sale PUT is a **full replace**; a 200 confirms only that the payload parsed, not that the sale survived it.
+
+Recovered from the `ls_ops` audit log — the `close-o1` entry held the exact request body Lightspeed had accepted on 20 Aug. Replayed it with `date` pinned to the original and the note scrubbed. Receipt 16 is back to 2 lines, $45.90, 3 payments, the `layby` attribute and its 20 Aug date.
+
+The audit log paid for itself here. Without a stored copy of the original request there would have been no way to reconstruct the line items.
+
+### The method that then worked
+
+For the remaining six, nothing was reconstructed from history. Each sale was **read live, transformed response-shape → request-shape, note scrubbed, and written straight back**, so the only field that could change was the one being changed:
+
+```
+source.author.id        -> source.author_id
+line_items[].pricing.price -> pricing:{price:String(...)}
+line_items[].tax.{id,amount} -> tax:{id, amount:String(...)}
+payments[].type.config_id  -> type:{config_id}
+```
+
+Every write was bracketed by a fingerprint — `state | line count | payment count | total incl. tax | total tax | sum of payments` — captured before and re-checked after, plus the sale date. **All six matched exactly.** Receipt 19 was voided and stayed voided; 26 and 29 kept their `layby, service` attributes.
+
+Rule for anything touching a Lightspeed sale from here: **never send a partial body, and always fingerprint before and after.**
+
+### Where the name actually stood afterwards
+
+A full sweep of the test store, not a spot check: 68 sales, 33 customers, 33 products including soft-deleted ones.
+
+- Sales: **0** — all seven notes clean.
+- Customers: **0**.
+- Products: **1**, and it cannot be fixed.
+
+### The one thing that cannot be renamed
+
+The retired generic service product — its SKU is the legacy prefix plus `-SERVICE`, soft-deleted 21 Aug — still carries the name in `name`, `variant_name`, `handle` and `sku`. Every route was tried and characterised rather than guessed at:
+
+| Route | Result |
+|---|---|
+| `PUT /api/2026-07/products/{id}` | 422 on **every** field in turn — 45 fields removed one at a time, `name`, `sku`, `handle`, `description` included. The route accepts no product fields at all. |
+| `POST /api/2.0/products` with `id` | 422 `a product with the same product ID already exists` — create-only |
+| `POST /api/2026-07/products` with `id` | same |
+| `PUT`/`POST /api/2.0/products/{id}` | 404 `No route found` |
+| Lightspeed web UI, direct product URL | *"We can't find the page you're looking for"* — the UI will not open a deleted product |
+
+So it is unreachable from both the API and the interface. What is true about its exposure: it does **not** appear in the default product list (31 products), is **not** returned by SKU search, and is **not** returned by name search. It surfaces only when a caller explicitly asks for deleted records. Historical sale lines still reference its id, which is why deleting it harder is not obviously safe either.
+
+### Supabase: the app's own tables
+
+- `ls_request_log.meta` carried a legacy-prefixed user key on **3,658** rows — a key this app chose. Renamed in place to `app_user`; the value, `Al Sukara`, is unchanged.
+- Historical `path` and `op` values built from the old customer-code prefix had the two-letter prefix replaced with a neutral `LEGACY-` marker. The identifier suffix and every timing and status field were left alone, so the log still says truthfully what ran and how long it took.
+- `raffi_app_state` scanned clean. Its one apparent hit was base64 image data inside a photo attachment.
+
+### Repo
+
+The three dead function folders under `supabase/functions/` — the ones named for the retired endpoints — are deleted. 20 files remain at HEAD; every one of them was re-fetched from `raw.githubusercontent` and scanned with base64 blobs and `data:` URIs stripped first, since a 164 KB embedded image will otherwise throw up two-letter matches by chance all day. One real hit came out of that: a retired setting named in backticks in this very log, now described in prose instead.
+
+All six deployed edge functions were read back from Supabase and scanned: clean, and the `developerdemoxeqwzt` hard lock is intact in all three copies of `common.ts`.
