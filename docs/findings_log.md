@@ -1160,3 +1160,35 @@ So it is unreachable from both the API and the interface. What is true about its
 The three dead function folders under `supabase/functions/` — the ones named for the retired endpoints — are deleted. 20 files remain at HEAD; every one of them was re-fetched from `raw.githubusercontent` and scanned with base64 blobs and `data:` URIs stripped first, since a 164 KB embedded image will otherwise throw up two-letter matches by chance all day. One real hit came out of that: a retired setting named in backticks in this very log, now described in prose instead.
 
 All six deployed edge functions were read back from Supabase and scanned: clean, and the `developerdemoxeqwzt` hard lock is intact in all three copies of `common.ts`.
+
+### Supabase, second pass — the audit trail
+
+Al chose to delete rather than scrub, and to leave the stuck product with a note.
+
+**Deleted outright**, after recording what was going:
+
+| Table | Rows removed | Span | What they were |
+|---|---|---|---|
+| `ls_ops` | 122 | 20 Aug 20:55 → 25 Aug 17:42 | request/response pairs for customer creates, product writes and the sale writes that carried the suffix — including today's product-rename probes |
+| `ls_webhook_events` | 100 | 21 Aug 14:09 → 24 Aug 17:20 | `sale.update` payloads Lightspeed pushed while the old records were still live |
+
+One extra `ls_ops` row survived the payload filter because the mark was in its **primary key** — the `op_id` itself read `delete-<prefix>-product-…` while its request and response were clean. Deleted separately. Worth remembering: a content filter does not cover key columns.
+
+The cost, stated plainly: the entry that made receipt 16 recoverable this morning is now gone. Nothing else depends on those rows — the app reads sale state live from Lightspeed, and idempotent replay only matters for op ids still in flight.
+
+**Corrected, not deleted:** 22 `ls_sales` mirrors held customer snapshots frozen before the 25 Aug rename. Every live record now carries `RJ-` plus the identical suffix — checked 1:1 against the store, and against five sampled codes individually, before touching anything — so the prefix was swapped in place. That moves the mirror *towards* Lightspeed rather than away from it.
+
+### Final state
+
+A generated sweep over **every base table in the schema** — 18 tables, 4,142 rows, base64 runs collapsed first so photo attachments can't produce phantom matches:
+
+```
+total_rows 4142 · name_hits 0 · prefix_hits 0 · dirty_tables 0
+```
+
+Public repo: 20 files, all re-fetched from `raw.githubusercontent` and scanned — clean.
+Deployed edge functions: all six read back from Supabase — clean, hard lock intact.
+Lightspeed test store: 68 sales, 33 customers, 31 live products — clean. One soft-deleted product remains, unreachable by any route (see above) and invisible unless deleted records are explicitly requested.
+App: saving normally at doc v1806, 34 quotes / 46 orders / 63 payments, proxy round-trip to `/api/2.0/retailer` returns 200.
+
+Still outside this workstream: the 98-commit git history, and the $22,600 of payments pointing at orders that do not exist (PAY-0038 and PAY-0039, $11,300 each, both taken at the register on 21 Aug).
