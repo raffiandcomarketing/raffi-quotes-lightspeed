@@ -1192,3 +1192,53 @@ Lightspeed test store: 68 sales, 33 customers, 31 live products — clean. One s
 App: saving normally at doc v1806, 34 quotes / 46 orders / 63 payments, proxy round-trip to `/api/2.0/retailer` returns 200.
 
 Still outside this workstream: the 98-commit git history, and the $22,600 of payments pointing at orders that do not exist (PAY-0038 and PAY-0039, $11,300 each, both taken at the register on 21 Aug).
+
+---
+
+## 2026-08-25 (later still) — a bug that only exists on the day you change stores
+
+Al mentioned in passing that the app will be connected to **a new store with a fresh app install**. That reframes a lot of what looked settled, so the code got read again with that in mind.
+
+### The good news, checked rather than assumed
+
+- **No hardcoded Lightspeed ids anywhere** — zero UUIDs in `raffi_module.js` or `index.html`. Outlets, registers, users, taxes and payment types are all fetched from whichever store is connected.
+- `LS_CFG.storePrefix` appears **once**, as a label on the Settings card. It does not influence what the app connects to; `connectUrl()` doesn't read it.
+- The two products a fresh install creates are `RAFFI-SERVICE` and `SPECIAL-ORDER`. Clean. Nothing carrying the old vendor's name can come back through a fresh install.
+- The product that cannot be renamed lives only in the current test store, so the one unfixable item disappears on its own.
+
+### The bug
+
+`ensureCustomer`, `ensureGenericService` and `ensureSpecialOrderProduct` all opened the same way:
+
+```js
+if(contact.lsCustomerId) return contact.lsCustomerId;
+```
+
+A stored id is only meaningful for the store it came from. Against a new store, all 31 cached customer ids and both cached product ids point at nothing — and every one of them would have been handed straight to a sale POST. The first deposit after the cutover would have referenced a customer and a product that did not exist.
+
+Nothing in the QA suite would have caught it, because it cannot happen while the store stays the same.
+
+### The fix, and the thing that nearly made it wrong
+
+Each of the three now verifies once per id per session before trusting it. The first draft treated a 404 as the only invalidating answer. Testing that assumption against the live store turned up the flaw:
+
+| Request | Response |
+|---|---|
+| `GET /customers/{real}` | 200 |
+| `GET /customers/{nonexistent}` | 404 |
+| `GET /products/{nonexistent}` | 404 |
+| **`GET /products/{soft-deleted}`** | **200** |
+
+A soft-deleted record answers **200**. Which is precisely how a retired product stayed in use here for four days. So the check treats a 200 carrying `deleted_at` as dead too. Anything else — a 5xx, a timeout — leaves the id alone, because re-creating a customer who does exist is the worse mistake.
+
+Six cases verified against the live store before deploying: live customer, dead customer, live product, dead product, soft-deleted product, null. All correct, and the second call is served from the session cache.
+
+`BUILD_SEQ` 3 → 4. This is what the gate is for: a browser on the old code would keep handing dead ids to Lightspeed after the store changed, and there is no way to reach it other than refusing its writes.
+
+### Deploy
+
+Chunk table updated by targeted `replace()` — all five anchors confirmed to appear exactly once and to sit inside a single chunk, so none straddled a boundary. Result verified byte-identical to the local file (`md5 6b099b9f…`, `sha256 d8819f81…`, 207,442 chars) before anything was pushed to Pages. Pages, the fallback function and the chunk table all now serve the same bytes; the app reloaded at `BUILD_SEQ 4` and saved.
+
+### What does not heal itself
+
+43 jobs still hold a `saleId` and 66 payments a register payment id, all belonging to the current store. Neither is repaired by the code change and neither should be: re-pointing them would duplicate history in the new store, and the payments are money taken somewhere else. That is a decision about the data, not a bug — see the cutover checklist.
