@@ -350,6 +350,16 @@ totals = function(d){
 const orderPays = o => db.payments.filter(p=>p.orderId===o.id);
 const orderPaid = o => r2(orderPays(o).reduce((s,p)=>s+(+p.amount||0),0));
 const orderBalance = o => r2(totals(o).total-orderPaid(o));
+/* A till can settle a cent away from the sale total — the register offered $27.12 against a
+   $27.13 balance on JOB-0050, and both systems then agreed a penny was outstanding, so the
+   job could not be closed. Exactly one cent is the only difference that cannot be a real
+   underpayment, so that is the whole tolerance: anything larger is a shortfall and must be
+   collected or investigated, not written away. */
+const ROUNDING_TOLERANCE = 0.01;
+function roundingResidual(o){
+  const bal = orderBalance(o);
+  return (Math.abs(bal) > 0.0001 && Math.abs(bal) <= ROUNDING_TOLERANCE + 0.0001) ? bal : 0;
+}
 const orderLocked = {}; // in-flight lock per order (double-click / double-submit protection)
 
 /* ---------- Lightspeed API client (via backend proxy; test store locked server-side) ---------- */
@@ -455,7 +465,10 @@ const LS = {
       'Wire': exact('Wire')||find(/wire|e-?transfer/i)||find(/^cash$/i),
       'Cheque': exact('Cheque')||find(/cheque|check/i)||find(/^cash$/i),
       'Gift Card': exact('Gift Card')||find(/gift/i)||find(/^cash$/i),
-      'Other': find(/other|manual/i)||find(/^cash$/i)||pool[0]
+      'Other': find(/other|manual/i)||find(/^cash$/i)||pool[0],
+      /* Add a payment type called "Rounding" in Lightspeed and it is picked up here
+         automatically; until then a rounding cent lands in Cash. */
+      'Rounding': find(/rounding/i)||exact('Cash')||find(/^cash$/i)||pool[0]
     };
     const validIds = new Set(ref.paymentTypes.map(p=>p.id));
     Object.keys(defaults).forEach(k=>{
@@ -647,6 +660,12 @@ VIEWS.order=function(){
   '<tr><td colspan="'+(editable?5:4)+'" class="r" style="font-weight:700">Service value (total)</td><td class="r" style="font-weight:700">'+money(t.total)+'</td></tr>'+
   '<tr><td colspan="'+(editable?5:4)+'" class="r mut">Deposits / payments received (net)</td><td class="r">'+money(paid)+'</td></tr>'+
   '<tr><td colspan="'+(editable?5:4)+'" class="r" style="font-weight:700;border-bottom:none">Remaining balance</td><td class="r" style="font-weight:700;border-bottom:none">'+money(bal)+'</td></tr></tbody></table>'+
+  ((roundingResidual(o) && o.status!=='completed' && o.status!=='cancelled')
+    ? '<div class="panel" style="border-top:1px solid var(--line)"><div class="actrow">'+
+      '<button class="b2 o" data-act="settleRounding" data-id="'+o.id+'"><i class="fa-solid fa-scale-balanced"></i> Settle '+money(Math.abs(roundingResidual(o)))+' rounding difference</button>'+
+      '<span class="mut sm">The till settled a cent away from the sale total. This records the difference as a rounding entry — the sale total does not change — so the job can be closed.</span>'+
+      '</div></div>'
+    : '')+
   (editable?'<div class="panel"><div class="actrow"><button class="b2 o" data-act="addOrderLine" data-id="'+o.id+'"><i class="fa-solid fa-plus"></i> Add service / labour line</button><span class="mut sm">Adding or removing lines after a deposit re-syncs the open Lightspeed layaway (allowed while open).</span></div></div>':'')+
   '</div>'+
   '<div class="card" style="margin-bottom:22px"><div class="panel"><h3>Deposits &amp; payments ledger ('+pays.length+')</h3>'+
@@ -692,6 +711,30 @@ async function withLock(o, fn){
   try{ await fn(); } finally{ delete orderLocked[o.id]; }
 }
 ACT.takeDeposit=d=>{ const o=O(d.id); if(!o) return; if(!requirePerm('take_deposit','take a deposit')) return; if(o.status==='completed'||o.status==='cancelled'){ toast('Order is '+o.status); return; } if(!o.contactId||!C(o.contactId)){ toast('Select a customer on the order (estimate) first — Lightspeed laybys require a customer.'); return; } if(orderBalance(o)<=0){ toast('Balance is already $0'); return; } payModal(o,'deposit'); };
+ACT.settleRounding=async d=>{
+  const o=O(d.id); if(!o) return;
+  if(!requirePerm('take_deposit','settle a rounding difference')) return;
+  if(o.status==='completed'||o.status==='cancelled'){ toast('Job is '+o.status); return; }
+  const bal=roundingResidual(o);
+  if(!bal){ toast('The remaining balance is not a rounding difference — take the payment normally.'); return; }
+  await withLock(o, async()=>{
+    const p=newPayment(o,'rounding',bal,'Rounding',todayISO(),'Rounding difference — register settled '+money(orderPaid(o))+' against '+money(totals(o).total));
+    audit('payment.rounding','order',o.id,{number:p.number, amount:bal, saleTotal:totals(o).total, collected:r2(orderPaid(o)-bal)});
+    commit();
+    try{
+      p.sync='pending'; commit();
+      await postOrderSale(o,'pending',{opId:p.opId, op:'rounding'});
+      logAct('scale-balanced',curUser().name,[{t:curUser().name+' settled a '+money(Math.abs(bal))+' rounding difference on '},{l:o.number,v:'order',id:o.id},{t:' — the sale total is unchanged'}],null);
+      commit(); render();
+      toast(p.number+' — '+money(Math.abs(bal))+' rounding recorded. '+o.number+' can now be completed.');
+    }catch(e){
+      p.sync='failed'; p.error=String(e.message||e);
+      audit('payment.sync_failed','order',o.id,{number:p.number,error:p.error});
+      commit(); render();
+      toast('Rounding recorded locally but Lightspeed sync failed: '+p.error.slice(0,110)+' — use Retry');
+    }
+  });
+};
 ACT.refundDeposit=d=>{ const o=O(d.id); if(!o) return; if(!requirePerm('refund','refund a deposit')) return; if(orderPaid(o)<=0){ toast('Nothing to refund'); return; } payModal(o,'refund'); };
 ACT.doDeposit=async d=>{
   const o=O(d.id); if(!o) return;
