@@ -13,7 +13,7 @@ export const SCOPES = [
 
 export const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-op-id, x-qm-user",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-op-id, x-raffi-user",
   "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
 };
 

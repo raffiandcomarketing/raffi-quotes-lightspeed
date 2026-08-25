@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
   const t0 = Date.now();
-  let body: { op_id?: string; method?: string; path?: string; body?: unknown; qm_user?: string; meta?: Record<string, unknown> };
+  let body: { op_id?: string; method?: string; path?: string; body?: unknown; raffi_user?: string; meta?: Record<string, unknown> };
   try { body = await req.json(); } catch (_e) { return json({ error: "invalid JSON" }, 400); }
   const method = String(body.method || "GET").toUpperCase();
   const path = String(body.path || "");
@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     status = 0; errText = String((e as Error).message || e);
   }
   const dur = Date.now() - t0;
-  await sb.from("ls_request_log").insert({ source: "api", op: opId || (body.meta?.op as string) || null, method, path: path.slice(0, 500), http_status: status || null, ok: status >= 200 && status < 300, duration_ms: dur, error: errText, meta: { qm_user: body.qm_user || null, ...(body.meta || {}) } });
+  await sb.from("ls_request_log").insert({ source: "api", op: opId || (body.meta?.op as string) || null, method, path: path.slice(0, 500), http_status: status || null, ok: status >= 200 && status < 300, duration_ms: dur, error: errText, meta: { app_user: body.raffi_user || null, ...(body.meta || {}) } });
   await sb.from("ls_connections").update({ last_api_request_at: new Date().toISOString(), last_api_request_op: (method + " " + path).slice(0, 200) }).eq("id", conn.id);
 
   // mirror sales for reconciliation (best effort)
