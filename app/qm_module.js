@@ -177,7 +177,6 @@ function migrateDB(d){
 
 /* ---------- persistence: server (shared) + localStorage + artifact storage ---------- */
 const LOCAL_KEY = 'raffi-service-db-v1';
-const LOCAL_KEY_LEGACY = 'quotemachine-db-v1';   /* read once, then retired */
 let serverVersion = 0, serverOK = false, saveInFlight = false, saveQueued = false, pendingPush = false;
 /* true once the server has actually answered this boot — win or lose. Until then nothing
    may be written up: the copy on screen came from this browser, and the browser's copy can be
@@ -209,9 +208,6 @@ let dirtySinceBoot=false;
 loadDB = async function(){
   let local=null;
   try{ const raw=localStorage.getItem(LOCAL_KEY); if(raw){ const d=JSON.parse(raw); if(d&&d.v===1) local=d; } }catch(e){}
-  if(!local){ /* a browser that last ran the old build still has its copy under the old key */
-    try{ const raw=localStorage.getItem(LOCAL_KEY_LEGACY); if(raw){ const d=JSON.parse(raw); if(d&&d.v===1){ local=d; localStorage.setItem(LOCAL_KEY,raw); localStorage.removeItem(LOCAL_KEY_LEGACY); } } }catch(e){}
-  }
   if(!local && hasStore){ try{ const r=await window.storage.get(KEY); if(r&&r.value){ const d=JSON.parse(r.value); if(d&&d.v===1) local=d; } }catch(e){} }
 
   /* The stored version number and the stored document are two separate keys, and they can
@@ -1416,9 +1412,8 @@ const _orderView4=VIEWS.order; VIEWS.order=function(){
   }
   return h;
 };
-/* one-time migrations: legacy special-order lines get the special flag (so they post as
-   "Special Order Product"), and the old QuoteMachine-branded generic service product in
-   Lightspeed is renamed to plain "Service / labour". */
+/* one-time migration: legacy special-order lines get the special flag, so they post to
+   Lightspeed as "Special Order Product". */
 (async function(){
   /* wait for the SUPABASE-loaded db (the seed db is replaced asynchronously at boot — the
      loaded one is recognisable by a non-null genericServiceProductId from earlier syncs) */
@@ -1427,26 +1422,6 @@ const _orderView4=VIEWS.order; VIEWS.order=function(){
     (db.orders||[]).forEach(o=>{ if(isSpecial(o)){ const it=o.items&&o.items[0]; if(it&&!it.sku&&!it.lsProductId&&!it.special){ it.special=true; } if(o.customerItem&&o.customerItem.raffiId===undefined) o.customerItem.raffiId=''; } });
     commit();
   }catch(e){ console.warn('special-order line migration failed', e); }
-  try{
-    const s=db.settings.ls;
-    if(s && s.genericServiceProductId && !s.svcNameFixed){
-      let w=0; while(!(LS.connected&&LS.connected()) && w<120){ await new Promise(r=>setTimeout(r,500)); w++; }
-      if(LS.connected&&LS.connected()){
-        const g=await LS.call('GET','/api/'+LS_CFG.apiVersion+'/products/'+s.genericServiceProductId);
-        const p=g.status===200&&g.data&&g.data.data;
-        if(p&&/quotemachine/i.test((p.name||'')+' '+(p.description||''))){
-          /* Lightspeed's 2026-07 products PUT rejects name changes through the proxy, so swap to a
-             clean product instead. Open sales re-point to it on their next sync; the old
-             QuoteMachine-named product is deleted from the catalogue afterwards (soft delete). */
-          s.qmOldServiceProductId=s.genericServiceProductId;
-          s.genericServiceProductId=null; commit();
-          const nid=await LS.ensureGenericService();
-          if(nid){ s.svcNameFixed=true; audit('ls.product.swapped','settings',null,{from:s.qmOldServiceProductId, to:nid, name:'Service / labour'}); commit(); console.info('[QM] generic service product swapped to clean "Service / labour" ('+nid+')'); }
-          else { s.genericServiceProductId=s.qmOldServiceProductId; commit(); }
-        } else if(p){ s.svcNameFixed=true; commit(); }
-      }
-    }
-  }catch(e){ console.warn('service product rename failed', e); }
 })();
 
 /* ---------- full-prepayment guard ----------
@@ -2148,7 +2123,7 @@ function kbPhase(name, sum, cols){
 VIEWS.service=function(){
   kbEnsureCss();
   const arch=!!state.kbArch;
-  const qs=(typeof realQuotes==='function'?realQuotes():db.quotes.filter(q=>!q.isTemplate))
+  const qs=(typeof realQuotes==='function'?realQuotes():db.quotes.slice())
     .filter(q=>kbLoc(q)&&kbMatch(q.number+' '+cname(q.contactId))).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   const ords=db.orders.filter(o=>kbLoc(o)&&kbMatch(o.number+' '+cname(o.contactId)+' '+(((o.customerItem||{}).brand||'')+' '+((o.customerItem||{}).model||''))))
     .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));

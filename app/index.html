@@ -674,12 +674,10 @@ function toast(msg,ms){const t=$('#toast');t.textContent=msg;t.classList.add('sh
 
 /* ================= persistence ================= */
 const KEY='raffi-service-db-v1';
-const KEY_LEGACY='quotemachine-db-v1';
 const hasStore=(typeof window!=='undefined')&&!!window.storage&&typeof window.storage.get==='function';
 async function loadDB(){
   if(!hasStore)return null;
   try{let r=await window.storage.get(KEY);
-    if(!(r&&r.value)) r=await window.storage.get(KEY_LEGACY);
     return(r&&r.value)?JSON.parse(r.value):null;}catch(e){return null;}
 }
 let saveT=null;
@@ -717,23 +715,19 @@ function seed(){
     quotes:[
       {id:'q1',number:'EST-0001',contactId:'c1',date:'2026-04-25',expiry:'2026-05-25',loc:'Mississauga',status:'accepted',
        items:[{name:'Watch sizing & polish',desc:'',qty:1,price:4,taxable:false}],discountPct:0,notes:'',
-       signedBy:'Test Customer TEST',signedAt:T('2026-04-27T12:41'),signature:null,createdAt:T('2026-04-25T09:30'),orderId:null,invoiceId:null,isTemplate:false},
+       signedBy:'Test Customer TEST',signedAt:T('2026-04-27T12:41'),signature:null,createdAt:T('2026-04-25T09:30'),orderId:null,invoiceId:null},
       {id:'q2',number:'EST-0002',contactId:'c2',date:'2026-05-20',expiry:'2026-06-20',loc:'Mississauga',status:'open',
        items:[{name:'Strap adjustment',desc:'',qty:1,price:4,taxable:false}],discountPct:0,notes:'',
-       signedBy:null,signedAt:null,signature:null,createdAt:T('2026-05-20T11:00'),orderId:null,invoiceId:null,isTemplate:false},
+       signedBy:null,signedAt:null,signature:null,createdAt:T('2026-05-20T11:00'),orderId:null,invoiceId:null},
       {id:'q3',number:'EST-0003',contactId:'c2',date:'2026-05-02',expiry:'2026-06-02',loc:'Mississauga',status:'accepted',
        items:[{name:'Leather Strap \u2014 20mm',desc:'Fitted in store',qty:1,price:12.5,taxable:false}],discountPct:0,notes:'',
-       signedBy:'nicole Carmount',signedAt:T('2026-05-04T14:33'),signature:null,createdAt:T('2026-05-02T10:00'),orderId:null,invoiceId:null,isTemplate:false},
+       signedBy:'nicole Carmount',signedAt:T('2026-05-04T14:33'),signature:null,createdAt:T('2026-05-02T10:00'),orderId:null,invoiceId:null},
       {id:'q3b',number:'EST-0003-2',contactId:'c2',date:'2026-05-03',expiry:'2026-06-03',loc:'Mississauga',status:'accepted',
        items:[{name:'Leather Strap \u2014 20mm (revised)',desc:'Revision of EST-0003',qty:1,price:8.75,taxable:false}],discountPct:0,notes:'',
-       signedBy:'nicole Carmount',signedAt:T('2026-05-04T14:37'),signature:null,createdAt:T('2026-05-03T10:00'),orderId:null,invoiceId:null,isTemplate:false},
+       signedBy:'nicole Carmount',signedAt:T('2026-05-04T14:37'),signature:null,createdAt:T('2026-05-03T10:00'),orderId:null,invoiceId:null},
       {id:'q4',number:'EST-0004',contactId:'c4',date:'2026-05-24',expiry:'2026-06-24',loc:'Mississauga',status:'accepted',
        items:[{name:'Watch Service & Polish',desc:'Light polish, pressure test',qty:1,price:40,taxable:false},{name:'Spring Bar Set',desc:'',qty:1,price:5.9,taxable:false}],discountPct:0,notes:'',
-       signedBy:'Test ustomer TEST',signedAt:T('2026-05-26T15:40'),signature:null,createdAt:T('2026-05-24T13:00'),orderId:'o1',invoiceId:null,isTemplate:false},
-      {id:'qt1',number:null,contactId:null,date:null,expiry:null,loc:'Mississauga',status:'draft',
-       items:[{name:'Rolex \u2014 model TBD',desc:'Reference / dial / bracelet to confirm with client',qty:1,price:0,taxable:true}],discountPct:0,
-       notes:'Template starting point for Rolex enquiries.',signedBy:null,signedAt:null,signature:null,createdAt:T('2026-05-10T09:00'),orderId:null,invoiceId:null,
-       isTemplate:true,templateName:'Rolex Template -TEST'}
+       signedBy:'Test ustomer TEST',signedAt:T('2026-05-26T15:40'),signature:null,createdAt:T('2026-05-24T13:00'),orderId:'o1',invoiceId:null}
     ],
     orders:[
       {id:'o1',number:'JOB-0003',contactId:'c4',quoteId:'q4',date:'2026-05-26',loc:'Mississauga',status:'open',
@@ -835,7 +829,7 @@ function crumbs(){
 function entityLabel(){
   const id=state.id;if(!id)return null;
   if(state.view==='contact'){const c=C(id);return c?c.name:null;}
-  if(state.view==='quote'||state.view==='quote-doc'){const q=Q(id);return q?(q.isTemplate?q.templateName:q.number):null;}
+  if(state.view==='quote'||state.view==='quote-doc'){const q=Q(id);return q?q.number:null;}
   if(state.view==='order'){const o=O(id);return o?o.number:null;}
   if(state.view==='invoice'||state.view==='invoice-doc'){const i=I(id);return i?i.number:null;}
   return null;
@@ -868,8 +862,7 @@ const QB={draft:['b-gray','Draft'],open:['b-blue','Open'],accepted:['b-green','A
 const IB={open:['b-blue','Open'],partial:['b-gold','Partially paid'],paid:['b-green','Paid'],overdue:['b-red','Overdue']};
 const OB={open:['b-blue','Open'],completed:['b-green','Completed'],cancelled:['b-red','Cancelled']};
 function badge(map,s){const v=map[s]||['b-gray',s];return'<span class="badge '+v[0]+'">'+esc(v[1])+'</span>';}
-const realQuotes=()=>db.quotes.filter(q=>!q.isTemplate);
-const templates=()=>db.quotes.filter(q=>q.isTemplate);
+const realQuotes=()=>db.quotes.slice();
 function renderParts(p){
   if(p==null)return'';
   if(typeof p==='string')return esc(p);
@@ -1019,20 +1012,14 @@ VIEWS.products=function(){
 /* ---- quotes listing ---- */
 function quotesRows(){
   let list;
-  if(state.qChip==='templates'){
-    list=templates();
-    const rows=list.map(t=>'<tr><td class="num">'+esc(t.templateName||'Template')+'</td><td class="mut">'+t.items.length+' line item'+(t.items.length===1?'':'s')+'</td><td class="r">'+money(totals(t).total)+'</td><td class="r"><span class="actrow" style="justify-content:flex-end"><button class="b2 g" data-act="useTemplate" data-id="'+t.id+'">Use</button><button class="b2 o" data-act="open" data-type="quote" data-id="'+t.id+'">Edit</button><button class="b2 d" data-act="delQuote" data-id="'+t.id+'">Delete</button></span></td></tr>').join('');
-    return rows||'<tr><td colspan="4"><div class="empty"><i class="fa-solid fa-clone"></i>No templates yet.</div></td></tr>';
-  }
   list=realQuotes().filter(q=>(state.qChip==='all'||q.status===state.qChip)&&matches(q.number+' '+cname(q.contactId)));
   const rows=list.sort((a,b)=>b.createdAt-a.createdAt)
     .map(q=>'<tr class="rowlink" data-act="open" data-type="quote" data-id="'+q.id+'"><td class="num">'+esc(q.number)+'</td><td>'+esc(cname(q.contactId))+'</td><td>'+fmtD(q.date)+'</td><td>'+fmtD(q.expiry)+'</td><td>'+badge(QB,q.status)+'</td><td class="r">'+money(totals(q).total)+'</td></tr>').join('');
   return rows||'<tr><td colspan="6"><div class="empty"><i class="fa-solid fa-comment-dollar"></i>No estimates here yet.</div></td></tr>';
 }
 VIEWS.quotes=function(){
-  const chips=[['all','All'],['draft','Draft'],['open','Open'],['accepted','Accepted'],['declined','Declined'],['templates','Templates']];
-  const head=state.qChip==='templates'?'<tr><th>Template</th><th>Contents</th><th class="r">Total</th><th class="r">Actions</th></tr>'
-    :'<tr><th>Number</th><th>Contact</th><th>Date</th><th>Expiry</th><th>Status</th><th class="r">Total</th></tr>';
+  const chips=[['all','All'],['draft','Draft'],['open','Open'],['accepted','Accepted'],['declined','Declined']];
+  const head='<tr><th>Number</th><th>Contact</th><th>Date</th><th>Expiry</th><th>Status</th><th class="r">Total</th></tr>';
   return'<div class="page-head"><h1 class="page-title">Estimates</h1></div>'+
   '<div class="toolbar"><div class="left"><span class="search"><i class="fa-solid fa-magnifying-glass"></i><input data-srch placeholder="Search estimates\u2026" value="'+esc(state.q)+'"></span>'+
   '<span class="chips">'+chips.map(c=>'<button class="chip'+(state.qChip===c[0]?' on':'')+'" data-act="qChip" data-chip="'+c[0]+'">'+c[1]+'</button>').join('')+'</span></div>'+
@@ -1107,25 +1094,20 @@ function locSelect(sel){
 VIEWS.quote=function(){
   const q=Q(state.id);
   if(!q){go('quotes');return'';}
-  const title=q.isTemplate?esc(q.templateName||'Template'):esc(q.number);
+  const title=esc(q.number);
   const acts=[];
   acts.push('<button class="b2 p" data-act="saveDoc"><i class="fa-solid fa-floppy-disk"></i> Save</button>');
-  if(!q.isTemplate){
-    acts.push('<button class="b2 o" data-act="open" data-type="quote-doc" data-id="'+q.id+'"><i class="fa-solid fa-eye"></i> Preview &amp; sign</button>');
-    if(q.status==='draft')acts.push('<button class="b2 g" data-act="sendQuote" data-id="'+q.id+'"><i class="fa-solid fa-paper-plane"></i> Mark as sent</button>');
-    if(q.status==='accepted'){
-      acts.push('<button class="b2 g" data-act="toInvoice" data-id="'+q.id+'"><i class="fa-solid fa-file-invoice"></i> '+(q.invoiceId?'Open invoice':'Convert to invoice')+'</button>');
-      acts.push('<button class="b2 o" data-act="toOrder" data-id="'+q.id+'"><i class="fa-solid fa-clipboard-list"></i> '+(q.orderId?'Open job':'Convert to job')+'</button>');
-    }
-  }else{
-    acts.push('<button class="b2 g" data-act="useTemplate" data-id="'+q.id+'"><i class="fa-solid fa-bolt"></i> New quote from template</button>');
+  acts.push('<button class="b2 o" data-act="open" data-type="quote-doc" data-id="'+q.id+'"><i class="fa-solid fa-eye"></i> Preview &amp; sign</button>');
+  if(q.status==='draft')acts.push('<button class="b2 g" data-act="sendQuote" data-id="'+q.id+'"><i class="fa-solid fa-paper-plane"></i> Mark as sent</button>');
+  if(q.status==='accepted'){
+    acts.push('<button class="b2 g" data-act="toInvoice" data-id="'+q.id+'"><i class="fa-solid fa-file-invoice"></i> '+(q.invoiceId?'Open invoice':'Convert to invoice')+'</button>');
+    acts.push('<button class="b2 o" data-act="toOrder" data-id="'+q.id+'"><i class="fa-solid fa-clipboard-list"></i> '+(q.orderId?'Open job':'Convert to job')+'</button>');
   }
   acts.push('<button class="b2 d" data-act="delQuote" data-id="'+q.id+'"><i class="fa-solid fa-trash"></i> Delete</button>');
-  return'<div class="page-head"><h1 class="page-title">'+title+(q.isTemplate?' <span class="badge b-gray">Template</span>':' '+badge(QB,q.status))+'</h1><div class="actrow">'+acts.join('')+'</div></div>'+
+  return'<div class="page-head"><h1 class="page-title">'+title+' '+badge(QB,q.status)+'</h1><div class="actrow">'+acts.join('')+'</div></div>'+
   '<div class="card">'+
     '<div class="panel"><h3>Details</h3><div class="fgrid">'+
-      (q.isTemplate?'<div class="fld"><label>Template name</label><input data-li="doc" data-f="templateName" value="'+esc(q.templateName||'')+'"></div>'
-        :'<div class="fld"><label>Contact</label>'+contactSelect(q.contactId)+'</div>')+
+      '<div class="fld"><label>Contact</label>'+contactSelect(q.contactId)+'</div>'+
       '<div class="fld"><label>Estimate date</label><input type="date" data-li="doc" data-f="date" value="'+esc(q.date||'')+'"></div>'+
       '<div class="fld"><label>Expiry</label><input type="date" data-li="doc" data-f="expiry" value="'+esc(q.expiry||'')+'"></div>'+
       '<div class="fld"><label>Location</label>'+locSelect(q.loc)+'</div>'+
@@ -1167,7 +1149,7 @@ function docHTML(d,kind){
 /* ---- quote document + signature ---- */
 VIEWS['quote-doc']=function(){
   const q=Q(state.id);
-  if(!q||q.isTemplate){go('quotes');return'';}
+  if(!q){go('quotes');return'';}
   let sig='';
   if(q.status==='accepted'){
     sig='<div class="sig-wrap"><h4>Accepted</h4><div class="sig-done">'+
@@ -1395,7 +1377,7 @@ function makeQuote(contactId){
   const n='EST-'+pad4(db.counters.quote++);
   const q={id:uid(),number:n,contactId:contactId||'',date:todayISO(),expiry:plusDays(todayISO(),30),loc:defLoc(),status:'draft',
     items:[],discountPct:0,notes:'',
-    signedBy:null,signedAt:null,signature:null,createdAt:Date.now(),orderId:null,invoiceId:null,isTemplate:false};
+    signedBy:null,signedAt:null,signature:null,createdAt:Date.now(),orderId:null,invoiceId:null};
   db.quotes.push(q);
   logAct('plus',db.settings.user,[{t:db.settings.user+' created quote '},{l:n,v:'quote',id:q.id}],null);
   commit();return q;
@@ -1489,28 +1471,12 @@ const ACT={
   newQuote:()=>{closeModal();const q=makeQuote('');go('quote',q.id);toast(q.number+' created');},
   newQuoteFor:d=>{const q=makeQuote(d.id);go('quote',q.id);toast(q.number+' created');},
   sendQuote:d=>{
-    const q=Q(d.id);if(!q||q.isTemplate)return;
+    const q=Q(d.id);if(!q)return;
     q.status='open';
     const hasC=q.contactId&&C(q.contactId);
     const parts=[{t:db.settings.user+' marked '},{l:q.number,v:'quote-doc',id:q.id},{t:' as sent'}].concat(hasC?[{t:' to '},{l:cname(q.contactId),v:'contact',id:q.contactId}]:[]);
     logAct('paper-plane',db.settings.user,parts,null);
     commit();render();toast(q.number+' marked as sent');
-  },
-  saveTemplate:d=>{
-    const q=Q(d.id);if(!q)return;
-    askText('Save as template',(q.number||'Quote')+' template',name=>{
-      db.quotes.push({id:uid(),number:null,contactId:null,date:null,expiry:null,loc:q.loc,status:'draft',
-        items:clone(q.items),discountPct:q.discountPct||0,notes:q.notes||'',
-        signedBy:null,signedAt:null,signature:null,createdAt:Date.now(),orderId:null,invoiceId:null,isTemplate:true,templateName:name});
-      commit();toast('Template \u201c'+name+'\u201d saved \u2014 it\u2019s on your dashboard now');
-    });
-  },
-  useTemplate:d=>{
-    const t=Q(d.id);if(!t)return;
-    closeModal();
-    const q=makeQuote(t.contactId||'');
-    q.items=clone(t.items);q.discountPct=t.discountPct||0;q.notes=t.notes||'';if(t.loc)q.loc=t.loc;
-    commit();go('quote',q.id);toast(q.number+' created from template');
   },
   acceptSign:d=>{
     const q=Q(d.id);if(!q)return;
@@ -1553,10 +1519,9 @@ const ACT={
   },
   delQuote:d=>{
     const q=Q(d.id);if(!q)return;
-    const label=q.isTemplate?(q.templateName||'this template'):q.number;
+    const label=q.number;
     ask('Delete '+label+'? This can\u2019t be undone.',()=>{
       db.quotes=db.quotes.filter(x=>x.id!==d.id);
-      if(q.isTemplate)state.qChip='templates';
       commit();go('quotes');toast('Deleted');
     },'Delete');
   },
