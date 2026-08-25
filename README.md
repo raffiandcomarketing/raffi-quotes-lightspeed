@@ -20,20 +20,21 @@ in sales/revenue totals until the sale is closed; on-account sales recognise imm
 ## Architecture
 
 ```
-Browser (app/index.html + app/qm_module.js)
+Browser (app/index.html + app/raffi_module.js)
    │  anon key, CORS
    ▼
 Supabase Edge Functions (project hjcgqxszwqmzirtlaxze, ca-central-1)
-   ├─ qm-state           shared app document, optimistic concurrency (version + 409 conflict)
+   ├─ raffi-state        shared app document, optimistic concurrency (version + 409 conflict),
+   │                     server-side payment dedupe, stale-build refusal (426)
+   ├─ raffi-module       serves app/raffi_module.js from DB chunks (raffi_module_chunks;
+   │                     /version = sha256). Fallback only — Pages serves the module normally.
    ├─ lightspeed-api     allow-listed proxy → Lightspeed API (idempotent op_id replay, request log,
    │                     sales mirror). 409 not_connected when OAuth is missing.
    ├─ lightspeed-oauth   /start /callback /status /disconnect — OAuth 2.0 against
    │                     secure.retail.lightspeed.app; state row + replay/expiry checks;
    │                     hard test-store lock; tokens live in ls_connections (RLS: no anon access)
    ├─ lightspeed-webhook HMAC-optional webhook sink with dedupe (ls_webhook_events)
-   ├─ qm-app             serves the app page bytes (gzip+base64 embedded; /version = sha256)
-   ├─ qm-module          serves app/qm_module.js from DB chunks (qm_module_chunks; /version = sha256)
-   └─ qm                 diagnostic re-serve of qm-app (see platform limitation below)
+   └─ asset-relay        fetches the brand SVGs from raffi-jewellers.ca (GET, one allow-listed prefix)
    ▼
 Lightspeed X-Series API — /api/2.0/* + /api/2026-07/sales (client-generated sale & payment
 UUIDs → idempotent create/update; payments append-only; negative payments = refunds)
@@ -47,36 +48,40 @@ the same sale id.
 ## Hosting the UI (why GitHub Pages)
 
 The shared `*.supabase.co` domain rewrites `text/html` responses to `text/plain`
-(platform anti-phishing measure), so the app page cannot render from the edge function
-directly. The page bytes and hashes stay verifiable at `/functions/v1/qm-app/version`,
-but the **served UI lives on GitHub Pages** from this repo (`app/index.html`, which loads
-`./qm_module.js` and falls back to the Supabase-hosted module). JSON/JS endpoints are
-unaffected. Classification: hosting-platform limitation, not an app or Lightspeed issue.
+(platform anti-phishing measure), so the app page cannot render from an edge function
+directly. The **served UI therefore lives on GitHub Pages** from this repo
+(`app/index.html`, which loads `./raffi_module.js` and falls back to the Supabase-hosted
+module). JSON/JS endpoints are unaffected. Classification: hosting-platform limitation,
+not an app or Lightspeed issue.
+
+An edge function once mirrored the page bytes so its hash could be checked independently.
+It served a snapshot that went stale the moment Pages moved ahead of it, so it was retired;
+Pages is the single source for the page.
 
 ## Repo layout
 
 | Path | What it is |
 |---|---|
 | `app/index.html` | The app (original page + Lightspeed integration module, relative load) |
-| `app/qm_module.js` | Integration layer: roles/PIN switch, audit log, deposits→LAYBY, refunds, cancel/complete flows, brand/location hard blocks, inventory picker, reconciliation report, settings/mappings, server-state persistence |
+| `app/raffi_module.js` | Integration layer: roles/PIN switch, audit log, deposits→LAYBY, refunds, cancel/complete flows, brand/location hard blocks, inventory picker, reconciliation report, settings/mappings, server-state persistence |
 | `app/original/baseline_pre_integration.html` | Pre-integration baseline of the single-file app (reference only, not served) |
 | `supabase/functions/*` | Edge functions as deployed (each folder self-contained; `_shared/common.ts` is the source of truth, copied per function) |
 | `sql/schema.sql` | Full DB schema + RLS as live |
-| `scripts/build_module_chunks.py` | Regenerates `sql/load_module_chunks.sql` from `app/qm_module.js` |
+| `scripts/build_module_chunks.py` | Regenerates `sql/load_module_chunks.sql` from `app/raffi_module.js` |
 | `docs/findings_log.md` | Running QA findings (Phases 1–22 engagement) |
 | `docs/DEPLOYMENT.md` | Secrets, OAuth app config, deploy + verify steps |
 
 ## Deploy / update cheat-sheet
 
-1. **Module change:** edit `app/qm_module.js` → `python3 scripts/build_module_chunks.py`
-   → run `sql/load_module_chunks.sql` in the Supabase SQL editor → confirm
-   `GET /functions/v1/qm-module/version` sha256 matches the script output. (No function
-   redeploy needed.)
-2. **Page change:** edit `app/index.html` → commit (Pages serves it) → optionally
-   re-embed into `supabase/functions/qm-app/index.ts` (gzip+base64) for hash parity.
+1. **Module change:** edit `app/raffi_module.js` → commit (Pages serves it) →
+   `python3 scripts/build_module_chunks.py` → run `sql/load_module_chunks.sql` in the
+   Supabase SQL editor so the fallback copy matches → confirm
+   `GET /functions/v1/raffi-module/version` sha256 equals the script output.
+   (No function redeploy needed.)
+2. **Page change:** edit `app/index.html` → commit. Pages serves it directly.
 3. **Function change:** deploy the folder under `supabase/functions/<name>` (MCP deploy
    or `supabase functions deploy <name>`; `verify_jwt=false` only for
-   `lightspeed-oauth`, `lightspeed-webhook`, `qm-app`, `qm-module`, `qm`).
+   `lightspeed-oauth`, `lightspeed-webhook`, `raffi-module`).
 4. **Secrets:** `LS_CLIENT_SECRET` (required for OAuth), optional `LS_WEBHOOK_SECRET`,
    `LS_CLIENT_ID`, `LS_ALLOWED_DOMAIN_PREFIX`, `LS_API_VERSION` — Edge Function secrets.
 
@@ -84,8 +89,9 @@ unaffected. Classification: hosting-platform limitation, not an app or Lightspee
 
 The backend rejects any store but the test store; sale/payment ids are client-generated
 UUIDs (safe retries, no duplicate payments); mutating calls replay via `op_id`
-(`ls_ops`); deposits can never exceed the remaining balance; completed/cancelled orders
-are terminal; deletion is blocked once a Lightspeed sale or payment exists; role
-permissions gate refunds/cancel/void/settings; every sensitive action lands in the audit
-log. Anyone with the app URL can use the app (single anon key) — acceptable for the DEV
-build, flagged in the QA report for production hardening.
+(`ls_ops`); the state endpoint dedupes register payments server-side and refuses writes
+from a superseded build; deposits can never exceed the remaining balance;
+completed/cancelled orders are terminal; deletion is blocked once a Lightspeed sale or
+payment exists; role permissions gate refunds/cancel/void/settings; every sensitive
+action lands in the audit log. Anyone with the app URL can use the app (single anon key)
+— acceptable for the DEV build, flagged in the QA report for production hardening.
