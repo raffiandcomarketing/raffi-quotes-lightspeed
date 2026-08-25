@@ -5,12 +5,14 @@
 | Component | URL |
 |---|---|
 | App UI (GitHub Pages) | `https://<owner>.github.io/raffi-quotes-lightspeed/app/` |
-| App page bytes / hash | `https://hjcgqxszwqmzirtlaxze.supabase.co/functions/v1/qm-app/version` |
-| Integration module | `https://hjcgqxszwqmzirtlaxze.supabase.co/functions/v1/qm-module` (+ `/version`) |
-| Shared state API | `https://hjcgqxszwqmzirtlaxze.supabase.co/functions/v1/qm-state` |
+| Integration module | `https://hjcgqxszwqmzirtlaxze.supabase.co/functions/v1/raffi-module` (+ `/version`) |
+| Shared state API | `https://hjcgqxszwqmzirtlaxze.supabase.co/functions/v1/raffi-state` |
 | Lightspeed proxy | `https://hjcgqxszwqmzirtlaxze.supabase.co/functions/v1/lightspeed-api` |
 | OAuth | `https://hjcgqxszwqmzirtlaxze.supabase.co/functions/v1/lightspeed-oauth/{start,callback,status,disconnect}` |
 | Webhook sink | `https://hjcgqxszwqmzirtlaxze.supabase.co/functions/v1/lightspeed-webhook` |
+| Brand asset relay | `https://hjcgqxszwqmzirtlaxze.supabase.co/functions/v1/asset-relay?url=<raffi-jewellers.ca asset>` |
+
+The app page itself is served only from GitHub Pages — see the platform limitation below.
 
 ## Lightspeed developer portal (app settings)
 
@@ -34,10 +36,10 @@
 
 | Function | verify_jwt | Why |
 |---|---|---|
-| `qm-state`, `lightspeed-api` | true | called from the app with the anon key |
+| `raffi-state`, `lightspeed-api`, `asset-relay` | true | called from the app with the anon key |
 | `lightspeed-oauth` | false | browser redirects (no headers possible) |
 | `lightspeed-webhook` | false | Lightspeed posts form-encoded payloads |
-| `qm-app`, `qm-module`, `qm` | false | plain asset serving |
+| `raffi-module` | false | plain asset serving |
 
 ## Install / authorize flow (test store)
 
@@ -50,7 +52,7 @@
    `ls_connections`, fetches `/api/2.0/retailer`, and bounces back to the app with
    `?ls_connected=1`.
 4. In the app: **Sync reference data** (outlets/registers/users/taxes/payment types →
-   auto-maps locations, payment methods, users; ensures the `QM-SERVICE` generic product).
+   auto-maps locations, payment methods, users; ensures the `RAFFI-SERVICE` generic product).
 5. Verify status anytime: `GET /lightspeed-oauth/status` →
    `{connected, secret_configured, connection:{domain_prefix, retailer_name, scopes, token_expires_at}}`.
 
@@ -63,9 +65,9 @@ module + APIs on Supabase. A Supabase custom domain would also lift this, if eve
 
 ## Verification quick checks
 
-- `qm-app/version` → `{build, bytes, sha256}` (page bytes)
-- `qm-module/version` → `{bytes, sha256, chunks[]}` — must equal
+- `raffi-module/version` → `{bytes, sha256, chunks[]}` — must equal
   `python3 scripts/build_module_chunks.py --check` output
 - `lightspeed-oauth/status` → `secret_configured` / `connected`
 - App boot: dashboard shows the liability metric cards; Settings shows the Lightspeed
   card with live status; payments view shows the reconciliation table.
+- Page integrity: compare the sha256 of `app/index.html` on Pages against the repo copy.

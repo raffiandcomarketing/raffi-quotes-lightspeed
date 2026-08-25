@@ -40,7 +40,7 @@ Native Service Orders module: enabled in store. POST /api/2026-07/services {cust
 Sales history labels: "Layaway", "Layaway, completed", "On-account", "Parked", "Completed", "Voided", "Service, pending".
 
 ## 2026-08-19 (cont.) — GitHub project + hosting
-- Repo raffiandcomarketing/raffi-quotes-lightspeed populated via GitHub web upload (13 upload commits + README init; container git creds are bound to other repos). Tree: README, .gitignore, app/{index.html,qm_module.js,original/}, supabase/functions/{_shared,lightspeed-oauth,lightspeed-api,lightspeed-webhook,qm-state,qm-app,qm-module,qm}, sql/schema.sql, scripts/build_module_chunks.py, docs/{findings_log.md,DEPLOYMENT.md}.
+- Repo raffiandcomarketing/raffi-quotes-lightspeed populated via GitHub web upload (13 upload commits + README init; container git creds are bound to other repos). Tree: README, .gitignore, app/{index.html,raffi_module.js,original/}, supabase/functions/{_shared,lightspeed-oauth,lightspeed-api,lightspeed-webhook,raffi-state,raffi-module,+2 retired}, sql/schema.sql, scripts/build_module_chunks.py, docs/{findings_log.md,DEPLOYMENT.md}.
 - Al approved: repo public + GitHub Pages; visibility flip pending GitHub sudo-mode email verification (only Al can complete).
 - LS_CLIENT_SECRET: walkthrough sent to Al (LS dev portal → Supabase Edge Function secrets).
 
@@ -48,7 +48,7 @@ Sales history labels: "Layaway", "Layaway, completed", "On-account", "Parked", "
 - Repo made public by Al; GitHub Pages enabled (main / root). App UI live at
   https://raffiandcomarketing.github.io/raffi-quotes-lightspeed/app/ — boots clean (no console errors),
   module active (liability/balance/revenue/LS cards, user switcher), migration applied, shared server
-  state now persisting (qm-state doc v1).
+  state now persisting (raffi-state doc v1).
 - LS_CLIENT_SECRET set by Al; /lightspeed-oauth/status → secret_configured true.
 - **BUG FOUND & FIXED (app bug, backend): OAuth redirect_uri generated as http:// because the edge
   function sees itself as http behind the Supabase proxy. Lightspeed registered redirect is https —
@@ -63,9 +63,9 @@ Sales history labels: "Layaway", "Layaway, completed", "On-account", "Parked", "
   ls_connections: developerdemoxeqwzt "Developer Demo xeqwzt", connected, full scopes, token exp Aug 23.
 - Auto syncRef on first connected boot: 3 outlets / 3 registers / 1 user / 6 taxes / 6 payment types;
   all 3 locations mapped w/ correct taxes (HST 13, HST 13, GST+QST 14.975); 8/8 payment methods mapped;
-  Al ↔ LS user linked; QM-SERVICE product + No Tax id resolved.
+  Al ↔ LS user linked; the legacy service SKU product + No Tax id resolved.
 - T-DEP-1 PASS: $20 deposit on ORD-0003 → LS sale created state=pending attrs=["layby"] receipt #16,
-  payment posted w/ client UUID (idempotent), customer auto-created (QM-c4), native history shows
+  payment posted w/ client UUID (idempotent), customer auto-created (a legacy-prefixed code), native history shows
   "Layaway" NOT a completed sale. Salesperson attribution: Sold by Al Sukara @ Cambridge.
 - T-DEP-2 PASS: 2nd deposit $10 → same sale #16, payments [20,10], still open layaway.
 - T-OVR-1 PASS: $100 > balance $15.90 → blocked client-side, no payment, no API call.
@@ -112,7 +112,7 @@ Change requests implemented and deployed (module sha 4a20a7ec…, GitHub commits
   Root cause: payment-method auto-mapping used `/credit/i`, which matches "Store Credit" before
   "Credit Card" in the store's payment-type list. Same defect mapped "Gift Card" → Store Credit.
   Latent until today because every prior test paid Cash (mapping gap now covered).
-  Fix (qm_module.js syncRef): Store Credit is excluded from auto-mapping entirely (exact-name match first,
+  Fix (raffi_module.js syncRef): Store Credit is excluded from auto-mapping entirely (exact-name match first,
   then safe regexes; Gift Card falls back to Cash), plus self-healing — poisoned/stale mappings are
   re-derived on next reference sync. Verified: before {Credit Card→Store Credit, Gift Card→Store Credit}
   → after {Credit Card→Credit Card, Debit→Debit, Gift Card→Cash, Wire→E-transfer (no Wire type in store)}.
@@ -293,7 +293,7 @@ the sale (Layaway is only offered while a balance remains) — premature revenue
   header now ESTIMATE, terms text); new documents number **EST-xxxx** (existing QUO- documents
   keep their numbers). App title now "Raffi Jewellers — Estimates & Invoicing".
 - Prior-vendor IP distance: no visible vendor name anywhere; Lightspeed customer codes for new
-  contacts now **RJ-<id>** (legacy QM- codes still matched so existing links keep working); app is
+  contacts now **RJ-<id>** (legacy-prefixed codes still matched so existing links keep working); app is
   an original from-scratch build using generic estimate/invoice/service terminology.
 
 ## 2026-08-22 — Premium print documents + intake camera
@@ -309,7 +309,7 @@ the sale (Layaway is only offered while a balance remains) — premature revenue
   stops the camera tracks. Falls back to the upload control with a clear reason if permission is
   denied or no camera exists. Module sha 6ddb89f7 (Supabase chunks byte-exact).
 - Deploy note: the Chrome extension went unresponsive mid-upload, so the GitHub Pages copy of
-  qm_module.js still lagged this build at the time of writing — Supabase was already current.
+  raffi_module.js still lagged this build at the time of writing — Supabase was already current.
 
 ---
 
@@ -353,7 +353,7 @@ Verified on the live build: board bottom 796px against an 810px viewport, **page
 
 **Deploy**
 
-- `qm_module.js` sha256 `fa72bf4b18a09f094672d9c7e6b24a524b73f2ea37f4ab23d6e2cc80fad2f8ad` (174,420 chars) — GitHub raw, GitHub Pages and the Supabase chunk table all byte-identical.
+- `raffi_module.js` sha256 `fa72bf4b18a09f094672d9c7e6b24a524b73f2ea37f4ab23d6e2cc80fad2f8ad` (174,420 chars) — GitHub raw, GitHub Pages and the Supabase chunk table all byte-identical.
 - `index.html` 109,697 bytes, inline JS syntax-checked before upload.
 
 **Reconciliation after the change:** cash 115,787.35 = recognised 44,289.35 + unearned liability 71,498.00 — delta 0, 0 violations, 17 open orders. Test store `developerdemoxeqwzt` only.
@@ -399,7 +399,7 @@ Each date is a `<details>` section with an event count. It behaves as an accordi
 
 **Verification.** Chromium ran the built files headlessly: zero page errors, hover states measured (plate lifts 3px, action card inverts, cues reveal), the accordion proven to leave exactly one date open, and the feed's Expand/Collapse all counted 1 → 3 → 0. Then confirmed against Al's live data: books balance at cash CA$115,797.35 = recognised CA$44,299.35 + held CA$71,498.00.
 
-**Deploy.** `qm_module.js` sha256 `6208d31dbaba7fb7697dfd4eb66fc839a0e3b1b7c61884f68d5e4ed5bf5736fa` — GitHub, Pages and the Supabase chunk table byte-identical. Test store `developerdemoxeqwzt` only.
+**Deploy.** `raffi_module.js` sha256 `6208d31dbaba7fb7697dfd4eb66fc839a0e3b1b7c61884f68d5e4ed5bf5736fa` — GitHub, Pages and the Supabase chunk table byte-identical. Test store `developerdemoxeqwzt` only.
 
 **Note on tooling.** `raw.githubusercontent.com` caches for 5 minutes and ignores cache-busting query strings, which twice made a landed commit look like a failed one. Verify a deploy through the Pages URL from the browser, not raw from the container.
 
@@ -421,7 +421,7 @@ Each date is a `<details>` section with an event count. It behaves as an accordi
 
 **Books re-checked after the rename:** cash CA$115,797.35 = recognised CA$44,299.35 + held unearned CA$71,498.00, delta 0.
 
-**Deploy.** `qm_module.js` sha256 `47f32f6725733832e80268f8254de03082b821646feba4815d367cf6d45a8878` — GitHub, Pages and the Supabase chunk table byte-identical.
+**Deploy.** `raffi_module.js` sha256 `47f32f6725733832e80268f8254de03082b821646feba4815d367cf6d45a8878` — GitHub, Pages and the Supabase chunk table byte-identical.
 
 **One caveat worth knowing.** Lightspeed sale notes posted before today still carry the old `ORD-` text; those are historical records at the register and are not rewritten. Open layaways pick up the new number the next time the app posts to them, so the two converge as work moves.
 
@@ -435,10 +435,10 @@ Al reported the ledger panel arriving late. Measured rather than guessed, using 
 
 | call | start | duration |
 |---|---|---|
-| `qm-state` (read) | 399ms | **1,755ms** |
+| `raffi-state` (read) | 399ms | **1,755ms** |
 | `status` (Lightspeed) | 2,156ms | 903ms |
-| `qm-state` (write) | 2,490ms | 1,021ms |
-| `qm-state` (write) | 3,517ms | 393ms |
+| `raffi-state` (write) | 2,490ms | 1,021ms |
+| `raffi-state` (write) | 3,517ms | 393ms |
 
 Nothing rendered until the read *and* the Lightspeed handshake had both returned — about 2.7 seconds of blank. The state document is only 147KB, so this was edge-function latency, not payload.
 
@@ -454,13 +454,13 @@ Plus a `<link rel="preload">` for the module (the injected script tag is invisib
 
 **Premium pass on the panel** at the same time: an engine-turned ground — two fine diagonal rulings over the navy, the way a dial is finished — a brighter gold rule across the top, fine gold corner ticks at the base like the marks on a certificate plate, a hairline gold divider with a small lozenge between the two tiers, a darker recessed footer for the reconciliation line, more air throughout, and a larger hero figure. Cells fade up in a 50ms stagger, disabled under `prefers-reduced-motion`.
 
-**Deploy.** `qm_module.js` sha256 `3372532802ed6e7b1031c174ba98b8605e43da58b92fcee9bc4aeebefbc229b9` — GitHub, Pages and the Supabase chunk table byte-identical. (The chunk table drifted by 188 characters on the first pass: three comment lines I had dropped from the SQL. Caught by the concat-sha check, located by probing for the comment text, repaired.)
+**Deploy.** `raffi_module.js` sha256 `3372532802ed6e7b1031c174ba98b8605e43da58b92fcee9bc4aeebefbc229b9` — GitHub, Pages and the Supabase chunk table byte-identical. (The chunk table drifted by 188 characters on the first pass: three comment lines I had dropped from the SQL. Caught by the concat-sha check, located by probing for the comment text, repaired.)
 
 **Amounts made prominent.** The figures were being out-shouted by their own labels. Supporting cells went from 23px to 32px and the second tier from 25px to 33px, both in near-white rather than the muted ivory, with a faint glow for depth; the hero went from 46px to 56px in a brighter gold. The `CA$` mark is now gold-tinted in every cell, tying the supporting figures to the hero, and the decimals were lifted from 0.62em/50% to 0.66em/62% so cents read as part of the number instead of an afterthought.
 
 Stress-tested at six-figure magnitudes (`CA$271,498.00`) rather than the current data: at a 1280px window the hero overflowed its cell. All three sizes are now `clamp()`-based — 56/32/33px on a wide screen, scaling down with the panel — and re-tested clean at 1600, 1440, 1280 and 1180px.
 
-`qm_module.js` sha256 `bd037d01cecc30f3f516f6a5b560cc127e9dfbced1cb58b75ac8941d4ebb4d6f`; GitHub, Pages and the chunk table byte-identical on the first pass.
+`raffi_module.js` sha256 `bd037d01cecc30f3f516f6a5b560cc127e9dfbced1cb58b75ac8941d4ebb4d6f`; GitHub, Pages and the chunk table byte-identical on the first pass.
 
 ---
 
@@ -484,7 +484,7 @@ Al asked to "connect to lightspeed and server". Both *were* connected — the ap
 
 **Lesson.** Making the first paint independent of the network was the right call, but every flag that previously meant "the network is broken" now also means "the network has not answered yet". Those two states need to be told apart — one warns the user, the other waits.
 
-`qm_module.js` sha256 `76701d11b79ff6ccca0861e68d31143509927445d85b74d69b6ff02129f14636`; GitHub, Pages and the chunk table byte-identical.
+`raffi_module.js` sha256 `76701d11b79ff6ccca0861e68d31143509927445d85b74d69b6ff02129f14636`; GitHub, Pages and the chunk table byte-identical.
 
 ---
 
@@ -510,7 +510,7 @@ Unmapped is deliberate and safe: `buildSale` already refuses to post from a loca
 
 **A tooling trap worth recording.** The chunk table's SQL path rewrites lone backslashes: a regex literal written `/\s*-\s*/` came back as `/\\s*-\\s*/`, which matches a literal backslash rather than whitespace — a silent functional break, not just a byte-drift. Two attempts to repair it with `replace()` and `regexp_replace()` failed the same way because the correction was mangled in transit too. Fixed by (a) rewriting the function so every backslash lives inside `new RegExp('\\...')`, where doubling survives the round trip, and (b) shipping the corrected block through `convert_from(decode(...,'base64'))`, which nothing can rewrite. **Use base64 for any chunk-table edit containing backslashes.**
 
-`qm_module.js` sha256 `a1a342eac004537dd4ce911242354a339063f839729564550e0f5d38cdb7334f`; GitHub, Pages and the chunk table byte-identical.
+`raffi_module.js` sha256 `a1a342eac004537dd4ce911242354a339063f839729564550e0f5d38cdb7334f`; GitHub, Pages and the chunk table byte-identical.
 
 **Waiting on Al** — he is creating the outlets in Lightspeed, then the app maps them.
 
@@ -601,7 +601,7 @@ The number is still written, for diagnosis. It is no longer read back as authori
 
 ### Housekeeping in the same pass
 
-- Browser storage key moved off the legacy vendor-named key to `raffi-service-db-v1`, and the signed-in-user key from `qm-current-user` to `raffi-current-user`. Both read the old key once so nobody is signed out or loses local data, then retire it. Exported files are now named `raffi-service-data-*.json`.
+- Browser storage key moved off the legacy vendor-named key to `raffi-service-db-v1`, and the signed-in-user key from `the legacy signed-in-user key` to `raffi-current-user`. Both read the old key once so nobody is signed out or loses local data, then retire it. Exported files are now named `raffi-service-data-*.json`.
 - The remaining occurrences of the old product name in the code are the legacy key read and the routine that finds and removes its branded generic service product from the Lightspeed catalogue. Neither is visible to anyone using the app.
 
 ### Recommendation withdrawn
@@ -723,7 +723,7 @@ The merge was right that neither record was "missing". It was wrong about what a
 1. **The merge knows a natural key.** `NATURAL_KEY.payments` maps a payment to `ls:<lsPaymentId>`. A record whose external identity the other side already holds is not carried across, and the drop is written to the audit trail rather than passing in silence.
 2. **One pull at a time per sale.** Two overlapping refreshes both read the payment list before either had written its import. Callers now share a single in-flight promise per sale id.
 3. **The import guard looks at the whole book**, not just the order in hand — a Lightspeed payment id can only ever belong to one record anywhere.
-4. **The server enforces it too.** `qm-state` now strips duplicate `lsPaymentId` records on every write and reports how many it dropped.
+4. **The server enforces it too.** `raffi-state` now strips duplicate `lsPaymentId` records on every write and reports how many it dropped.
 
 Point 4 was not planned. After the first cleanup, the duplicates **came straight back**: the audit trail reads *"15:59:44 · conflict · server version 712 adopted; 3 local record(s) carried over"* — a still-open tab on the old build hit a conflict against the cleaned document and carried its three duplicates back in. Client-side fixes only bind clients that have reloaded. The server is the one place a stale browser cannot argue with, so the rule lives there as well.
 
@@ -836,7 +836,7 @@ Three times today a browser holding old code undid a fix:
 
 ### The gate
 
-The document now remembers the highest `BUILD_SEQ` that has ever written to it. `qm-state` refuses anything older with **426** and a plain message; the client shows a red banner — *"This tab is out of date and has stopped saving… nothing you have typed is lost"* — with a **Reload now** button. Reloading picks up current code and the ordinary conflict merge folds the parked work in.
+The document now remembers the highest `BUILD_SEQ` that has ever written to it. `raffi-state` refuses anything older with **426** and a plain message; the client shows a red banner — *"This tab is out of date and has stopped saving… nothing you have typed is lost"* — with a **Reload now** button. Reloading picks up current code and the ordinary conflict merge folds the parked work in.
 
 It stays dormant until a client on the new build writes once, so a deploy never breaks anyone mid-transaction.
 
@@ -966,15 +966,15 @@ Not a lawyer, and this was not a legal opinion. What follows is a factual sweep 
 
 ### The feature
 
-Templates were a saved-quote shortcut: a quote row with `isTemplate:true` and a `templateName` instead of a number. Fifteen touch points across `index.html` — the chip, the alternate table head and rows, the editor's template mode, `saveTemplate` / `useTemplate`, `delQuote`'s special-casing, five seeded records and the seeded `qt1` ("Rolex Template -TEST"). All removed. `realQuotes()` is kept as a name because `qm_module.js` calls it, but it no longer filters anything.
+Templates were a saved-quote shortcut: a quote row with `isTemplate:true` and a `templateName` instead of a number. Fifteen touch points across `index.html` — the chip, the alternate table head and rows, the editor's template mode, `saveTemplate` / `useTemplate`, `delQuote`'s special-casing, five seeded records and the seeded `qt1` ("Rolex Template -TEST"). All removed. `realQuotes()` is kept as a name because `raffi_module.js` calls it, but it no longer filters anything.
 
 The first patch attempt asserted on an anchor and wrote nothing — the script raised before touching the file, so `index.html` was unchanged and no half-edit landed. Rewritten to locate every edit by content rather than by line number and to apply them bottom-up, which is also why the second run needed no re-reading of shifted offsets. All three `<script>` blocks pass `node --check`.
 
 ### What actually carried the other company's name
 
-**In the product.** The old vendor-named localStorage key, read once at boot to migrate a returning browser, in both `index.html` (`KEY_LEGACY`) and `qm_module.js` (`LOCAL_KEY_LEGACY`). Gone from both. The migration window closed months ago and the data has lived under `raffi-service-db-v1` since.
+**In the product.** The old vendor-named localStorage key, read once at boot to migrate a returning browser, in both `index.html` (`KEY_LEGACY`) and `raffi_module.js` (`LOCAL_KEY_LEGACY`). Gone from both. The migration window closed months ago and the data has lived under `raffi-service-db-v1` since.
 
-**A one-time cleanup routine**, in `qm_module.js`, that looked for a Lightspeed product whose name or description matched a vendor-name pattern and swapped it for a clean "Service / labour". It had already done its job — `svcNameFixed: true`, the generic product is named "Service / labour", and a scan of all 31 catalogue products found nothing matching. Inert, so removed along with the `qmOldServiceProductId` setting it wrote.
+**A one-time cleanup routine**, in `raffi_module.js`, that looked for a Lightspeed product whose name or description matched a vendor-name pattern and swapped it for a clean "Service / labour". It had already done its job — `svcNameFixed: true`, the generic product is named "Service / labour", and a scan of all 31 catalogue products found nothing matching. Inert, so removed along with the `qmOldServiceProductId` setting it wrote.
 
 **A vendor-named 164,888-byte file in `app/original/`**, publicly served from a public repo. Read in full: its `<title>` is "Raffi Jewellers — Quotes & Invoicing". It is *Al's own earlier single-file build*, not the other company's source. Its only three mentions of the name were the storage key, an export filename, and a vendor-named error string The exposure was the **filename**, not copied code. Renamed to `baseline_pre_integration.html` with those three strings changed; the untouched original is kept locally at `/home/claude/qa/baseline_original_untouched.html` so nothing is lost.
 
@@ -1006,10 +1006,94 @@ Clean elsewhere: `lightspeed_products` 0, `lightspeed_customers` 0, `ls_config` 
 
 ### Flagged, not acted on
 
-The `qm-` prefix is everywhere — `qm_module.js`, edge functions `qm-state` / `qm-app` / `qm-module`, tables `qm_app_state` / `qm_module_chunks`. It reads as an abbreviation of the other company's name and it is publicly visible on a public repo. Renaming would break every browser that has not reloaded and every deployed function path at once, so it needs planning rather than a unilateral rename. Worth doing; not worth doing by surprise.
+The two-letter prefix is everywhere — `raffi_module.js`, edge functions `raffi-state` / `the page-mirror function` / `raffi-module`, tables `raffi_app_state` / `raffi_module_chunks`. It reads as an abbreviation of the other company's name and it is publicly visible on a public repo. Renaming would break every browser that has not reloaded and every deployed function path at once, so it needs planning rather than a unilateral rename. Worth doing; not worth doing by surprise.
 
 Two further points that a file search cannot settle and that belong with counsel: the repo is **public with Pages enabled**, so everything above was world-readable while it stood; and a rename in `HEAD` does not remove the old filename from **git history**, which still contains that file under its vendor-derived name.
 
 ### Deploy state at time of writing
 
-`qm_module.js` (205,828 chars, md5 `8d959269052bf1b08888a2cdfc27f047`) written to the six Supabase chunks and verified byte-exact by concat-md5. The GitHub upload of `index.html` and `qm_module.js` was **interrupted** — the browser extension stopped responding mid-transfer, after `index.html` had been reconstructed in the page and verified at sha256 `9060002b…` and three of the module's four parts had been staged. Pages therefore still serves the previous build. That is a consistent state, not a broken one: old page plus old module, and even a client that falls back to the Supabase copy gets a module whose only changes are removals that the old page does not depend on.
+`raffi_module.js` (205,828 chars, md5 `8d959269052bf1b08888a2cdfc27f047`) written to the six Supabase chunks and verified byte-exact by concat-md5. The GitHub upload of `index.html` and `raffi_module.js` was **interrupted** — the browser extension stopped responding mid-transfer, after `index.html` had been reconstructed in the page and verified at sha256 `9060002b…` and three of the module's four parts had been staged. Pages therefore still serves the previous build. That is a consistent state, not a broken one: old page plus old module, and even a client that falls back to the Supabase copy gets a module whose only changes are removals that the old page does not depend on.
+
+---
+
+## 2026-08-24 (night) — Taking the name out properly
+
+Al: *"i need this software to not have any [prior vendor] mention and to not infringe on any of [prior vendor]s ip."*
+
+Fair pushback. The earlier pass had left the name in the findings log on the reasoning that describing a removal is not using a mark — a defensible position, and not the one that was asked for. The instruction is zero mentions, so zero it is, and the same standard now applies to the two-letter abbreviation as to the full name.
+
+### The literal name
+
+Gone from every file in the repository at HEAD, verified by fetching each one from raw.githubusercontent and grepping rather than trusting the local mirror. That covers the app, the module, both remaining docs, the SQL, the scripts, every edge function source, and this log.
+
+The vendor-named 165 KB baseline is out of `HEAD` entirely; the renamed, scrubbed copy stands in its place and the true original is kept off the repo.
+
+Where the record needed the name to stay meaningful, it now says *the prior vendor* or `[vendor]`. Al's own words are kept with the name bracketed rather than silently paraphrased — a quote that has been quietly rewritten is worse than one visibly redacted.
+
+### The two-letter prefix
+
+the two-letter prefix is the vendor's initials, so it counts. Renaming it touches live infrastructure, so it was sequenced so that nothing was ever pointing at something that did not exist:
+
+1. `raffi-state` and `raffi-module` deployed **alongside** the originals, reading the same tables. Both names now answer.
+2. The client switched to the new endpoints, the module renamed to `raffi_module.js`, and 39 internal DOM and CSS identifiers moved to an `rj-` prefix.
+3. Uploaded new-name-first, then the old module removed in a second commit.
+4. Chunks updated by targeted replace and verified at concat-md5 `c6d80b2604ac67e3251ea4de27e1c5ed` — identical to the local file.
+
+The old endpoints are deliberately still live. A browser that has not reloaded is still calling them, and taking them away is how you turn a rename into an outage.
+
+**A bug the syntax check could not have caught.** Deleting the legacy user-key constant left two live references to it — `node --check` passes an undefined variable happily, and it would have thrown the moment anyone switched user. Found by listing every remaining reference to each identifier removed, which is now the habit rather than trusting the parser.
+
+**Verified against the running app**, not just the files: module served from the new filename, save round-tripped through `raffi-state` (document version 1554 → 1555), sidebar CSS resolving under its new id, Templates chip absent, and all 30 quotes, 45 orders, 18 invoices and 61 payments present.
+
+The orphaned `qt1` template record was removed here rather than earlier, deliberately — deleting it server-side while a browser still held it locally would only have brought it back on the next merge, which is the same mechanism that resurrected the duplicate payments last week.
+
+### Unrelated, and worth more attention than the rename
+
+Reconciling the ledger afterwards surfaced **$22,600 in payments pointing at orders that no longer exist** — PAY-0038 and PAY-0039, $11,300 each, both taken at the register on 21 Aug, both carrying Lightspeed payment ids, both referencing order ids absent from the document.
+
+Not caused by any of today's work, and not touched. It is the same amount and date as the four special orders flagged on 21 Aug where Lightspeed held exactly double what the app had, so the two are probably the same event seen from different sides. Real money, so it waits for a decision rather than a guess.
+
+### What is deliberately not finished
+
+Still carrying the prefix: the two tables, the four old edge functions, their sources in the repo, and the `raffi_user` field the module still sends so the current proxy keeps logging attribution. Each is a coordinated change that can take the app down if it is made in the wrong order or at the wrong moment, and none of them is publicly visible in the running product.
+
+### Cutover, done live
+
+Tables renamed to `raffi_app_state` and `raffi_module_chunks`, both functions redeployed against them, and confirmed by Al's own saves landing normally afterwards — document version climbing, 32 quotes / 46 orders / 18 invoices / 61 payments intact, no templates. The window where a save could have failed was the gap between the rename and the redeploy, and nothing fell into it.
+
+The bare diagnostic function is deleted. `raffi-state` is now a stub that answers 426 — the status the client already handles by telling the person to reload — rather than the 500 a retired endpoint would otherwise return to a browser still pointed at it. `the page-mirror function` and `raffi-module` are still present: the dashboard's own UI stops rendering in a background tab, so those two need a hand on the keyboard.
+
+**The sale notes could not be changed.** `POST /api/2.0/sales` returns *No route found*, so that write never reached Lightspeed and nothing was altered. A full copy of each sale is taken before any attempt, and the 2026-07 route was still being probed when the session lost the browser. Worth knowing before the next attempt: a partial `PUT` may be treated as a full replace, which on a sale means its line items and payments — so any retry reads the sale, changes only the note, and sends the whole object back.
+
+---
+
+## 2026-08-25 — Finishing the prefix, and two things hiding behind a case-sensitive grep
+
+Al: *"this is all on a demo store so money doesnt matter feel free to delete what is needed before it goes into live production."*
+
+### Backend
+
+The Lightspeed proxy now reads `raffi_user`; the module stopped sending the old field, so the two crossed over without a gap — the module had been sending both since the rename. The `x-raffi-user` CORS entry replaced the old one in all three deployed helpers. Each function was patched from **its own deployed source**, not the repo copy, so nothing that had drifted got quietly reverted; each was fetched back afterwards and checked against intent — the test-store hard lock, the path allow-list, the deny regex and the token-refresh path all byte-identical.
+
+Module chunks re-verified at concat-md5 `eef5ba8279c3e9c928373a5cb9909960`, matching the local file exactly. All six chunks scan clean for both the name and the prefix.
+
+*A false alarm worth recording:* the first chunk check used a SQL `LIKE` pattern containing an underscore, and `_` is a single-character wildcard in `LIKE`. It reported a hit that did not exist. Regex (`~`) gave the truth.
+
+### The grep that was lying
+
+Every sweep so far used a **case-sensitive** pattern. Re-running it case-insensitively turned up things that had been sitting in plain sight:
+
+- **The generic service product's SKU in Lightspeed** still begins with the initials. The earlier audit reported the catalogue clean, and for the full name it was; the initials were never searched for.
+- **20 distinct customer records in the test store** whose `customer_code` begins with the initials, written by this app.
+- **A settings key carrying the initials** still sitting in the app's own state document, pointing at the superseded product.
+- **A live fallback in the module**: the customer lookup tries `RJ-` first and then the legacy prefix, precisely *because* those 20 records exist. Removing the fallback before renaming them would quietly orphan every one.
+
+None of this is in the repo — it is in the third-party system and in the app's own state, which is exactly where a file search cannot see. It is the second time this engagement that the interesting finding was outside the codebase, and both times it surfaced only because something else was being checked.
+
+### Repo
+
+README and the deployment doc rewritten rather than find-and-replaced: two of the functions they described no longer exist, so renaming their entries would have documented a system that isn't there. Schema, chunk-build script and the shared helper renamed; the script's SQL dollar-quote tag moved off the initials too, and the module was checked not to contain the new tag before adopting it.
+
+### Still open
+
+The 20 customer codes, the service SKU and the stale settings key all need the Lightspeed API, which is reachable only through the app in the browser. The browser extension has dropped repeatedly today, so these are queued rather than done — and the module keeps its fallback until the codes are renamed, not before.
