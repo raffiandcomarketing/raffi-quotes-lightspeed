@@ -73,24 +73,24 @@ create table if not exists public.ls_request_log (
 );
 
 -- ---------- Shared app document (optimistic concurrency) ----------
-create table if not exists public.qm_app_state (
+create table if not exists public.raffi_app_state (
   id text not null,
   doc jsonb not null,
   version integer not null default 1,
   updated_at timestamptz not null default now(),
   updated_by text,
-  constraint qm_app_state_pkey primary key (id)
+  constraint raffi_app_state_pkey primary key (id)
 );
 
--- ---------- Integration module hosting (served by fn qm-module) ----------
-create table if not exists public.qm_module_chunks (
+-- ---------- Integration module hosting (served by fn raffi-module) ----------
+create table if not exists public.raffi_module_chunks (
   seq integer not null,
   body text not null,
   updated_at timestamptz not null default now(),
-  constraint qm_module_chunks_pkey primary key (seq)
+  constraint raffi_module_chunks_pkey primary key (seq)
 );
-comment on table public.qm_module_chunks is
-  'Raffi Quotes & Invoicing Lightspeed integration module (app/qm_module.js) stored as ordered text chunks; served by edge function qm-module. Service-role only. Regenerate with scripts/build_module_chunks.py.';
+comment on table public.raffi_module_chunks is
+  'Raffi Quotes & Invoicing Lightspeed integration module (app/raffi_module.js) stored as ordered text chunks; served by edge function raffi-module. Service-role only. Regenerate with scripts/build_module_chunks.py.';
 
 -- ---------- Webhooks ----------
 create table if not exists public.ls_webhook_events (
@@ -203,8 +203,8 @@ alter table public.ls_connections        enable row level security;
 alter table public.ls_oauth_states       enable row level security;
 alter table public.ls_ops                enable row level security;
 alter table public.ls_request_log        enable row level security;
-alter table public.qm_app_state          enable row level security;
-alter table public.qm_module_chunks      enable row level security;
+alter table public.raffi_app_state          enable row level security;
+alter table public.raffi_module_chunks      enable row level security;
 alter table public.ls_webhook_events     enable row level security;
 alter table public.ls_outlets            enable row level security;
 alter table public.ls_registers          enable row level security;
