@@ -355,7 +355,7 @@ const orderLocked = {}; // in-flight lock per order (double-click / double-submi
 /* ---------- Lightspeed API client (via backend proxy; test store locked server-side) ---------- */
 const LS = {
   async call(method, path, body, opts={}){
-    const payload = {method, path, body, op_id: opts.opId||undefined, raffi_user: curUser().name, qm_user: curUser().name, meta: opts.meta||undefined};
+    const payload = {method, path, body, op_id: opts.opId||undefined, raffi_user: curUser().name, meta: opts.meta||undefined};
     let lastErr=null;
     const tries = opts.retries!=null ? opts.retries : (method==='GET'||opts.opId ? 3 : 1); // mutating calls retry ONLY when idempotent (opId or client ids)
     for(let i=0;i<tries;i++){
@@ -473,15 +473,16 @@ const LS = {
     if(contact.lsCustomerId) return contact.lsCustomerId;
     // 1) email match
     if(contact.email){ const r = await LS.call('GET','/api/2.0/search?type=customers&email='+encodeURIComponent(contact.email)); const hit=r.status===200&&r.data.data&&r.data.data.find(c=>(c.email||'').toLowerCase()===contact.email.toLowerCase()); if(hit){ contact.lsCustomerId=hit.id; audit('ls.customer.linked','contact',contact.id,{lsCustomerId:hit.id,by:'email'}); commit(); return hit.id; } }
-    // 2) customer_code match — RJ- for new records, QM- kept as a legacy fallback
-    for(const pre of ['RJ-','QM-']){ const r = await LS.call('GET','/api/2.0/search?type=customers&customer_code='+encodeURIComponent(pre+contact.id)); const hit=r.status===200&&r.data.data&&r.data.data[0]; if(hit){ contact.lsCustomerId=hit.id; commit(); return hit.id; } }
+    // 2) customer_code match (every record carries the RJ- prefix; the legacy-prefixed
+    //    codes were renamed in Lightspeed on 2026-08-25, so there is nothing else to try)
+    { const r = await LS.call('GET','/api/2.0/search?type=customers&customer_code='+encodeURIComponent('RJ-'+contact.id)); const hit=r.status===200&&r.data.data&&r.data.data[0]; if(hit){ contact.lsCustomerId=hit.id; commit(); return hit.id; } }
     // 3) create (idempotent by op id)
     const parts=(contact.name||'').trim().split(/\s+/); const first=parts.shift()||contact.name||'Customer'; const last=parts.join(' ')||'';
     const body={first_name:first,last_name:last,email:contact.email||undefined,phone:contact.phone||undefined,company_name:contact.company||undefined,customer_code:'RJ-'+contact.id,note:(contact.notes||'').slice(0,500)||undefined};
     const r = await LS.call('POST','/api/2.0/customers',body,{opId:'customer-create-'+contact.id});
     if(r.status===201||r.status===200){ const id=r.data.data.id; contact.lsCustomerId=id; audit('ls.customer.created','contact',contact.id,{lsCustomerId:id}); commit(); return id; }
     if(r.status===409||r.status===400){ // maybe duplicate code/email -> search again
-      for(const pre of ['RJ-','QM-']){ const rr = await LS.call('GET','/api/2.0/search?type=customers&customer_code='+encodeURIComponent(pre+contact.id)); const hit=rr.status===200&&rr.data.data&&rr.data.data[0]; if(hit){ contact.lsCustomerId=hit.id; commit(); return hit.id; } }
+      { const rr = await LS.call('GET','/api/2.0/search?type=customers&customer_code='+encodeURIComponent('RJ-'+contact.id)); const hit=rr.status===200&&rr.data.data&&rr.data.data[0]; if(hit){ contact.lsCustomerId=hit.id; commit(); return hit.id; } }
     }
     throw new Error('Lightspeed customer create failed: '+r.status+' '+JSON.stringify(r.data).slice(0,200));
   },
