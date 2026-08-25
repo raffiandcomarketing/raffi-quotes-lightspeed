@@ -59,7 +59,7 @@ unaffected. Classification: hosting-platform limitation, not an app or Lightspee
 |---|---|
 | `app/index.html` | The app (original page + Lightspeed integration module, relative load) |
 | `app/qm_module.js` | Integration layer: roles/PIN switch, audit log, deposits→LAYBY, refunds, cancel/complete flows, brand/location hard blocks, inventory picker, reconciliation report, settings/mappings, server-state persistence |
-| `app/original/QuoteMachine_App.html` | Untouched original upload (pre-integration baseline, documented behaviour) |
+| `app/original/baseline_pre_integration.html` | Pre-integration baseline of the single-file app (reference only, not served) |
 | `supabase/functions/*` | Edge functions as deployed (each folder self-contained; `_shared/common.ts` is the source of truth, copied per function) |
 | `sql/schema.sql` | Full DB schema + RLS as live |
 | `scripts/build_module_chunks.py` | Regenerates `sql/load_module_chunks.sql` from `app/qm_module.js` |
